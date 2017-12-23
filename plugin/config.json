@@ -2,13 +2,13 @@
     "Description": "testlog as plugin",
     "Documentation": "-",
     "Entrypoint": [
-        "/usr/bin/docker-log-driver"
+        "/usr/bin/docker-log-elasticsearch"
     ],
     "Interface": {
         "Types": [
             "docker.logdriver/1.0"
         ],
-        "Socket": "testlog.sock"
+        "Socket": "docker-log-elasticsearch.sock"
     },
     "Env": [
         {

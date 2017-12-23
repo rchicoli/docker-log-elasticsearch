@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sync"
@@ -18,13 +20,54 @@ import (
 	protoio "github.com/gogo/protobuf/io"
 	"github.com/pkg/errors"
 	"github.com/tonistiigi/fifo"
+
+	elastic "gopkg.in/olivere/elastic.v5"
 )
+
+const (
+	name = "elasticsearch"
+
+	defaultEsHost  = "127.0.0.1"
+	defaultEsPort  = 9200
+	defaultEsIndex = "docker"
+	defaultEsType  = "logs"
+
+	// https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-date-format.html
+	dateHourMinuteSecondFraction = "2006-01-02T15:04:05.000Z"
+	basicOrdinalDateTime         = "20060102T150405Z"
+)
+
+type elasticSearch struct {
+	Version   string `json:"@version"`
+	Host      string `json:"hostname"`
+	Log       string `json:"message"`
+	Timestamp string `json:"@timestamp"`
+	Name      string `json:"name"`
+	//Stream string stderr stdout
+	ImageID string
+}
+
+type loggerContext struct {
+	Hostname      string
+	ContainerID   string
+	ContainerName string
+	ImageID       string
+	ImageName     string
+	Command       string
+	Created       time.Time
+}
 
 type driver struct {
 	mu     sync.Mutex
 	logs   map[string]*logPair
 	idx    map[string]*logPair
 	logger logger.Logger
+
+	writer  *elastic.Client
+	ctx     context.Context
+	esType  string
+	esIndex string
+	tag     string
 }
 
 type logPair struct {
@@ -70,6 +113,50 @@ func (d *driver) StartLogging(file string, logCtx logger.Info) error {
 	d.logs[file] = lf
 	d.idx[logCtx.ContainerID] = lf
 	d.mu.Unlock()
+
+	proto, host, port, err := parseAddress(logCtx.Config["elasticsearch-address"])
+	if err != nil {
+		return err
+	}
+
+	var writer *elastic.Client
+	writer, err = elastic.NewClient(
+		elastic.SetURL(proto + "://" + host + ":" + port),
+		//elastic.SetMaxRetries(t.maxRetries),
+		//elastic.SetSniff(t.sniff),
+		//elastic.SetSnifferInterval(t.snifferInterval),
+		//elastic.SetHealthcheck(t.healthcheck),
+		//elastic.SetHealthcheckInterval(t.healthcheckInterval))
+	)
+	if err != nil {
+		return fmt.Errorf("elasticsearch: cannot connect to the endpoint: %s://%s:%s\n%v",
+			proto,
+			host,
+			port,
+			err,
+		)
+	}
+
+	esIndex := getCtxConfig(logCtx.Config["elasticsearch-index"], defaultEsIndex)
+	esType := getCtxConfig(logCtx.Config["elasticsearch-type"], defaultEsType)
+	d.esType = esType
+	d.esIndex = esIndex
+
+	d.writer = writer
+
+	ctx := context.Background()
+	d.ctx = ctx
+
+	var createIndex *elastic.IndicesCreateResult
+	if exists, _ := writer.IndexExists(esIndex).Do(d.ctx); !exists {
+		createIndex, err = writer.CreateIndex(esIndex).Do(ctx)
+		if err != nil {
+			return fmt.Errorf("elasticsearch: cannot create Index to elasticsearch: %v", err)
+		}
+		if !createIndex.Acknowledged {
+			return fmt.Errorf("elasticsearch: index not Acknowledged: %v", err)
+		}
+	}
 
 	go consumeLog(lf)
 	return nil
@@ -164,4 +251,61 @@ func (d *driver) ReadLogs(info logger.Info, config logger.ReadConfig) (io.ReadCl
 	}()
 
 	return r, nil
+}
+
+func parseAddress(address string) (string, string, string, error) {
+	if address == "" {
+		return "", "", "", nil
+	}
+	//if !urlutil.IsTransportURL(address) {
+	//	return "", fmt.Errorf("es-address should be in form proto://address, got %v", address)
+	//}
+	url, err := url.Parse(address)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	//if url.Scheme != "http" {
+	//	return "", fmt.Errorf("es: endpoint needs to be UDP")
+	//}
+
+	host, port, err := net.SplitHostPort(url.Host)
+	if err != nil {
+		return "", "", "", fmt.Errorf("elastic: please provide elasticsearch-address as proto://host:port")
+	}
+
+	return url.Scheme, host, port, nil
+}
+
+func getCtxConfig(cfg, dfault string) string {
+	if cfg == "" {
+		return dfault
+	}
+	return cfg
+}
+
+// ValidateLogOpt looks for es specific log option es-address.
+func ValidateLogOpt(cfg map[string]string) error {
+	for key := range cfg {
+		switch key {
+		case "elasticsearch-address":
+		case "elasticsearch-index":
+		case "elasticsearch-type":
+		case "elasticsearch-username":
+		case "elasticsearch-password":
+		case "max-retry":
+		case "timeout":
+		case "tag":
+		case "labels":
+		case "env":
+		default:
+			return fmt.Errorf("unknown log opt %q for elasticsearch log driver", key)
+		}
+	}
+
+	if _, _, _, err := parseAddress(cfg["elasticsearch-address"]); err != nil {
+		return err
+	}
+
+	return nil
 }
