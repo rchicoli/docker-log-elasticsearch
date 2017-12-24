@@ -63,11 +63,11 @@ type driver struct {
 	idx    map[string]*logPair
 	logger logger.Logger
 
-	writer  *elastic.Client
-	ctx     context.Context
-	esType  string
-	esIndex string
-	tag     string
+	esClient       *elastic.Client
+	esIndexService *elastic.IndexService
+	esCtx          context.Context
+
+	tag string
 }
 
 type logPair struct {
@@ -119,8 +119,8 @@ func (d *driver) StartLogging(file string, logCtx logger.Info) error {
 		return err
 	}
 
-	var writer *elastic.Client
-	writer, err = elastic.NewClient(
+	var esClient *elastic.Client
+	esClient, err = elastic.NewClient(
 		elastic.SetURL(proto + "://" + host + ":" + port),
 		//elastic.SetMaxRetries(t.maxRetries),
 		//elastic.SetSniff(t.sniff),
@@ -139,17 +139,16 @@ func (d *driver) StartLogging(file string, logCtx logger.Info) error {
 
 	esIndex := getCtxConfig(logCtx.Config["elasticsearch-index"], defaultEsIndex)
 	esType := getCtxConfig(logCtx.Config["elasticsearch-type"], defaultEsType)
-	d.esType = esType
-	d.esIndex = esIndex
 
-	d.writer = writer
+	d.esClient = esClient
+	d.esIndexService = d.esClient.Index()
 
-	ctx := context.Background()
-	d.ctx = ctx
+	esCtx := context.Background()
+	d.esCtx = esCtx
 
 	var createIndex *elastic.IndicesCreateResult
-	if exists, _ := writer.IndexExists(esIndex).Do(d.ctx); !exists {
-		createIndex, err = writer.CreateIndex(esIndex).Do(ctx)
+	if exists, _ := esClient.IndexExists(esIndex).Do(d.esCtx); !exists {
+		createIndex, err = esClient.CreateIndex(esIndex).Do(esCtx)
 		if err != nil {
 			return fmt.Errorf("elasticsearch: cannot create Index to elasticsearch: %v", err)
 		}
@@ -158,7 +157,7 @@ func (d *driver) StartLogging(file string, logCtx logger.Info) error {
 		}
 	}
 
-	go d.consumeLog(lf)
+	go d.consumeLog(esType, esIndex, lf)
 	return nil
 }
 
@@ -174,23 +173,19 @@ func (d *driver) StopLogging(file string) error {
 	return nil
 }
 
-type Message struct {
-	Line      string
-	Source    string
-	Timestamp time.Time
-	Partial   bool
-
-	// Err is an error associated with a message. Completeness of a message
-	// with Err is not expected, tho it may be partially complete (fields may
-	// be missing, gibberish, or nil)
-	Err error
+type LogMessage struct {
+	logger.Message
+	LineStr string
 }
 
-func (d *driver) consumeLog(lf *logPair) {
+func (d *driver) consumeLog(esType, esIndex string, lf *logPair) {
 
 	dec := protoio.NewUint32DelimitedReader(lf.stream, binary.BigEndian, 1e6)
 	defer dec.Close()
+
 	var buf logdriver.LogEntry
+	var msg LogMessage
+
 	for {
 		if err := dec.ReadMsg(&buf); err != nil {
 			if err == io.EOF {
@@ -200,33 +195,31 @@ func (d *driver) consumeLog(lf *logPair) {
 			}
 			dec = protoio.NewUint32DelimitedReader(lf.stream, binary.BigEndian, 1e6)
 		}
-		var msg logger.Message
-		msg.Line = buf.Line
+
+		// create message
+		msg.Timestamp = time.Unix(0, buf.TimeNano)
 		msg.Source = buf.Source
 		msg.Partial = buf.Partial
-		msg.Timestamp = time.Unix(0, buf.TimeNano)
+		msg.LineStr = string(buf.Line)
 
-		if err := lf.l.Log(&msg); err != nil {
-			logrus.WithField("id", lf.info.ContainerID).WithError(err).WithField("message", msg).Error("error writing log message")
+		if err := d.log(esIndex, esType, msg); err != nil {
+			logrus.WithField("id", lf.info.ContainerID).
+				WithError(err).
+				WithField("message", msg).
+				Error("error writing log message")
 			continue
-		}
-		message := Message{
-			Timestamp: time.Unix(0, buf.TimeNano),
-			Line:      string(buf.Line),
-			Source:    buf.Source,
-		}
-
-		_, err := d.writer.Index().
-			Index(d.esIndex).
-			Type(d.esType).
-			BodyJson(message).
-			Do(d.ctx)
-		if err != nil {
-			return
 		}
 
 		buf.Reset()
 	}
+}
+
+// log send log messages to elasticsearch
+func (d *driver) log(esIndex, esType string, msg LogMessage) error {
+	if _, err := d.esIndexService.Index(esIndex).Type(esType).BodyJson(msg).Do(d.esCtx); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (d *driver) ReadLogs(info logger.Info, config logger.ReadConfig) (io.ReadCloser, error) {
