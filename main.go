@@ -29,7 +29,7 @@ func main() {
 
 	h := sdk.NewHandler(`{"Implements": ["LoggingDriver"]}`)
 	handlers(&h, newDriver())
-	if err := h.ServeUnix("docker-log-elasticsearch", 0); err != nil {
+	if err := h.ServeUnix("log2es", 0); err != nil {
 		panic(err)
 	}
 }

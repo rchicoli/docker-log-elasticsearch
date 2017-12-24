@@ -1,5 +1,5 @@
 {
-    "Description": "testlog as plugin",
+    "Description": "Send log messages to elasticsearch",
     "Documentation": "-",
     "Entrypoint": [
         "/usr/bin/docker-log-elasticsearch"
@@ -8,7 +8,7 @@
         "Types": [
             "docker.logdriver/1.0"
         ],
-        "Socket": "docker-log-elasticsearch.sock"
+        "Socket": "log2es.sock"
     },
     "Env": [
         {

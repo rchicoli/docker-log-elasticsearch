@@ -158,7 +158,7 @@ func (d *driver) StartLogging(file string, logCtx logger.Info) error {
 		}
 	}
 
-	go consumeLog(lf)
+	go d.consumeLog(lf)
 	return nil
 }
 
@@ -174,7 +174,20 @@ func (d *driver) StopLogging(file string) error {
 	return nil
 }
 
-func consumeLog(lf *logPair) {
+type Message struct {
+	Line      string
+	Source    string
+	Timestamp time.Time
+	Partial   bool
+
+	// Err is an error associated with a message. Completeness of a message
+	// with Err is not expected, tho it may be partially complete (fields may
+	// be missing, gibberish, or nil)
+	Err error
+}
+
+func (d *driver) consumeLog(lf *logPair) {
+
 	dec := protoio.NewUint32DelimitedReader(lf.stream, binary.BigEndian, 1e6)
 	defer dec.Close()
 	var buf logdriver.LogEntry
@@ -196,6 +209,20 @@ func consumeLog(lf *logPair) {
 		if err := lf.l.Log(&msg); err != nil {
 			logrus.WithField("id", lf.info.ContainerID).WithError(err).WithField("message", msg).Error("error writing log message")
 			continue
+		}
+		message := Message{
+			Timestamp: time.Unix(0, buf.TimeNano),
+			Line:      string(buf.Line),
+			Source:    buf.Source,
+		}
+
+		_, err := d.writer.Index().
+			Index(d.esIndex).
+			Type(d.esType).
+			BodyJson(message).
+			Do(d.ctx)
+		if err != nil {
+			return
 		}
 
 		buf.Reset()
