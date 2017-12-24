@@ -13,6 +13,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/docker/docker/api/types/backend"
+
 	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/types/plugins/logdriver"
 	"github.com/docker/docker/daemon/logger"
@@ -174,9 +176,20 @@ func (d *driver) StopLogging(file string) error {
 }
 
 type LogMessage struct {
-	logger.Message
+	// logger.Message
+	Line      []byte `json:"-"`
+	Source    string
+	Timestamp time.Time         `json:"@timestamp"`
+	Attrs     []backend.LogAttr `json:"attr,omitempty"`
+	Partial   bool              `json:"partial"`
+
+	// Err is an error associated with a message. Completeness of a message
+	// with Err is not expected, tho it may be partially complete (fields may
+	// be missing, gibberish, or nil)
+	Err error `json:"err,omitempty"`
+
 	logger.Info
-	LogLine string
+	LogLine string `json:"logline"`
 }
 
 func (d *driver) consumeLog(esType, esIndex string, lf *logPair) {
