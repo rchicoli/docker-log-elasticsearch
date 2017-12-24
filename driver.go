@@ -175,7 +175,8 @@ func (d *driver) StopLogging(file string) error {
 
 type LogMessage struct {
 	logger.Message
-	LineStr string
+	logger.Info
+	LogLine string
 }
 
 func (d *driver) consumeLog(esType, esIndex string, lf *logPair) {
@@ -200,7 +201,20 @@ func (d *driver) consumeLog(esType, esIndex string, lf *logPair) {
 		msg.Timestamp = time.Unix(0, buf.TimeNano)
 		msg.Source = buf.Source
 		msg.Partial = buf.Partial
-		msg.LineStr = string(buf.Line)
+		msg.LogLine = string(buf.Line)
+
+		msg.Config = lf.info.Config
+		msg.ContainerID = lf.info.ContainerID
+		msg.ContainerName = lf.info.ContainerName
+		msg.ContainerEntrypoint = lf.info.ContainerEntrypoint
+		msg.ContainerArgs = lf.info.ContainerArgs
+		msg.ContainerImageID = lf.info.ContainerImageID
+		msg.ContainerImageName = lf.info.ContainerImageName
+		msg.ContainerCreated = lf.info.ContainerCreated
+		msg.ContainerEnv = lf.info.ContainerEnv
+		msg.ContainerLabels = lf.info.ContainerLabels
+		msg.LogPath = lf.info.LogPath
+		msg.DaemonName = lf.info.DaemonName
 
 		if err := d.log(esIndex, esType, msg); err != nil {
 			logrus.WithField("id", lf.info.ContainerID).
