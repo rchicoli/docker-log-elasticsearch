@@ -60,7 +60,6 @@ type loggerContext struct {
 type driver struct {
 	mu     sync.Mutex
 	logs   map[string]*logPair
-	idx    map[string]*logPair
 	logger logger.Logger
 
 	esClient       *elastic.Client
@@ -95,7 +94,6 @@ type LogMessage struct {
 func newDriver() *driver {
 	return &driver{
 		logs: make(map[string]*logPair),
-		idx:  make(map[string]*logPair),
 	}
 }
 
@@ -119,7 +117,6 @@ func (d *driver) StartLogging(file string, info logger.Info) error {
 		info:   info,
 	}
 	d.logs[file] = lf
-	d.idx[info.ContainerID] = lf
 	d.mu.Unlock()
 
 	proto, host, port, err := parseAddress(info.Config["elasticsearch-address"])
