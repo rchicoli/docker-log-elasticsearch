@@ -7,18 +7,16 @@ import (
 	"io"
 	"net"
 	"net/url"
-	"os"
-	"path/filepath"
 	"sync"
 	"syscall"
 	"time"
 
 	"github.com/docker/docker/api/types/backend"
+	"github.com/rchicoli/docker-log-elasticsearch/elasticsearch"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/types/plugins/logdriver"
 	"github.com/docker/docker/daemon/logger"
-	"github.com/docker/docker/daemon/logger/jsonfilelog"
 	protoio "github.com/gogo/protobuf/io"
 	"github.com/pkg/errors"
 	"github.com/tonistiigi/fifo"
@@ -73,9 +71,25 @@ type driver struct {
 }
 
 type logPair struct {
-	l      logger.Logger
 	stream io.ReadCloser
 	info   logger.Info
+}
+
+type LogMessage struct {
+	// logger.Message
+	Line      []byte `json:"-"`
+	Source    string
+	Timestamp time.Time         `json:"@timestamp"`
+	Attrs     []backend.LogAttr `json:"attr,omitempty"`
+	Partial   bool              `json:"partial"`
+
+	// Err is an error associated with a message. Completeness of a message
+	// with Err is not expected, tho it may be partially complete (fields may
+	// be missing, gibberish, or nil)
+	Err error `json:"err,omitempty"`
+
+	logger.Info
+	LogLine string `json:"logline"`
 }
 
 func newDriver() *driver {
@@ -85,7 +99,7 @@ func newDriver() *driver {
 	}
 }
 
-func (d *driver) StartLogging(file string, logCtx logger.Info) error {
+func (d *driver) StartLogging(file string, info logger.Info) error {
 	d.mu.Lock()
 	if _, exists := d.logs[file]; exists {
 		d.mu.Unlock()
@@ -93,42 +107,35 @@ func (d *driver) StartLogging(file string, logCtx logger.Info) error {
 	}
 	d.mu.Unlock()
 
-	if logCtx.LogPath == "" {
-		logCtx.LogPath = filepath.Join("/var/log/docker", logCtx.ContainerID)
-	}
-	if err := os.MkdirAll(filepath.Dir(logCtx.LogPath), 0755); err != nil {
-		return errors.Wrap(err, "error setting up logger dir")
-	}
-	l, err := jsonfilelog.New(logCtx)
-	if err != nil {
-		return errors.Wrap(err, "error creating jsonfile logger")
-	}
-
-	logrus.WithField("id", logCtx.ContainerID).WithField("file", file).WithField("logpath", logCtx.LogPath).Debugf("Start logging")
+	logrus.WithField("id", info.ContainerID).WithField("file", file).WithField("logpath", info.LogPath).Debugf("Start logging")
 	f, err := fifo.OpenFifo(context.Background(), file, syscall.O_RDONLY, 0700)
 	if err != nil {
 		return errors.Wrapf(err, "error opening logger fifo: %q", file)
 	}
 
 	d.mu.Lock()
-	lf := &logPair{l, f, logCtx}
+	lf := &logPair{
+		stream: f,
+		info:   info,
+	}
 	d.logs[file] = lf
-	d.idx[logCtx.ContainerID] = lf
+	d.idx[info.ContainerID] = lf
 	d.mu.Unlock()
 
-	proto, host, port, err := parseAddress(logCtx.Config["elasticsearch-address"])
+	proto, host, port, err := parseAddress(info.Config["elasticsearch-address"])
 	if err != nil {
 		return err
 	}
 
 	var esClient *elastic.Client
 	esClient, err = elastic.NewClient(
-		elastic.SetURL(proto + "://" + host + ":" + port),
+		elastic.SetURL(proto+"://"+host+":"+port),
 		//elastic.SetMaxRetries(t.maxRetries),
 		//elastic.SetSniff(t.sniff),
 		//elastic.SetSnifferInterval(t.snifferInterval),
 		//elastic.SetHealthcheck(t.healthcheck),
 		//elastic.SetHealthcheckInterval(t.healthcheckInterval))
+		elastic.SetRetrier(elasticsearch.NewMyRetrier()),
 	)
 	if err != nil {
 		return fmt.Errorf("elasticsearch: cannot connect to the endpoint: %s://%s:%s\n%v",
@@ -139,8 +146,8 @@ func (d *driver) StartLogging(file string, logCtx logger.Info) error {
 		)
 	}
 
-	esIndex := getCtxConfig(logCtx.Config["elasticsearch-index"], defaultEsIndex)
-	esType := getCtxConfig(logCtx.Config["elasticsearch-type"], defaultEsType)
+	esIndex := getCtxConfig(info.Config["elasticsearch-index"], defaultEsIndex)
+	esType := getCtxConfig(info.Config["elasticsearch-type"], defaultEsType)
 
 	d.esClient = esClient
 	d.esIndexService = d.esClient.Index()
@@ -161,35 +168,6 @@ func (d *driver) StartLogging(file string, logCtx logger.Info) error {
 
 	go d.consumeLog(esType, esIndex, lf)
 	return nil
-}
-
-func (d *driver) StopLogging(file string) error {
-	logrus.WithField("file", file).Debugf("Stop logging")
-	d.mu.Lock()
-	lf, ok := d.logs[file]
-	if ok {
-		lf.stream.Close()
-		delete(d.logs, file)
-	}
-	d.mu.Unlock()
-	return nil
-}
-
-type LogMessage struct {
-	// logger.Message
-	Line      []byte `json:"-"`
-	Source    string
-	Timestamp time.Time         `json:"@timestamp"`
-	Attrs     []backend.LogAttr `json:"attr,omitempty"`
-	Partial   bool              `json:"partial"`
-
-	// Err is an error associated with a message. Completeness of a message
-	// with Err is not expected, tho it may be partially complete (fields may
-	// be missing, gibberish, or nil)
-	Err error `json:"err,omitempty"`
-
-	logger.Info
-	LogLine string `json:"logline"`
 }
 
 func (d *driver) consumeLog(esType, esIndex string, lf *logPair) {
@@ -249,55 +227,16 @@ func (d *driver) log(esIndex, esType string, msg LogMessage) error {
 	return nil
 }
 
-func (d *driver) ReadLogs(info logger.Info, config logger.ReadConfig) (io.ReadCloser, error) {
+func (d *driver) StopLogging(file string) error {
+	logrus.WithField("file", file).Debugf("Stop logging")
 	d.mu.Lock()
-	lf, exists := d.idx[info.ContainerID]
+	lf, ok := d.logs[file]
+	if ok {
+		lf.stream.Close()
+		delete(d.logs, file)
+	}
 	d.mu.Unlock()
-	if !exists {
-		return nil, fmt.Errorf("logger does not exist for %s", info.ContainerID)
-	}
-
-	r, w := io.Pipe()
-	lr, ok := lf.l.(logger.LogReader)
-	if !ok {
-		return nil, fmt.Errorf("logger does not support reading")
-	}
-
-	go func() {
-		watcher := lr.ReadLogs(config)
-
-		enc := protoio.NewUint32DelimitedWriter(w, binary.BigEndian)
-		defer enc.Close()
-		defer watcher.Close()
-
-		var buf logdriver.LogEntry
-		for {
-			select {
-			case msg, ok := <-watcher.Msg:
-				if !ok {
-					w.Close()
-					return
-				}
-
-				buf.Line = msg.Line
-				buf.Partial = msg.Partial
-				buf.TimeNano = msg.Timestamp.UnixNano()
-				buf.Source = msg.Source
-
-				if err := enc.WriteMsg(&buf); err != nil {
-					w.CloseWithError(err)
-					return
-				}
-			case err := <-watcher.Err:
-				w.CloseWithError(err)
-				return
-			}
-
-			buf.Reset()
-		}
-	}()
-
-	return r, nil
+	return nil
 }
 
 func parseAddress(address string) (string, string, string, error) {
