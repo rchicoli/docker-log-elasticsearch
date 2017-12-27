@@ -1,0 +1,31 @@
+{
+    "Description": "Send log messages to elasticsearch",
+    "Documentation": "-",
+    "Entrypoint": [
+        "/usr/bin/docker-log-elasticsearch"
+    ],
+    "Interface": {
+        "Types": [
+            "docker.logdriver/1.0"
+        ],
+        "Socket": "log2es.sock"
+    },
+    "Env": [
+        {
+            "Name": "LOG_LEVEL",
+            "Description": "Set log level to output for plugin logs",
+            "Value": "info",
+            "Settable": [
+                "value"
+            ]
+        }
+    ],
+    "Network": {
+        "Type": "host"
+    },
+    "Linux": {
+        "Capabilities": [
+            "CAP_SYS_ADMIN"
+        ]
+    }
+}
