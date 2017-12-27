@@ -106,7 +106,7 @@ Query elasticsearch:
 | ----- | ----------- |
 | message  | The log message itself|
 | source | Source of the log message as reported by docker |
-| @Timestamp | Timestamp that the log was collected by the log driver |
+| @timestamp | Timestamp that the log was collected by the log driver |
 | partial | Whether docker reported that the log message was only partially collected |
 | containerName | Name of the container that generated the log message |
 | containerID | Id of the container that generated the log message |

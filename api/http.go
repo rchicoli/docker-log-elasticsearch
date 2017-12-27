@@ -1,4 +1,4 @@
-package main
+package api
 
 import (
 	"encoding/json"
@@ -7,6 +7,8 @@ import (
 
 	"github.com/docker/docker/daemon/logger"
 	"github.com/docker/go-plugins-helpers/sdk"
+
+	"github.com/rchicoli/docker-log-elasticsearch/pkg/docker"
 )
 
 type StartLoggingRequest struct {
@@ -28,7 +30,7 @@ type ReadLogsRequest struct {
 	Config logger.ReadConfig
 }
 
-func handlers(h *sdk.Handler, d *driver) {
+func Handlers(h *sdk.Handler, d *docker.Driver) {
 	h.HandleFunc("/LogDriver.StartLogging", func(w http.ResponseWriter, r *http.Request) {
 		var req StartLoggingRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
