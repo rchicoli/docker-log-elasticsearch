@@ -84,14 +84,12 @@ Query elasticsearch:
 
 | Field | Description |
 | ----- | ----------- |
-| Line  | The log message itself|
- | Source | Source of the log message as reported by docker |
- | Timestamp | Timestamp that the log was collected by the log driver |
- | Partial | Whether docker reported that the log message was only partially collected |
- |ContainerName | Name of the container that generated the log message |
- | ContainerId | Id of the container that generated the log message |
- | ContainerImageName | Name of the container's image |
- | ContainerImageId | ID of the container's image |
- | Hostname | Hostname of the server running the container |
- | Tag | The log tag |
- | Err | Usually null, otherwise will be a string containing and error from the logdriver |
+| logline  | The log message itself|
+| Source | Source of the log message as reported by docker |
+| @Timestamp | Timestamp that the log was collected by the log driver |
+| Partial | Whether docker reported that the log message was only partially collected |
+| ContainerName | Name of the container that generated the log message |
+| ContainerID | Id of the container that generated the log message |
+| ContainerImageName | Name of the container's image |
+| ContainerImageID | ID of the container's image |
+| Err | Usually null, otherwise will be a string containing and error from the logdriver |
