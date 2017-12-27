@@ -8,7 +8,7 @@
         "Types": [
             "docker.logdriver/1.0"
         ],
-        "Socket": "log2es.sock"
+        "Socket": "elasticsearchlog.sock"
     },
     "Env": [
         {
