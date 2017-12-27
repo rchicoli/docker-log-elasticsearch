@@ -30,31 +30,26 @@ const (
 	defaultEsHost  = "127.0.0.1"
 	defaultEsPort  = 9200
 	defaultEsIndex = "docker"
-	defaultEsType  = "logs"
+	defaultEsType  = "log"
 
 	// https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-date-format.html
 	dateHourMinuteSecondFraction = "2006-01-02T15:04:05.000Z"
 	basicOrdinalDateTime         = "20060102T150405Z"
 )
 
-type elasticSearch struct {
-	Version   string `json:"@version"`
-	Host      string `json:"hostname"`
-	Log       string `json:"message"`
-	Timestamp string `json:"@timestamp"`
-	Name      string `json:"name"`
-	//Stream string stderr stdout
-	ImageID string
-}
-
-type loggerContext struct {
-	Hostname      string
-	ContainerID   string
-	ContainerName string
-	ImageID       string
-	ImageName     string
-	Command       string
-	Created       time.Time
+type LoggerInfo struct {
+	Config              map[string]string `json:"config"`
+	ContainerID         string            `json:"containerID"`
+	ContainerName       string            `json:"containerName"`
+	ContainerEntrypoint string            `json:"containerEntrypoint"`
+	ContainerArgs       []string          `json:"containerArgs"`
+	ContainerImageID    string            `json:"containerImageID"`
+	ContainerImageName  string            `json:"containerImageName"`
+	ContainerCreated    time.Time         `json:"containerCreated"`
+	ContainerEnv        []string          `json:"containerEnv"`
+	ContainerLabels     map[string]string `json:"containerLabels"`
+	LogPath             string            `json:"logPath"`
+	DaemonName          string            `json:"daemonName"`
 }
 
 type driver struct {
@@ -76,8 +71,8 @@ type logPair struct {
 
 type LogMessage struct {
 	// logger.Message
-	Line      []byte `json:"-"`
-	Source    string
+	Line      []byte            `json:"-"`
+	Source    string            `json:"source"`
 	Timestamp time.Time         `json:"@timestamp"`
 	Attrs     []backend.LogAttr `json:"attr,omitempty"`
 	Partial   bool              `json:"partial"`
@@ -87,8 +82,8 @@ type LogMessage struct {
 	// be missing, gibberish, or nil)
 	Err error `json:"err,omitempty"`
 
-	logger.Info
-	LogLine string `json:"logline"`
+	LoggerInfo
+	LogLine string `json:"message"`
 }
 
 func newDriver() *driver {
@@ -274,13 +269,13 @@ func ValidateLogOpt(cfg map[string]string) error {
 		case "elasticsearch-address":
 		case "elasticsearch-index":
 		case "elasticsearch-type":
-		case "elasticsearch-username":
-		case "elasticsearch-password":
+		// case "elasticsearch-username":
+		// case "elasticsearch-password":
 		case "max-retry":
 		case "timeout":
-		case "tag":
-		case "labels":
-		case "env":
+		// case "tag":
+		// case "labels":
+		// case "env":
 		default:
 			return fmt.Errorf("unknown log opt %q for elasticsearch log driver", key)
 		}
