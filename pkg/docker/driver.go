@@ -1,4 +1,4 @@
-package main
+package docker
 
 import (
 	"context"
@@ -11,30 +11,24 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/docker/docker/api/types/backend"
-	"github.com/rchicoli/docker-log-elasticsearch/elasticsearch"
+	"github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch"
 
+	"github.com/docker/docker/api/types/backend"
 	"github.com/docker/docker/api/types/plugins/logdriver"
 	"github.com/docker/docker/daemon/logger"
-	protoio "github.com/gogo/protobuf/io"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/tonistiigi/fifo"
 
+	protoio "github.com/gogo/protobuf/io"
 	elastic "gopkg.in/olivere/elastic.v5"
 )
 
 const (
-	name = "elasticsearch"
-
 	defaultEsHost  = "127.0.0.1"
 	defaultEsPort  = 9200
 	defaultEsIndex = "docker"
 	defaultEsType  = "log"
-
-	// https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-date-format.html
-	dateHourMinuteSecondFraction = "2006-01-02T15:04:05.000Z"
-	basicOrdinalDateTime         = "20060102T150405Z"
 )
 
 type LoggerInfo struct {
@@ -52,7 +46,7 @@ type LoggerInfo struct {
 	DaemonName          string            `json:"daemonName"`
 }
 
-type driver struct {
+type Driver struct {
 	mu     sync.Mutex
 	logs   map[string]*logPair
 	logger logger.Logger
@@ -70,7 +64,7 @@ type logPair struct {
 }
 
 type LogMessage struct {
-	// logger.Message
+	// logdriver.LogEntry
 	Line      []byte            `json:"-"`
 	Source    string            `json:"source"`
 	Timestamp time.Time         `json:"@timestamp"`
@@ -86,13 +80,13 @@ type LogMessage struct {
 	LogLine string `json:"message"`
 }
 
-func newDriver() *driver {
-	return &driver{
+func NewDriver() *Driver {
+	return &Driver{
 		logs: make(map[string]*logPair),
 	}
 }
 
-func (d *driver) StartLogging(file string, info logger.Info) error {
+func (d *Driver) StartLogging(file string, info logger.Info) error {
 	d.mu.Lock()
 	if _, exists := d.logs[file]; exists {
 		d.mu.Unlock()
@@ -162,7 +156,7 @@ func (d *driver) StartLogging(file string, info logger.Info) error {
 	return nil
 }
 
-func (d *driver) consumeLog(esType, esIndex string, lf *logPair) {
+func (d *Driver) consumeLog(esType, esIndex string, lf *logPair) {
 
 	dec := protoio.NewUint32DelimitedReader(lf.stream, binary.BigEndian, 1e6)
 	defer dec.Close()
@@ -212,14 +206,14 @@ func (d *driver) consumeLog(esType, esIndex string, lf *logPair) {
 }
 
 // log send log messages to elasticsearch
-func (d *driver) log(esIndex, esType string, msg LogMessage) error {
+func (d *Driver) log(esIndex, esType string, msg LogMessage) error {
 	if _, err := d.esIndexService.Index(esIndex).Type(esType).BodyJson(msg).Do(d.esCtx); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (d *driver) StopLogging(file string) error {
+func (d *Driver) StopLogging(file string) error {
 	logrus.WithField("file", file).Debugf("Stop logging")
 	d.mu.Lock()
 	lf, ok := d.logs[file]
@@ -277,7 +271,7 @@ func ValidateLogOpt(cfg map[string]string) error {
 		// case "labels":
 		// case "env":
 		default:
-			return fmt.Errorf("unknown log opt %q for elasticsearch log driver", key)
+			return fmt.Errorf("unknown log opt %q for elasticsearch log Driver", key)
 		}
 	}
 

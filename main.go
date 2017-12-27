@@ -6,6 +6,9 @@ import (
 
 	"github.com/docker/go-plugins-helpers/sdk"
 	"github.com/sirupsen/logrus"
+
+	"github.com/rchicoli/docker-log-elasticsearch/api"
+	"github.com/rchicoli/docker-log-elasticsearch/pkg/docker"
 )
 
 var logLevels = map[string]logrus.Level{
@@ -28,8 +31,8 @@ func main() {
 	}
 
 	h := sdk.NewHandler(`{"Implements": ["LoggingDriver"]}`)
-	handlers(&h, newDriver())
-	if err := h.ServeUnix("log2es", 0); err != nil {
+	api.Handlers(&h, docker.NewDriver())
+	if err := h.ServeUnix("elasticsearchlog", 0); err != nil {
 		panic(err)
 	}
 }
