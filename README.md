@@ -12,7 +12,7 @@ Additional information about Docker plugins [can be found here].(https://docs.do
 
 To install the plugin, run
 
-    docker plugin install rchicoli/docker-log-elasticsearch:latest --alias log2elasticsearch
+    docker plugin install rchicoli/docker-log-elasticsearch:latest --alias elasticsearch
 
 This command will pull and enable the plugin
 
@@ -32,7 +32,7 @@ To run a specific container with the logging driver:
 Creating and running a container:
 
     $ docker run --rm  -ti \
-        --log-driver docker-log-elasticsearch \
+        --log-driver elasticsearch \
         --log-opt elasticsearch-address=http://127.0.0.1:9200 \
         --log-opt elasticsearch-index=docker \
         --log-opt elasticsearch-type=log \
