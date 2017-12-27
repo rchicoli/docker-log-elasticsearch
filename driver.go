@@ -14,11 +14,11 @@ import (
 	"github.com/docker/docker/api/types/backend"
 	"github.com/rchicoli/docker-log-elasticsearch/elasticsearch"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/types/plugins/logdriver"
 	"github.com/docker/docker/daemon/logger"
 	protoio "github.com/gogo/protobuf/io"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"github.com/tonistiigi/fifo"
 
 	elastic "gopkg.in/olivere/elastic.v5"

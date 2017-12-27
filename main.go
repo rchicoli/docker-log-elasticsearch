@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/go-plugins-helpers/sdk"
+	"github.com/sirupsen/logrus"
 )
 
 var logLevels = map[string]logrus.Level{
