@@ -42,54 +42,58 @@ Creating and running a container:
 
 Query elasticsearch:
 
+```bash
     $ curl 127.0.0.1:9200/docker/_search\?pretty=true
+
     {
         "_index" : "docker",
         "_type" : "log",
-        "_id" : "AWCXVahqU5saDepmAJRy",
+        "_id" : "AWCYGwapnY8fJx4hGldT",
         "_score" : 1.0,
         "_source" : {
-            "Source" : "stdout",
-            "@timestamp" : "2017-12-27T09:37:41.474630116Z",
-            "partial" : false,
-            "Config" : {
-                "elasticsearch-address" : "http://127.0.0.1:9200",
-                "elasticsearch-index" : "docker",
-                "elasticsearch-type" : "log"
-            },
-            "ContainerID" : "dd14d704d73d5273ea8e9b4150ce1f1123875b0d7984644413ea8f3cf01b0718",
-            "ContainerName" : "/ecstatic_goldwasser",
-            "ContainerEntrypoint" : "echo",
-            "ContainerArgs" : [
-                "this",
-                "is",
-                "a",
-                "logging",
-                "message"
-            ],
-            "ContainerImageID" : "sha256:7328f6f8b41890597575cbaadc884e7386ae0acc53b747401ebce5cf0d624560",
-            "ContainerImageName" : "alpine",
-            "ContainerCreated" : "2017-12-27T09:37:40.637133648Z",
-            "ContainerEnv" : [
-                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-            ],
-            "ContainerLabels" : { },
-            "LogPath" : "",
-            "DaemonName" : "docker",
-            "logline" : "this is a test logging message"
+          "source" : "stdout",
+          "@timestamp" : "2017-12-27T13:13:16.182379456Z",
+          "partial" : false,
+          "config" : {
+            "elasticsearch-address" : "http://127.0.0.1:9200",
+            "elasticsearch-index" : "docker",
+            "elasticsearch-type" : "log"
+          },
+          "containerID" : "0ed70784b72b7b40140d42e8aa69b30ecd12daa186942d5d8ee6341a7ef0c31e",
+          "containerName" : "/festive_hawking",
+          "containerEntrypoint" : "echo",
+          "containerArgs" : [
+            "this",
+            "is",
+            "a",
+            "test",
+            "logging",
+            "message"
+          ],
+          "containerImageID" : "sha256:7328f6f8b41890597575cbaadc884e7386ae0acc53b747401ebce5cf0d624560",
+          "containerImageName" : "alpine",
+          "containerCreated" : "2017-12-27T13:13:15.384933884Z",
+          "containerEnv" : [
+            "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+          ],
+          "containerLabels" : { },
+          "logPath" : "",
+          "daemonName" : "docker",
+          "message" : "this is a test logging message\r"
         }
-    }
+      }
+```
 
 **Fields**
 
 | Field | Description |
 | ----- | ----------- |
-| logline  | The log message itself|
-| Source | Source of the log message as reported by docker |
+| message  | The log message itself|
+| source | Source of the log message as reported by docker |
 | @Timestamp | Timestamp that the log was collected by the log driver |
-| Partial | Whether docker reported that the log message was only partially collected |
-| ContainerName | Name of the container that generated the log message |
-| ContainerID | Id of the container that generated the log message |
-| ContainerImageName | Name of the container's image |
-| ContainerImageID | ID of the container's image |
-| Err | Usually null, otherwise will be a string containing and error from the logdriver |
+| partial | Whether docker reported that the log message was only partially collected |
+| containerName | Name of the container that generated the log message |
+| containerID | Id of the container that generated the log message |
+| containerImageName | Name of the container's image |
+| containerImageID | ID of the container's image |
+| err | Usually null, otherwise will be a string containing and error from the logdriver |
