@@ -1,18 +1,34 @@
 # Docker Log Elasticsearch
 
-`docker-log-elasticsearch` forwards container logs to Elasticsearch service. Each log message will be written to a Elasticsearch service.
+`docker-log-elasticsearch` forwards container logs to Elasticsearch service.
+
+This application is under active development and will continue to be modified and improved over time. The current release is an "alpha." (see [Roadmap](ROADMAP.md)).
+
+## Releases
+
+| Branch Name | Docker Tag | Elasticsearch Version | Remark |
+| ----------- | ---------- | --------------------- | ------ |
+| release-1.5.x  | 1.5.x   | 5.x                | Future stable release. |
+| alpha-0.5.x    | 0.5.1, 0.5.2   | 5.x                | Actively alpha release. |
+
+```
+release-0.5.1
+        | | |_ new features or bug fixes
+        | |___ elasticsearch major version
+        |_____ release version
+```
 
 ## Getting Started
 
 You need to install Docker Engine >= 1.12 and Elasticsearch 5
 
-Additional information about Docker plugins [can be found here].(https://docs.docker.com/engine/extend/plugins_logging/)
+Additional information about Docker plugins [can be found here](https://docs.docker.com/engine/extend/plugins_logging/).
 
 ### Installing
 
 To install the plugin, run
 
-    docker plugin install rchicoli/docker-log-elasticsearch:latest --alias elasticsearch
+    docker plugin install rchicoli/docker-log-elasticsearch:0.5.1 --alias elasticsearch
 
 This command will pull and enable the plugin
 

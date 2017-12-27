@@ -2,6 +2,8 @@
 
 An overview of what will be done over the next few months.
 
+## Docker Log Elasticsearch 1.5.1
+
 Goals:
 
  * Write unit tests for an easier code review and better code quality.
