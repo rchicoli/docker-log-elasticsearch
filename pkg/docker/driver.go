@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/url"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -114,6 +115,11 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 	}
 
 	var esClient *elastic.Client
+	timeout, err := strconv.Atoi(info.Config["elasticsearch-timeout"])
+	if err != nil {
+		return errors.Wrapf(err, "error: elasticsearch-timeout: %q", err)
+	}
+
 	esClient, err = elastic.NewClient(
 		elastic.SetURL(proto+"://"+host+":"+port),
 		//elastic.SetMaxRetries(t.maxRetries),
@@ -121,7 +127,7 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 		//elastic.SetSnifferInterval(t.snifferInterval),
 		//elastic.SetHealthcheck(t.healthcheck),
 		//elastic.SetHealthcheckInterval(t.healthcheckInterval))
-		elastic.SetRetrier(elasticsearch.NewMyRetrier()),
+		elastic.SetRetrier(elasticsearch.NewMyRetrier(timeout)),
 	)
 	if err != nil {
 		return fmt.Errorf("elasticsearch: cannot connect to the endpoint: %s://%s:%s\n%v",
@@ -266,7 +272,7 @@ func ValidateLogOpt(cfg map[string]string) error {
 		// case "elasticsearch-username":
 		// case "elasticsearch-password":
 		case "max-retry":
-		case "timeout":
+		case "elasticsearch-timeout":
 		// case "tag":
 		// case "labels":
 		// case "env":

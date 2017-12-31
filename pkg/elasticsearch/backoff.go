@@ -14,9 +14,9 @@ type MyRetrier struct {
 	backoff elastic.Backoff
 }
 
-func NewMyRetrier() *MyRetrier {
+func NewMyRetrier(timeout int) *MyRetrier {
 	return &MyRetrier{
-		backoff: elastic.NewExponentialBackoff(100*time.Millisecond, 10*time.Second),
+		backoff: elastic.NewExponentialBackoff(100*time.Millisecond, time.Duration(timeout)*time.Second),
 	}
 }
 
