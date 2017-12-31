@@ -112,4 +112,5 @@ Query elasticsearch:
 | containerID | Id of the container that generated the log message |
 | containerImageName | Name of the container's image |
 | containerImageID | ID of the container's image |
+| containerLabels | Label of the container |
 | err | Usually null, otherwise will be a string containing and error from the logdriver |
