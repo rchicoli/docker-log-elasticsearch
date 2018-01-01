@@ -34,15 +34,15 @@ type LoggerInfo struct {
 	Config              map[string]string `json:"config"`
 	ContainerID         string            `json:"containerID"`
 	ContainerName       string            `json:"containerName"`
-	ContainerEntrypoint string            `json:"containerEntrypoint"`
-	ContainerArgs       []string          `json:"containerArgs"`
-	ContainerImageID    string            `json:"containerImageID"`
-	ContainerImageName  string            `json:"containerImageName"`
+	ContainerEntrypoint string            `json:"containerEntrypoint,omitempty"`
+	ContainerArgs       []string          `json:"containerArgs,omitempty"`
+	ContainerImageID    string            `json:"containerImageID,omitempty"`
+	ContainerImageName  string            `json:"containerImageName,omitempty"`
 	ContainerCreated    time.Time         `json:"containerCreated"`
-	ContainerEnv        []string          `json:"containerEnv"`
-	ContainerLabels     map[string]string `json:"containerLabels"`
-	LogPath             string            `json:"logPath"`
-	DaemonName          string            `json:"daemonName"`
+	ContainerEnv        []string          `json:"containerEnv,omitempty"`
+	ContainerLabels     map[string]string `json:"containerLabels,omitempty"`
+	LogPath             string            `json:"logPath,omitempty"`
+	DaemonName          string            `json:"daemonName,omitempty"`
 }
 
 type Driver struct {
@@ -66,7 +66,7 @@ type LogMessage struct {
 	Source    string            `json:"source"`
 	Timestamp time.Time         `json:"@timestamp"`
 	Attrs     []backend.LogAttr `json:"attr,omitempty"`
-	Partial   bool              `json:"partial"`
+	// Partial   bool              `json:"partial"`
 
 	// Err is an error associated with a message. Completeness of a message
 	// with Err is not expected, tho it may be partially complete (fields may
@@ -164,10 +164,10 @@ func (d *Driver) consumeLog(ctx context.Context, esType, esIndex string, lf *log
 		// msg.ContainerEntrypoint = lf.info.ContainerEntrypoint
 		// msg.ContainerArgs = lf.info.ContainerArgs
 		// msg.ContainerImageID = lf.info.ContainerImageID
-		// msg.ContainerImageName = lf.info.ContainerImageName
+		msg.ContainerImageName = lf.info.ContainerImageName
 		msg.ContainerCreated = lf.info.ContainerCreated
 		// msg.ContainerEnv = lf.info.ContainerEnv
-		msg.ContainerLabels = lf.info.ContainerLabels
+		// msg.ContainerLabels = lf.info.ContainerLabels
 		// msg.LogPath = lf.info.LogPath
 		// msg.DaemonName = lf.info.DaemonName
 
