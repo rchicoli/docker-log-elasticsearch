@@ -5,9 +5,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"net"
-	"net/url"
-	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -111,22 +108,20 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 	d.logs[file] = lf
 	d.mu.Unlock()
 
-	if err := ValidateLogOpt(info.Config); err != nil {
+	cfg := defaultLogOpt()
+	if err := cfg.validateLogOpt(info.Config); err != nil {
 		return errors.Wrapf(err, "error: elasticsearch-options: %q", err)
 	}
+	logrus.WithField("id", info.ContainerID).Debugf("log-opt: %v", cfg)
 
-	timeout, err := strconv.Atoi(getLogOpt(info.Config["elasticsearch-timeout"], defaultEsTimeout))
+	d.esClient, err = elasticsearch.NewClient(cfg.url, cfg.timeout)
 	if err != nil {
-		return errors.Wrapf(err, "error: elasticsearch-timeout: %q", err)
+		return fmt.Errorf("elasticsearch: cannot create a client: %v", err)
 	}
-	d.esClient, err = elasticsearch.NewClient(info.Config["elasticsearch-url"], timeout)
-
-	esIndex := getLogOpt(info.Config["elasticsearch-index"], defaultEsIndex)
-	esType := getLogOpt(info.Config["elasticsearch-type"], defaultEsType)
 
 	var createIndex *elastic.IndicesCreateResult
-	if exists, _ := d.esClient.Client.IndexExists(esIndex).Do(ctx); !exists {
-		createIndex, err = d.esClient.Client.CreateIndex(esIndex).Do(ctx)
+	if exists, _ := d.esClient.Client.IndexExists(cfg.index).Do(ctx); !exists {
+		createIndex, err = d.esClient.Client.CreateIndex(cfg.index).Do(ctx)
 		if err != nil {
 			return fmt.Errorf("elasticsearch: cannot create Index to elasticsearch: %v", err)
 		}
@@ -135,7 +130,7 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 		}
 	}
 
-	go d.consumeLog(ctx, esType, esIndex, lf)
+	go d.consumeLog(ctx, cfg.tzpe, cfg.index, lf)
 	return nil
 }
 
@@ -197,58 +192,5 @@ func (d *Driver) StopLogging(file string) error {
 		delete(d.logs, file)
 	}
 	d.mu.Unlock()
-	return nil
-}
-
-func parseAddress(address string) error {
-	if address == "" {
-		return nil
-	}
-	url, err := url.Parse(address)
-	if err != nil {
-		return err
-	}
-
-	if url.Scheme != "http" {
-		return fmt.Errorf("elasticsearch: endpoint accepts only http at the moment")
-	}
-
-	_, _, err = net.SplitHostPort(url.Host)
-	if err != nil {
-		return fmt.Errorf("elastic: please provide elasticsearch-address as proto://host:port")
-	}
-
-	return nil
-}
-
-func getLogOpt(cfg, dfault string) string {
-	if cfg == "" {
-		return dfault
-	}
-	return cfg
-}
-
-// ValidateLogOpt looks for es specific log option es-address.
-func ValidateLogOpt(cfg map[string]string) error {
-	for key, v := range cfg {
-		switch key {
-		case "elasticsearch-url":
-			if err := parseAddress(v); err != nil {
-				return err
-			}
-		case "elasticsearch-index":
-		case "elasticsearch-type":
-		// case "elasticsearch-username":
-		// case "elasticsearch-password":
-		case "max-retry":
-		case "elasticsearch-timeout":
-		// case "tag":
-		// case "labels":
-		// case "env":
-		default:
-			return fmt.Errorf("unknown log opt %q for elasticsearch log Driver", key)
-		}
-	}
-
 	return nil
 }
