@@ -12,8 +12,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch"
-
 	"github.com/docker/docker/api/types/backend"
 	"github.com/docker/docker/api/types/plugins/logdriver"
 	"github.com/docker/docker/daemon/logger"
@@ -21,15 +19,18 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/tonistiigi/fifo"
 
+	"github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch"
+
 	protoio "github.com/gogo/protobuf/io"
 	elastic "gopkg.in/olivere/elastic.v5"
 )
 
 const (
-	defaultEsHost  = "127.0.0.1"
-	defaultEsPort  = 9200
-	defaultEsIndex = "docker"
-	defaultEsType  = "log"
+	defaultEsHost    = "127.0.0.1"
+	defaultEsPort    = 9200
+	defaultEsIndex   = "docker"
+	defaultEsType    = "log"
+	defaultEsTimeout = "10"
 )
 
 type LoggerInfo struct {
@@ -52,9 +53,7 @@ type Driver struct {
 	logs   map[string]*logPair
 	logger logger.Logger
 
-	esClient       *elastic.Client
-	esIndexService *elastic.IndexService
-	esCtx          context.Context
+	esClient *elasticsearch.Elasticsearch
 
 	tag string
 }
@@ -82,6 +81,7 @@ type LogMessage struct {
 }
 
 func NewDriver() *Driver {
+
 	return &Driver{
 		logs: make(map[string]*logPair),
 	}
@@ -95,8 +95,10 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 	}
 	d.mu.Unlock()
 
+	ctx := context.Background()
+
 	logrus.WithField("id", info.ContainerID).WithField("file", file).WithField("logpath", info.LogPath).Debugf("Start logging")
-	f, err := fifo.OpenFifo(context.Background(), file, syscall.O_RDONLY, 0700)
+	f, err := fifo.OpenFifo(ctx, file, syscall.O_RDONLY, 0700)
 	if err != nil {
 		return errors.Wrapf(err, "error opening logger fifo: %q", file)
 	}
@@ -109,47 +111,22 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 	d.logs[file] = lf
 	d.mu.Unlock()
 
-	proto, host, port, err := parseAddress(info.Config["elasticsearch-address"])
-	if err != nil {
-		return err
+	if err := ValidateLogOpt(info.Config); err != nil {
+		return errors.Wrapf(err, "error: elasticsearch-options: %q", err)
 	}
 
-	var esClient *elastic.Client
-	timeout, err := strconv.Atoi(info.Config["elasticsearch-timeout"])
+	timeout, err := strconv.Atoi(getLogOpt(info.Config["elasticsearch-timeout"], defaultEsTimeout))
 	if err != nil {
 		return errors.Wrapf(err, "error: elasticsearch-timeout: %q", err)
 	}
+	d.esClient, err = elasticsearch.NewClient(info.Config["elasticsearch-url"], timeout)
 
-	esClient, err = elastic.NewClient(
-		elastic.SetURL(proto+"://"+host+":"+port),
-		//elastic.SetMaxRetries(t.maxRetries),
-		//elastic.SetSniff(t.sniff),
-		//elastic.SetSnifferInterval(t.snifferInterval),
-		//elastic.SetHealthcheck(t.healthcheck),
-		//elastic.SetHealthcheckInterval(t.healthcheckInterval))
-		elastic.SetRetrier(elasticsearch.NewMyRetrier(timeout)),
-	)
-	if err != nil {
-		return fmt.Errorf("elasticsearch: cannot connect to the endpoint: %s://%s:%s\n%v",
-			proto,
-			host,
-			port,
-			err,
-		)
-	}
-
-	esIndex := getCtxConfig(info.Config["elasticsearch-index"], defaultEsIndex)
-	esType := getCtxConfig(info.Config["elasticsearch-type"], defaultEsType)
-
-	d.esClient = esClient
-	d.esIndexService = d.esClient.Index()
-
-	esCtx := context.Background()
-	d.esCtx = esCtx
+	esIndex := getLogOpt(info.Config["elasticsearch-index"], defaultEsIndex)
+	esType := getLogOpt(info.Config["elasticsearch-type"], defaultEsType)
 
 	var createIndex *elastic.IndicesCreateResult
-	if exists, _ := esClient.IndexExists(esIndex).Do(d.esCtx); !exists {
-		createIndex, err = esClient.CreateIndex(esIndex).Do(esCtx)
+	if exists, _ := d.esClient.Client.IndexExists(esIndex).Do(ctx); !exists {
+		createIndex, err = d.esClient.Client.CreateIndex(esIndex).Do(ctx)
 		if err != nil {
 			return fmt.Errorf("elasticsearch: cannot create Index to elasticsearch: %v", err)
 		}
@@ -158,11 +135,11 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 		}
 	}
 
-	go d.consumeLog(esType, esIndex, lf)
+	go d.consumeLog(ctx, esType, esIndex, lf)
 	return nil
 }
 
-func (d *Driver) consumeLog(esType, esIndex string, lf *logPair) {
+func (d *Driver) consumeLog(ctx context.Context, esType, esIndex string, lf *logPair) {
 
 	dec := protoio.NewUint32DelimitedReader(lf.stream, binary.BigEndian, 1e6)
 	defer dec.Close()
@@ -183,23 +160,23 @@ func (d *Driver) consumeLog(esType, esIndex string, lf *logPair) {
 		// create message
 		msg.Timestamp = time.Unix(0, buf.TimeNano)
 		msg.Source = buf.Source
-		msg.Partial = buf.Partial
+		// msg.Partial = buf.Partial
 		msg.LogLine = string(buf.Line)
 
-		msg.Config = lf.info.Config
+		// msg.Config = lf.info.Config
 		msg.ContainerID = lf.info.ContainerID
 		msg.ContainerName = lf.info.ContainerName
-		msg.ContainerEntrypoint = lf.info.ContainerEntrypoint
-		msg.ContainerArgs = lf.info.ContainerArgs
-		msg.ContainerImageID = lf.info.ContainerImageID
-		msg.ContainerImageName = lf.info.ContainerImageName
+		// msg.ContainerEntrypoint = lf.info.ContainerEntrypoint
+		// msg.ContainerArgs = lf.info.ContainerArgs
+		// msg.ContainerImageID = lf.info.ContainerImageID
+		// msg.ContainerImageName = lf.info.ContainerImageName
 		msg.ContainerCreated = lf.info.ContainerCreated
-		msg.ContainerEnv = lf.info.ContainerEnv
+		// msg.ContainerEnv = lf.info.ContainerEnv
 		msg.ContainerLabels = lf.info.ContainerLabels
-		msg.LogPath = lf.info.LogPath
-		msg.DaemonName = lf.info.DaemonName
+		// msg.LogPath = lf.info.LogPath
+		// msg.DaemonName = lf.info.DaemonName
 
-		if err := d.log(esIndex, esType, msg); err != nil {
+		if err := d.esClient.Log(ctx, esIndex, esType, msg); err != nil {
 			logrus.WithField("id", lf.info.ContainerID).
 				WithError(err).
 				WithField("message", msg).
@@ -209,14 +186,6 @@ func (d *Driver) consumeLog(esType, esIndex string, lf *logPair) {
 
 		buf.Reset()
 	}
-}
-
-// log send log messages to elasticsearch
-func (d *Driver) log(esIndex, esType string, msg LogMessage) error {
-	if _, err := d.esIndexService.Index(esIndex).Type(esType).BodyJson(msg).Do(d.esCtx); err != nil {
-		return err
-	}
-	return nil
 }
 
 func (d *Driver) StopLogging(file string) error {
@@ -231,31 +200,28 @@ func (d *Driver) StopLogging(file string) error {
 	return nil
 }
 
-func parseAddress(address string) (string, string, string, error) {
+func parseAddress(address string) error {
 	if address == "" {
-		return "", "", "", nil
+		return nil
 	}
-	//if !urlutil.IsTransportURL(address) {
-	//	return "", fmt.Errorf("es-address should be in form proto://address, got %v", address)
-	//}
 	url, err := url.Parse(address)
 	if err != nil {
-		return "", "", "", err
+		return err
 	}
 
-	//if url.Scheme != "http" {
-	//	return "", fmt.Errorf("es: endpoint needs to be UDP")
-	//}
+	if url.Scheme != "http" {
+		return fmt.Errorf("elasticsearch: endpoint accepts only http at the moment")
+	}
 
-	host, port, err := net.SplitHostPort(url.Host)
+	_, _, err = net.SplitHostPort(url.Host)
 	if err != nil {
-		return "", "", "", fmt.Errorf("elastic: please provide elasticsearch-address as proto://host:port")
+		return fmt.Errorf("elastic: please provide elasticsearch-address as proto://host:port")
 	}
 
-	return url.Scheme, host, port, nil
+	return nil
 }
 
-func getCtxConfig(cfg, dfault string) string {
+func getLogOpt(cfg, dfault string) string {
 	if cfg == "" {
 		return dfault
 	}
@@ -264,9 +230,12 @@ func getCtxConfig(cfg, dfault string) string {
 
 // ValidateLogOpt looks for es specific log option es-address.
 func ValidateLogOpt(cfg map[string]string) error {
-	for key := range cfg {
+	for key, v := range cfg {
 		switch key {
-		case "elasticsearch-address":
+		case "elasticsearch-url":
+			if err := parseAddress(v); err != nil {
+				return err
+			}
 		case "elasticsearch-index":
 		case "elasticsearch-type":
 		// case "elasticsearch-username":
@@ -279,10 +248,6 @@ func ValidateLogOpt(cfg map[string]string) error {
 		default:
 			return fmt.Errorf("unknown log opt %q for elasticsearch log Driver", key)
 		}
-	}
-
-	if _, _, _, err := parseAddress(cfg["elasticsearch-address"]); err != nil {
-		return err
 	}
 
 	return nil
