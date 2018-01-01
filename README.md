@@ -28,7 +28,7 @@ Additional information about Docker plugins [can be found here](https://docs.doc
 
 To install the plugin, run
 
-    docker plugin install rchicoli/docker-log-elasticsearch:0.5.1 --alias elasticsearch
+    docker plugin install rchicoli/docker-log-elasticsearch:0.5.4 --alias elasticsearch
 
 This command will pull and enable the plugin
 
@@ -43,15 +43,25 @@ To run a specific container with the logging driver:
     Use the --log-driver flag to specify the plugin.
     Use the --log-opt flag to specify the URL for the HTTP connection and further options.
 
+** Options**
+
+| Key | Default Value | Required | Examples |
+| --- | ------------- | -------- | ------- |
+| elasticsearch-url   | no     | yes | http://127.0.0.1:9200 |
+| elasticsearch-index | docker | no  | docker-logs |
+| elasticsearch-type  | log    | no  | docker-plugin |
+| elasticsearch-timeout | 1    | no  | 10 |
+
 #### Testing
 
 Creating and running a container:
 
     $ docker run --rm  -ti \
         --log-driver elasticsearch \
-        --log-opt elasticsearch-address=http://127.0.0.1:9200 \
+        --log-opt elasticsearch-url=http://127.0.0.1:9200 \
         --log-opt elasticsearch-index=docker \
         --log-opt elasticsearch-type=log \
+        --log-opt elasticsearch-timeout=10 \
             alpine echo this is a test logging message
 
 ## Output Format
@@ -64,53 +74,37 @@ Query elasticsearch:
     {
         "_index" : "docker",
         "_type" : "log",
-        "_id" : "AWCYGwapnY8fJx4hGldT",
+        "_id" : "AWCywmj6Dipxk6-_e8T5",
         "_score" : 1.0,
         "_source" : {
           "source" : "stdout",
-          "@timestamp" : "2017-12-27T13:13:16.182379456Z",
-          "partial" : false,
-          "config" : {
-            "elasticsearch-address" : "http://127.0.0.1:9200",
-            "elasticsearch-index" : "docker",
-            "elasticsearch-type" : "log"
-          },
-          "containerID" : "0ed70784b72b7b40140d42e8aa69b30ecd12daa186942d5d8ee6341a7ef0c31e",
-          "containerName" : "/festive_hawking",
-          "containerEntrypoint" : "echo",
-          "containerArgs" : [
-            "this",
-            "is",
-            "a",
-            "test",
-            "logging",
-            "message"
-          ],
-          "containerImageID" : "sha256:7328f6f8b41890597575cbaadc884e7386ae0acc53b747401ebce5cf0d624560",
+          "@timestamp" : "2018-01-01T17:26:13.489630708Z",
+          "config" : null,
+          "containerID" : "abfed8ebf755f16762550b6b0eaaf612b7051513e64de64db4c93ba4913d0c4f",
+          "containerName" : "/amazing_bardeen",
           "containerImageName" : "alpine",
-          "containerCreated" : "2017-12-27T13:13:15.384933884Z",
-          "containerEnv" : [
-            "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-          ],
-          "containerLabels" : { },
-          "logPath" : "",
-          "daemonName" : "docker",
-          "message" : "this is a test logging message\r"
+          "containerCreated" : "2018-01-01T17:26:12.622116023Z",
+          "message" : "this is a test message\r"
         }
       }
 ```
 
 **Fields**
 
-| Field | Description |
-| ----- | ----------- |
-| message  | The log message itself|
-| source | Source of the log message as reported by docker |
-| @timestamp | Timestamp that the log was collected by the log driver |
-| partial | Whether docker reported that the log message was only partially collected |
-| containerName | Name of the container that generated the log message |
-| containerID | Id of the container that generated the log message |
-| containerImageName | Name of the container's image |
-| containerImageID | ID of the container's image |
-| containerLabels | Label of the container |
+| Field | Description | Default |
+| ----- | ----------- | ------- |
+| message  | The log message itself| yes |
+| source | Source of the log message as reported by docker | yes |
+| @timestamp | Timestamp that the log was collected by the log driver | yes |
+| partial | Whether docker reported that the log message was only partially collected | no |
+| containerID | Id of the container that generated the log message | no |
+| containerName | Name of the container that generated the log message | yes |
+| containerArgs | Arguments of the container entrypoint | no 
+| containerImageID | ID of the container's image | no |
+| containerImageName | Name of the container's image | yes |
+| containerCreated | Timestamp of the container's creation | yes |
+| containerEnv | Environment of the container | no |
+| containerLabels | Label of the container | no |
+| containerLogPath | Path of the container's Log | no |
+| daemonName | Name of the container's daemon | no |
 | err | Usually null, otherwise will be a string containing and error from the logdriver |
