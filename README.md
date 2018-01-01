@@ -28,7 +28,7 @@ Additional information about Docker plugins [can be found here](https://docs.doc
 
 To install the plugin, run
 
-    docker plugin install rchicoli/docker-log-elasticsearch:0.5.4 --alias elasticsearch
+    docker plugin install rchicoli/docker-log-elasticsearch:0.5.5 --alias elasticsearch
 
 This command will pull and enable the plugin
 
@@ -43,7 +43,7 @@ To run a specific container with the logging driver:
     Use the --log-driver flag to specify the plugin.
     Use the --log-opt flag to specify the URL for the HTTP connection and further options.
 
-** Options**
+**Options**
 
 | Key | Default Value | Required | Examples |
 | --- | ------------- | -------- | ------- |
