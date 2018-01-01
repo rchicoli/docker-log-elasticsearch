@@ -99,7 +99,7 @@ Query elasticsearch:
 | partial | Whether docker reported that the log message was only partially collected | no |
 | containerID | Id of the container that generated the log message | no |
 | containerName | Name of the container that generated the log message | yes |
-| containerArgs | Arguments of the container entrypoint | no 
+| containerArgs | Arguments of the container entrypoint | no |
 | containerImageID | ID of the container's image | no |
 | containerImageName | Name of the container's image | yes |
 | containerCreated | Timestamp of the container's creation | yes |

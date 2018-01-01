@@ -15,7 +15,6 @@ type Elasticsearch struct {
 func NewClient(url string, timeout int) (*Elasticsearch, error) {
 	c, err := elastic.NewClient(
 		elastic.SetURL(url),
-		// elastic.SetMaxRetries(t.maxRetries),
 		elastic.SetRetrier(NewMyRetrier(timeout)),
 	)
 	if err != nil {
