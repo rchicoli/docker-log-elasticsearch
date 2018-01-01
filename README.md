@@ -43,7 +43,7 @@ To run a specific container with the logging driver:
     Use the --log-driver flag to specify the plugin.
     Use the --log-opt flag to specify the URL for the HTTP connection and further options.
 
-** Options**
+**Options**
 
 | Key | Default Value | Required | Examples |
 | --- | ------------- | -------- | ------- |
