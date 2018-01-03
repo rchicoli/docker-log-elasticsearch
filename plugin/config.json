@@ -22,10 +22,5 @@
     ],
     "Network": {
         "Type": "host"
-    },
-    "Linux": {
-        "Capabilities": [
-            "CAP_SYS_ADMIN"
-        ]
     }
 }

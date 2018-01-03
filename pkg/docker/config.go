@@ -27,8 +27,9 @@ func defaultLogOpt() *LogOpt {
 
 func parseAddress(address string) error {
 	if address == "" {
-		return nil
+		return fmt.Errorf("error parsing elasticsearch url")
 	}
+
 	url, err := url.Parse(address)
 	if err != nil {
 		return err
@@ -40,7 +41,7 @@ func parseAddress(address string) error {
 
 	_, _, err = net.SplitHostPort(url.Host)
 	if err != nil {
-		return fmt.Errorf("elastic: please provide elasticsearch-address as proto://host:port")
+		return fmt.Errorf("elastic: please provide elasticsearch-url as proto://host:port")
 	}
 
 	return nil

@@ -23,7 +23,7 @@ import (
 )
 
 type LoggerInfo struct {
-	Config              map[string]string `json:"config"`
+	Config              map[string]string `json:"config,omitempty"`
 	ContainerID         string            `json:"containerID"`
 	ContainerName       string            `json:"containerName"`
 	ContainerEntrypoint string            `json:"containerEntrypoint,omitempty"`
