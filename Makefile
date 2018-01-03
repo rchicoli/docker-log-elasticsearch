@@ -1,5 +1,5 @@
 PLUGIN_NAME=rchicoli/docker-log-elasticsearch
-PLUGIN_TAG=0.5.5
+PLUGIN_TAG=0.5.6
 
 all: clean docker rootfs create
 

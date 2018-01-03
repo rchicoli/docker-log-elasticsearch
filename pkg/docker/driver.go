@@ -22,16 +22,8 @@ import (
 	elastic "gopkg.in/olivere/elastic.v5"
 )
 
-const (
-	defaultEsHost    = "127.0.0.1"
-	defaultEsPort    = 9200
-	defaultEsIndex   = "docker"
-	defaultEsType    = "log"
-	defaultEsTimeout = "10"
-)
-
 type LoggerInfo struct {
-	Config              map[string]string `json:"config"`
+	Config              map[string]string `json:"config,omitempty"`
 	ContainerID         string            `json:"containerID"`
 	ContainerName       string            `json:"containerName"`
 	ContainerEntrypoint string            `json:"containerEntrypoint,omitempty"`
@@ -51,8 +43,6 @@ type Driver struct {
 	logger logger.Logger
 
 	esClient *elasticsearch.Elasticsearch
-
-	tag string
 }
 
 type logPair struct {
