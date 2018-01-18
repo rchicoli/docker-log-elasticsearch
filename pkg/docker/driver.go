@@ -22,6 +22,10 @@ import (
 	elastic "gopkg.in/olivere/elastic.v5"
 )
 
+const (
+	name = "elasticsearchlog"
+)
+
 type LoggerInfo struct {
 	Config              map[string]string `json:"config,omitempty"`
 	ContainerID         string            `json:"containerID"`
@@ -188,4 +192,8 @@ func (d *Driver) StopLogging(file string) error {
 	}
 
 	return nil
+}
+
+func (d *Driver) Name() string {
+	return name
 }
