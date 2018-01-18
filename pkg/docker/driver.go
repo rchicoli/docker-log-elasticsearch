@@ -3,13 +3,14 @@ package docker
 import (
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
 
-	"github.com/docker/docker/api/types/backend"
 	"github.com/docker/docker/api/types/plugins/logdriver"
 	"github.com/docker/docker/daemon/logger"
 	"github.com/pkg/errors"
@@ -26,21 +27,6 @@ const (
 	name = "elasticsearchlog"
 )
 
-type LoggerInfo struct {
-	Config              map[string]string `json:"config,omitempty"`
-	ContainerID         string            `json:"containerID"`
-	ContainerName       string            `json:"containerName"`
-	ContainerEntrypoint string            `json:"containerEntrypoint,omitempty"`
-	ContainerArgs       []string          `json:"containerArgs,omitempty"`
-	ContainerImageID    string            `json:"containerImageID,omitempty"`
-	ContainerImageName  string            `json:"containerImageName,omitempty"`
-	ContainerCreated    time.Time         `json:"containerCreated"`
-	ContainerEnv        []string          `json:"containerEnv,omitempty"`
-	ContainerLabels     map[string]string `json:"containerLabels,omitempty"`
-	LogPath             string            `json:"logPath,omitempty"`
-	DaemonName          string            `json:"daemonName,omitempty"`
-}
-
 type Driver struct {
 	mu     sync.Mutex
 	logs   map[string]*logPair
@@ -55,20 +41,53 @@ type logPair struct {
 }
 
 type LogMessage struct {
-	// logdriver.LogEntry
-	Line      []byte            `json:"-"`
-	Source    string            `json:"source"`
-	Timestamp time.Time         `json:"@timestamp"`
-	Attrs     []backend.LogAttr `json:"attr,omitempty"`
-	// Partial   bool              `json:"partial"`
+	logdriver.LogEntry
+	logger.Info
+}
 
-	// Err is an error associated with a message. Completeness of a message
-	// with Err is not expected, tho it may be partially complete (fields may
-	// be missing, gibberish, or nil)
-	Err error `json:"err,omitempty"`
+func (l LogMessage) MarshalJSON() ([]byte, error) {
+	return json.Marshal(
+		struct {
 
-	LoggerInfo
-	LogLine string `json:"message"`
+			// docker/daemon/logger/Info
+			Config              map[string]string `json:"config,omitempty"`
+			ContainerID         string            `json:"containerID,omitempty"`
+			ContainerName       string            `json:"containerName,omitempty"`
+			ContainerEntrypoint string            `json:"containerEntrypoint,omitempty"`
+			ContainerArgs       []string          `json:"containerArgs,omitempty"`
+			ContainerImageID    string            `json:"containerImageID,omitempty"`
+			ContainerImageName  string            `json:"containerImageName,omitempty"`
+			ContainerCreated    *time.Time        `json:"containerCreated,omitempty"`
+			ContainerEnv        []string          `json:"containerEnv,omitempty"`
+			ContainerLabels     map[string]string `json:"containerLabels,omitempty"`
+			LogPath             string            `json:"logPath,omitempty"`
+			DaemonName          string            `json:"daemonName,omitempty"`
+
+			//  api/types/plugin/logdriver/LogEntry
+			Line     string    `json:"message"` // []byte to string
+			Source   string    `json:"source"`
+			TimeNano time.Time `json:"timestamp"` // int64 to Time
+			Partial  bool      `json:"partial"`
+		}{
+			Config:              l.Config,
+			ContainerID:         l.ContainerID,
+			ContainerName:       l.ContainerName,
+			ContainerEntrypoint: l.ContainerEntrypoint,
+			ContainerArgs:       l.ContainerArgs,
+			ContainerImageID:    l.ContainerImageID,
+			ContainerImageName:  l.ContainerImageName,
+			ContainerCreated:    &l.ContainerCreated,
+			ContainerEnv:        l.ContainerEnv,
+			ContainerLabels:     l.ContainerLabels,
+			LogPath:             l.LogPath,
+			DaemonName:          l.DaemonName,
+
+			Line:     strings.TrimSpace(string(l.Line)),
+			Source:   l.Source,
+			TimeNano: time.Unix(0, l.TimeNano),
+			Partial:  l.Partial,
+		})
+
 }
 
 func NewDriver() *Driver {
@@ -124,18 +143,20 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 		}
 	}
 
-	go d.consumeLog(ctx, cfg.tzpe, cfg.index, lf)
+	go d.consumeLog(ctx, cfg.tzpe, cfg.index, lf, cfg.fields)
 	return nil
 }
 
-func (d *Driver) consumeLog(ctx context.Context, esType, esIndex string, lf *logPair) {
+func (d *Driver) consumeLog(ctx context.Context, esType, esIndex string, lf *logPair, fields string) {
 
 	dec := protoio.NewUint32DelimitedReader(lf.stream, binary.BigEndian, 1e6)
 	defer dec.Close()
 
-	var buf logdriver.LogEntry
-	var msg LogMessage
+	// var msg LogMessage
+	// custom log message fields
+	msg := getLostashFields(fields, lf.info)
 
+	var buf logdriver.LogEntry
 	for {
 		if err := dec.ReadMsg(&buf); err != nil {
 			if err == io.EOF {
@@ -147,23 +168,10 @@ func (d *Driver) consumeLog(ctx context.Context, esType, esIndex string, lf *log
 		}
 
 		// create message
-		msg.Timestamp = time.Unix(0, buf.TimeNano)
 		msg.Source = buf.Source
-		// msg.Partial = buf.Partial
-		msg.LogLine = string(buf.Line)
-
-		// msg.Config = lf.info.Config
-		msg.ContainerID = lf.info.ContainerID
-		msg.ContainerName = lf.info.ContainerName
-		// msg.ContainerEntrypoint = lf.info.ContainerEntrypoint
-		// msg.ContainerArgs = lf.info.ContainerArgs
-		// msg.ContainerImageID = lf.info.ContainerImageID
-		msg.ContainerImageName = lf.info.ContainerImageName
-		msg.ContainerCreated = lf.info.ContainerCreated
-		// msg.ContainerEnv = lf.info.ContainerEnv
-		// msg.ContainerLabels = lf.info.ContainerLabels
-		// msg.LogPath = lf.info.LogPath
-		// msg.DaemonName = lf.info.DaemonName
+		msg.Partial = buf.Partial
+		msg.Line = buf.Line
+		msg.TimeNano = buf.TimeNano
 
 		if err := d.esClient.Log(ctx, esIndex, esType, msg); err != nil {
 			logrus.WithField("id", lf.info.ContainerID).
@@ -196,4 +204,13 @@ func (d *Driver) StopLogging(file string) error {
 
 func (d *Driver) Name() string {
 	return name
+}
+
+func logError(msg interface{}, str string, err error) {
+	logrus.WithFields(
+		logrus.Fields{
+			"message": msg,
+			"error":   err,
+		},
+	).Error(str)
 }
