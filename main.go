@@ -31,8 +31,9 @@ func main() {
 	}
 
 	h := sdk.NewHandler(`{"Implements": ["LoggingDriver"]}`)
-	api.Handlers(&h, docker.NewDriver())
-	if err := h.ServeUnix("elasticsearchlog", 0); err != nil {
+	d := docker.NewDriver()
+	api.Handlers(&h, d)
+	if err := h.ServeUnix(d.Name(), 0); err != nil {
 		panic(err)
 	}
 }
