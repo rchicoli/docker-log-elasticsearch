@@ -1,0 +1,46 @@
+---
+version: '3'
+services:
+  elasticsearch:
+    image: elasticsearch:alpine
+    container_name: elasticsearch
+    command: >
+      -Etransport.host=0.0.0.0 -Ediscovery.zen.minimum_master_nodes=1
+    ports:
+      - 9200
+    # sysctls:
+    #   - vm.max_map_count=262144
+    networks:
+      development:
+        aliases:
+          - elasticsearch
+        ipv4_address: 172.31.0.2
+
+  webapper:
+    image: rchicoli/webapper
+    container_name: webapper
+    ports:
+      - 8080
+    depends_on:
+      - elasticsearch
+    restart: 'unless-stopped'
+    networks:
+      development:
+        aliases:
+          - webapper
+        ipv4_address: 172.31.0.3
+    logging:
+      driver: 'rchicoli/docker-log-elasticsearch:development'
+      options:
+        elasticsearch-url: 'http://172.31.0.2:9200'
+        elasticsearch-timeout: '1000'
+        elasticsearch-index: 'docker-compose'
+        elasticsearch-type: 'ci'
+
+networks:
+  development:
+    driver: "bridge"
+    ipam:
+      driver: default
+      config:
+      - subnet: 172.31.0.0/24

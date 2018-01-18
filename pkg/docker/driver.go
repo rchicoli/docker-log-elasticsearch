@@ -22,6 +22,10 @@ import (
 	elastic "gopkg.in/olivere/elastic.v5"
 )
 
+const (
+	name = "elasticsearchlog"
+)
+
 type LoggerInfo struct {
 	Config              map[string]string `json:"config,omitempty"`
 	ContainerID         string            `json:"containerID"`
@@ -182,5 +186,14 @@ func (d *Driver) StopLogging(file string) error {
 		delete(d.logs, file)
 	}
 	d.mu.Unlock()
+
+	if d.esClient != nil {
+		d.esClient.Client.Stop()
+	}
+
 	return nil
+}
+
+func (d *Driver) Name() string {
+	return name
 }

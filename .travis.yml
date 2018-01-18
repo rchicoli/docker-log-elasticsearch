@@ -1,0 +1,18 @@
+language: go
+go:
+  - 1.9.2
+
+services:
+  - docker
+
+sudo: required
+
+before_install:
+  - docker version
+
+script:
+  - sudo ./scripts/ci.sh
+
+after_install:
+  - docker plugin ls
+  # TODO: add docker plugin push ci, if merged to master
