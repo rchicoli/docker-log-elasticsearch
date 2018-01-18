@@ -28,7 +28,7 @@ Additional information about Docker plugins [can be found here](https://docs.doc
 
 To install the plugin, run
 
-    docker plugin install rchicoli/docker-log-elasticsearch:0.5.6 --alias elasticsearch
+    docker plugin install rchicoli/docker-log-elasticsearch:0.5.7 --alias elasticsearch
 
 This command will pull and enable the plugin
 
@@ -64,6 +64,7 @@ Creating and running a container:
         --log-opt elasticsearch-index=docker \
         --log-opt elasticsearch-type=log \
         --log-opt elasticsearch-timeout=10 \
+        --log-opt logstash-fields=containerID,containerName,containerImageID,containerImageName,containerCreated \
             alpine echo this is a test logging message
 
 ## Output Format
@@ -71,7 +72,7 @@ Creating and running a container:
 Query elasticsearch:
 
 ```bash
-    $ curl 127.0.0.1:9200/docker/_search\?pretty=true
+    $ curl 127.0.0.1:9200/docker/log/_search\?pretty=true
 
     {
         "_index" : "docker",
@@ -79,13 +80,14 @@ Query elasticsearch:
         "_id" : "AWCywmj6Dipxk6-_e8T5",
         "_score" : 1.0,
         "_source" : {
-          "source" : "stdout",
-          "@timestamp" : "2018-01-01T17:26:13.489630708Z",
-          "config" : null,
-          "containerID" : "abfed8ebf755f16762550b6b0eaaf612b7051513e64de64db4c93ba4913d0c4f",
-          "containerName" : "/amazing_bardeen",
+          "containerID" : "f7d986496f66",
+          "containerName" => "focused_lumiere",
+          "containerImageID" : "sha256:8d254d3d0dca3e3ee8f377e752af11e0909b51133da614af4b30e4769aff5a44",
           "containerImageName" : "alpine",
-          "containerCreated" : "2018-01-01T17:26:12.622116023Z",
+          "containerCreated" : "2018-01-18T21:45:29.053364087Z",
+          "source" : "stdout",
+          "timestamp" : "2018-01-18T21:45:30.294363869Z",
+          "partial" : false
           "message" : "this is a test message\r"
         }
       }
@@ -98,8 +100,8 @@ Query elasticsearch:
 | message  | The log message itself| yes |
 | source | Source of the log message as reported by docker | yes |
 | @timestamp | Timestamp that the log was collected by the log driver | yes |
-| partial | Whether docker reported that the log message was only partially collected | no |
-| containerID | Id of the container that generated the log message | no |
+| partial | Whether docker reported that the log message was only partially collected | yes |
+| containerID | Id of the container that generated the log message | yes |
 | containerName | Name of the container that generated the log message | yes |
 | containerArgs | Arguments of the container entrypoint | no |
 | containerImageID | ID of the container's image | no |
@@ -109,4 +111,3 @@ Query elasticsearch:
 | containerLabels | Label of the container | no |
 | containerLogPath | Path of the container's Log | no |
 | daemonName | Name of the container's daemon | no |
-| err | Usually null, otherwise will be a string containing and error from the logdriver |
