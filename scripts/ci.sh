@@ -26,12 +26,19 @@ if sudo BASE_DIR="$base_dir/.." make -f "$makefile"; then
             # wait couple of seconds for the message to be processed by elasticsearch
             sleep 3
 
-            if curl -q http://172.31.0.2:9200/docker-compose/ci/_search\?pretty=true | grep "$sample_message"; then
+
+            # 0 debug elasticsearch
+            curl -q http://172.31.0.2:9200/docker-compose/ci/_search\?pretty=true 
+
+            # 1. test: query for message
+            if curl -q http://172.31.0.2:9200/docker-compose/ci/_search\?pretty=true | grep -q "$sample_message"; then
                 echo "it works like a charm"
             else
                 echo "something went wrong"
                 exit_code=1
             fi
+
+            # 2. TODO: add lots of tests
 
         else
             exit_code=1

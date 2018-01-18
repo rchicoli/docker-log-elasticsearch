@@ -36,6 +36,7 @@ services:
         elasticsearch-timeout: '1000'
         elasticsearch-index: 'docker-compose'
         elasticsearch-type: 'ci'
+        elasticsearch-fields: 'containerID,containerName,containerImageID,containerImageName,containerCreated'
 
 networks:
   development:

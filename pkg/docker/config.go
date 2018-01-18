@@ -5,7 +5,9 @@ import (
 	"net"
 	"net/url"
 	"strconv"
+	"strings"
 
+	"github.com/docker/docker/daemon/logger"
 	"github.com/pkg/errors"
 )
 
@@ -14,6 +16,7 @@ type LogOpt struct {
 	tzpe    string
 	url     string
 	timeout int
+	fields  string
 }
 
 func defaultLogOpt() *LogOpt {
@@ -22,6 +25,7 @@ func defaultLogOpt() *LogOpt {
 		index:   "docker",
 		tzpe:    "log",
 		timeout: 1,
+		fields:  "containerID,containerName,containerImageName,containerCreated",
 	}
 }
 
@@ -63,6 +67,26 @@ func (c *LogOpt) validateLogOpt(cfg map[string]string) error {
 		// case "elasticsearch-username":
 		// case "elasticsearch-password":
 		// case "max-retry":
+		case "elasticsearch-fields":
+			for _, v := range strings.Split(v, ",") {
+				switch v {
+				case "config":
+				case "containerID":
+				case "containerName":
+				case "containerEntrypoint":
+				case "containerArgs":
+				case "containerImageID":
+				case "containerImageName":
+				case "containerCreated":
+				case "containerEnv":
+				case "containerLabels":
+				// case "logPath":
+				case "daemonName":
+				default:
+					return fmt.Errorf("logstash-fields: invalid parameter %s", v)
+				}
+			}
+			c.fields = v
 		case "elasticsearch-timeout":
 			timeout, err := strconv.Atoi(v)
 			if err != nil {
@@ -78,4 +102,40 @@ func (c *LogOpt) validateLogOpt(cfg map[string]string) error {
 	}
 
 	return nil
+}
+
+func getLostashFields(fields string, info logger.Info) LogMessage {
+	var l LogMessage
+	for _, v := range strings.Split(fields, ",") {
+		switch v {
+		case "config":
+			l.Config = info.Config
+		case "containerID":
+			l.ContainerID = info.ID()
+		case "containerName":
+			l.ContainerName = info.Name()
+		case "containerEntrypoint":
+			l.ContainerEntrypoint = info.ContainerEntrypoint
+		case "containerArgs":
+			l.ContainerArgs = info.ContainerArgs
+		case "containerImageID":
+			l.ContainerImageID = info.ContainerImageID
+		case "containerImageName":
+			l.ContainerImageName = info.ContainerImageName
+		case "containerCreated":
+			l.ContainerCreated = info.ContainerCreated
+		case "containerEnv":
+			l.ContainerEnv = info.ContainerEnv
+		case "containerLabels":
+			l.ContainerLabels = info.ContainerLabels
+		// case "logPath":
+		// 	l.LogPath = info.LogPath
+		case "daemonName":
+			l.DaemonName = info.DaemonName
+		default:
+		}
+	}
+	// TODO: omityempty does not work for type time
+	l.ContainerCreated = info.ContainerCreated
+	return l
 }
