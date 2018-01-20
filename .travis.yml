@@ -11,7 +11,8 @@ before_install:
   - docker version
 
 script:
-  - sudo ./scripts/ci.sh
+  - sudo make
+  - sudo bats ./tests/main.bats
 
 after_install:
   - docker plugin ls
