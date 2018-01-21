@@ -17,3 +17,11 @@ MAKE="make -f ${MAKEFILE} "
 function _make() {
   run make -f "$MAKEFILE" "$@"
 }
+
+function _jq() {
+  jq -r ".hits.hits[0]._source.${1}"
+}
+
+function _expr() {
+  expr "$(cat /dev/stdin)" : "$@"
+}

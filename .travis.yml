@@ -12,8 +12,8 @@ before_install:
 
 script:
   - sudo make
-  - sudo bats ./tests/main.bats
+  - sudo make acceptance_tests
 
 after_install:
   - docker plugin ls
-  # TODO: add docker plugin push ci, if merged to master
+  # TODO: add tag and publish docker plugin, if merged to master

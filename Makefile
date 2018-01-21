@@ -5,6 +5,7 @@ BASE_DIR            ?= .
 ROOTFS_DIR          ?= $(BASE_DIR)/plugin/rootfs
 DOCKER_COMPOSE_FILE ?= $(BASE_DIR)/docker/docker-compose.yml
 SCRIPTS_DIR         ?= $(BASE_DIR)/scripts
+TESTS_DIR           ?= $(BASE_DIR)/tests
 
 SHELL               := /bin/bash
 SYSCTL              := $(shell which sysctl)
@@ -87,3 +88,6 @@ undeploy_webapper:
 create_environment: deploy_elasticsearch deploy_webapper
 
 delete_environment: stop_webapper stop_elasticsearch
+
+acceptance_tests:
+	bats $(TESTS_DIR)/main.bats

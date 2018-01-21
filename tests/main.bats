@@ -18,8 +18,14 @@ function teardown(){
 
   run curl -s http://${ELASTICSEARCH_IP}:${ELASTICSEARCH_PORT}/docker-compose/ci/_search\?pretty=true\&size=1\&q=message:\"$sample_message\"
   [[ "$status" -eq 0 ]]
-  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.source')" == "stderr" ]]
-  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.partial')" == "false" ]]
-  [[ $(expr "`echo ${output} | jq -r '.hits.hits[0]._source.message'`" : ".*this-is-one-logging-line") -ne 0 ]]
+
+  [[ "$(echo ${output} | _jq 'containerID'       |  _expr  '[a-z0-9]*')"           -eq 12  ]]
+  [[ "$(echo ${output} | _jq 'containerImageID'  |  _expr  'sha256:[a-z0-9]*')"    -ne 72  ]]
+  [[ "$(echo ${output} | _jq 'message'           |  _expr  ".*${sample_message}")" -ne 46  ]]
+
+  [[ "$(echo ${output} | _jq 'containerName')"      ==  "webapper"           ]]
+  [[ "$(echo ${output} | _jq 'containerImageName')" ==  "rchicoli/webapper"  ]]
+  [[ "$(echo ${output} | _jq 'source')"             ==  "stderr"             ]]
+  [[ "$(echo ${output} | _jq 'partial')"            ==  "false"              ]]
 
 }
