@@ -89,5 +89,5 @@ create_environment: deploy_elasticsearch deploy_webapper
 
 delete_environment: stop_webapper stop_elasticsearch
 
-acceptance_tests:
+acceptance_tests: create_environment
 	bats $(TESTS_DIR)/main.bats

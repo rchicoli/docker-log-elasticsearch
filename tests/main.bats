@@ -20,8 +20,8 @@ function teardown(){
   [[ "$status" -eq 0 ]]
 
   [[ "$(echo ${output} | _jq 'containerID'       |  _expr  '[a-z0-9]*')"           -eq 12  ]]
-  [[ "$(echo ${output} | _jq 'containerImageID'  |  _expr  'sha256:[a-z0-9]*')"    -ne 72  ]]
-  [[ "$(echo ${output} | _jq 'message'           |  _expr  ".*${sample_message}")" -ne 46  ]]
+  [[ "$(echo ${output} | _jq 'containerImageID'  |  _expr  'sha256:[a-z0-9]*')"    -eq 71  ]]
+  [[ "$(echo ${output} | _jq 'message'           |  _expr  ".*${sample_message}")" -eq 45  ]]
 
   [[ "$(echo ${output} | _jq 'containerName')"      ==  "webapper"           ]]
   [[ "$(echo ${output} | _jq 'containerImageName')" ==  "rchicoli/webapper"  ]]
