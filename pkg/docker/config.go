@@ -17,6 +17,7 @@ type LogOpt struct {
 	url     string
 	timeout int
 	fields  string
+	version string
 }
 
 func defaultLogOpt() *LogOpt {
@@ -26,6 +27,7 @@ func defaultLogOpt() *LogOpt {
 		tzpe:    "log",
 		timeout: 1,
 		fields:  "containerID,containerName,containerImageName,containerCreated",
+		version: "5",
 	}
 }
 
@@ -87,6 +89,13 @@ func (c *LogOpt) validateLogOpt(cfg map[string]string) error {
 				}
 			}
 			c.fields = v
+		case "elasticsearch-version":
+			switch v {
+			case "1", "2", "5":
+				c.version = v
+			default:
+				return fmt.Errorf("logstash-version: version not support %s", v)
+			}
 		case "elasticsearch-timeout":
 			timeout, err := strconv.Atoi(v)
 			if err != nil {

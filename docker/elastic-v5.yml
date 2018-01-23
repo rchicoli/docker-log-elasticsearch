@@ -1,0 +1,9 @@
+---
+version: '3'
+services:
+  elasticsearch:
+    image: elasticsearch:5-alpine
+    command: >
+      -Etransport.host=0.0.0.0 -Ediscovery.zen.minimum_master_nodes=1
+    # sysctls:
+    #   - vm.max_map_count=262144

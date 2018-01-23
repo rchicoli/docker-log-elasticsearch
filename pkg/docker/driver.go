@@ -18,9 +18,11 @@ import (
 	"github.com/tonistiigi/fifo"
 
 	"github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch"
+	elasticv2 "github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch/v1"
+	elasticv3 "github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch/v2"
+	elasticv5 "github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch/v5"
 
 	protoio "github.com/gogo/protobuf/io"
-	elastic "gopkg.in/olivere/elastic.v5"
 )
 
 const (
@@ -32,7 +34,7 @@ type Driver struct {
 	logs   map[string]*logPair
 	logger logger.Logger
 
-	esClient *elasticsearch.Elasticsearch
+	esClient elasticsearch.Client
 }
 
 type logPair struct {
@@ -127,21 +129,34 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 	}
 	logrus.WithField("id", info.ContainerID).Debugf("log-opt: %v", cfg)
 
-	d.esClient, err = elasticsearch.NewClient(cfg.url, cfg.timeout)
-	if err != nil {
-		return fmt.Errorf("elasticsearch: cannot create a client: %v", err)
+	switch cfg.version {
+	case "1":
+		d.esClient, err = elasticv2.NewClient(cfg.url, cfg.timeout)
+		if err != nil {
+			return fmt.Errorf("elasticsearch: cannot create a client: %v", err)
+		}
+	case "2":
+		d.esClient, err = elasticv3.NewClient(cfg.url, cfg.timeout)
+		if err != nil {
+			return fmt.Errorf("elasticsearch: cannot create a client: %v", err)
+		}
+	case "5":
+		d.esClient, err = elasticv5.NewClient(cfg.url, cfg.timeout)
+		if err != nil {
+			return fmt.Errorf("elasticsearch: cannot create a client: %v", err)
+		}
 	}
 
-	var createIndex *elastic.IndicesCreateResult
-	if exists, _ := d.esClient.Client.IndexExists(cfg.index).Do(ctx); !exists {
-		createIndex, err = d.esClient.Client.CreateIndex(cfg.index).Do(ctx)
-		if err != nil {
-			return fmt.Errorf("elasticsearch: cannot create Index to elasticsearch: %v", err)
-		}
-		if !createIndex.Acknowledged {
-			return fmt.Errorf("elasticsearch: index not Acknowledged: %v", err)
-		}
-	}
+	// var createIndex *elastic.IndicesCreateResult
+	// if exists, _ := d.esClient.Client.IndexExists(cfg.index).Do(ctx); !exists {
+	// 	createIndex, err = d.esClient.Client.CreateIndex(cfg.index).Do(ctx)
+	// 	if err != nil {
+	// 		return fmt.Errorf("elasticsearch: cannot create Index to elasticsearch: %v", err)
+	// 	}
+	// 	if !createIndex.Acknowledged {
+	// 		return fmt.Errorf("elasticsearch: index not Acknowledged: %v", err)
+	// 	}
+	// }
 
 	go d.consumeLog(ctx, cfg.tzpe, cfg.index, lf, cfg.fields)
 	return nil
@@ -195,9 +210,9 @@ func (d *Driver) StopLogging(file string) error {
 	}
 	d.mu.Unlock()
 
-	if d.esClient != nil {
-		d.esClient.Client.Stop()
-	}
+	// if d.esClient != nil {
+	// 	d.esClient.Client.Stop()
+	// }
 
 	return nil
 }

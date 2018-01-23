@@ -1,0 +1,12 @@
+---
+version: '3'
+services:
+
+  webapper:
+    logging:
+      driver: 'rchicoli/docker-log-elasticsearch:development'
+      options:
+        elasticsearch-timeout: '1000'
+        elasticsearch-index: 'testing'
+        elasticsearch-type: 'all'
+        elasticsearch-fields: 'containerID,containerName,containerImageID,containerImageName,containerCreated'
