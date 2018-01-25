@@ -1,22 +1,19 @@
 #!/usr/bin/env bats
 
-load helpers
+load ../helpers
 
 function setup(){
-  _docker_compose "elasticsearch" "1"
-  _app "webapper" "1"
+  _make create_environment
 }
 
 function teardown(){
   _make delete_environment
 }
 
-@test "send log message to elasticsearch v1" {
+@test "integration-tests: create a container with elasticsearch logging driver v${CLIENT_VERSION}" {
 
-  message="${POST_MESSAGE}/${BATS_TEST_NUMBER}"
-  _post "$message"
-
-  run _search "$message"
+  run docker inspect webapper
   [[ "$status" -eq 0 ]]
+  [[ "$(echo ${output} | docker inspect webapper | jq -r '.[0].HostConfig.LogConfig.Config."elasticsearch-version"')" -eq $CLIENT_VERSION ]]
 
 }

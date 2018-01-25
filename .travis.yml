@@ -12,7 +12,15 @@ before_install:
 
 script:
   - sudo make
+  - sudo make integration_tests
   - sudo make acceptance_tests
+
+matrix:
+  include:
+    - os: linux
+      env: CLIENT_VERSION=2
+    - os: linux
+      env: CLIENT_VERSION=5
 
 after_install:
   - docker plugin ls

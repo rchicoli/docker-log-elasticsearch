@@ -8,7 +8,7 @@ This application is under active development and will continue to be modified an
 
 | Branch Name | Docker Tag | Elasticsearch Version | Remark |
 | ----------- | ---------- | --------------------- | ------ |
-| release-1.0.x  | 1.0.x   | 1.x, 2.x, 5.x, 6.x    | Future stable release. |
+| release-1.0.x  | 1.0.x   | 2.x, 5.x, 6.x    | Future stable release. |
 | alpha-0.5.x    | 0.0.1, 0.5.2   | 1.x, 2.x, 5.x, 6.x                | Actively alpha release. |
 
 ```
@@ -65,7 +65,7 @@ Creating and running a container:
         --log-opt elasticsearch-index=docker \
         --log-opt elasticsearch-type=log \
         --log-opt elasticsearch-timeout=10 \
-        -- log-opt elasticsearch-version=5 \
+        --log-opt elasticsearch-version=5 \
         --log-opt logstash-fields=containerID,containerName,containerImageID,containerImageName,containerCreated \
             alpine echo this is a test logging message
 

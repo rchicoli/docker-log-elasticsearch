@@ -4,8 +4,11 @@ PLUGIN_TAG          ?= development
 BASE_DIR            ?= .
 ROOTFS_DIR          ?= $(BASE_DIR)/plugin/rootfs
 DOCKER_COMPOSE_FILE ?= $(BASE_DIR)/docker/docker-compose.yml
+DOCKER_DIR          ?= $(BASE_DIR)/docker
 SCRIPTS_DIR         ?= $(BASE_DIR)/scripts
 TESTS_DIR           ?= $(BASE_DIR)/tests
+
+CLIENT_VERSION      ?= 5
 
 SHELL               := /bin/bash
 SYSCTL              := $(shell which sysctl)
@@ -51,12 +54,21 @@ push: clean build rootfs create enable
 	@echo ""
 	docker plugin push $(PLUGIN_NAME):$(PLUGIN_TAG)
 
+client_version:
+ifeq ($(CLIENT_VERSION),6)
+    ELASTIC_VERSION=$(DOCKER_DIR)/elastic-v6.yml
+else ifeq ($(CLIENT_VERSION),5)
+    ELASTIC_VERSION=$(DOCKER_DIR)/elastic-v5.yml
+else ifeq ($(CLIENT_VERSION),2)
+    ELASTIC_VERSION=$(DOCKER_DIR)/elastic-v2.yml
+endif
+
 docker_compose:
 ifeq (, $(DOCKER_COMPOSE))
 	$(error "docker-compose: command not found")
 endif
 
-deploy_elasticsearch: docker_compose
+deploy_elasticsearch: docker_compose client_version
 ifeq (, $(SYSCTL))
 	$(error "sysctl: command not found")
 endif
@@ -65,19 +77,19 @@ endif
 	$(SYSCTL) -q -w vm.max_map_count=262144
 
 	# create and run elasticsearch as a container
-	docker-compose -f "$(DOCKER_COMPOSE_FILE)" up -d elasticsearch
+	docker-compose -f "$(DOCKER_COMPOSE_FILE)" -f "$(ELASTIC_VERSION)"  up -d elasticsearch
 
-stop_elasticsearch: docker_compose
+stop_elasticsearch: docker_compose client_version
 	docker-compose -f "$(DOCKER_COMPOSE_FILE)" stop elasticsearch
 
-undeploy_elasticsearch: docker_compose
+undeploy_elasticsearch: docker_compose client_version
 	docker-compose -f "$(DOCKER_COMPOSE_FILE)" rm --stop --force elasticsearch
 
-deploy_webapper: deploy_elasticsearch docker_compose
+deploy_webapper: docker_compose client_version deploy_elasticsearch
 	# create a container for logging to elasticsearch
-	$(SCRIPTS_DIR)/wait-for-it.sh elasticsearch 9200 docker-compose -f "$(DOCKER_COMPOSE_FILE)" up -d webapper
+	$(SCRIPTS_DIR)/wait-for-it.sh elasticsearch 9200 docker-compose -f "$(DOCKER_COMPOSE_FILE)" -f "$(ELASTIC_VERSION)" up -d webapper
 
-stop_webapper:
+stop_webapper: docker_compose client_version
 	# create a container for logging to elasticsearch
 	docker-compose -f "$(DOCKER_COMPOSE_FILE)" stop webapper
 
@@ -90,4 +102,7 @@ create_environment: deploy_elasticsearch deploy_webapper
 delete_environment: undeploy_webapper undeploy_elasticsearch
 
 acceptance_tests: create_environment
-	bats $(TESTS_DIR)/main.bats
+	bats $(TESTS_DIR)/acceptance-tests
+
+integration_tests: create_environment
+	bats $(TESTS_DIR)/integration-tests
