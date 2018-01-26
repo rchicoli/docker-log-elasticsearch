@@ -61,6 +61,8 @@ else ifeq ($(CLIENT_VERSION),5)
     ELASTIC_VERSION=$(DOCKER_DIR)/elastic-v5.yml
 else ifeq ($(CLIENT_VERSION),2)
     ELASTIC_VERSION=$(DOCKER_DIR)/elastic-v2.yml
+else ifeq ($(CLIENT_VERSION),1)
+    ELASTIC_VERSION=$(DOCKER_DIR)/elastic-v1.yml
 endif
 
 docker_compose:
@@ -77,7 +79,7 @@ endif
 	$(SYSCTL) -q -w vm.max_map_count=262144
 
 	# create and run elasticsearch as a container
-	docker-compose -f "$(DOCKER_COMPOSE_FILE)" -f "$(ELASTIC_VERSION)"  up -d elasticsearch
+	docker-compose -f "$(DOCKER_COMPOSE_FILE)" -f "$(ELASTIC_VERSION)" up -d elasticsearch
 
 stop_elasticsearch: docker_compose client_version
 	docker-compose -f "$(DOCKER_COMPOSE_FILE)" stop elasticsearch

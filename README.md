@@ -8,8 +8,8 @@ This application is under active development and will continue to be modified an
 
 | Branch Name | Docker Tag | Elasticsearch Version | Remark |
 | ----------- | ---------- | --------------------- | ------ |
-| release-1.0.x  | 1.0.x   | 2.x, 5.x, 6.x    | Future stable release. |
-| alpha-0.5.x    | 0.0.1, 0.5.2   | 1.x, 2.x, 5.x, 6.x                | Actively alpha release. |
+| master      | 1.0.x      | 1.x, 2.x, 5.x, 6.x    | Future stable release. |
+| alpha       | 0.0.1, 0.2.1   | 1.x, 2.x, 5.x, 6.x   | Actively alpha release. |
 
 ```
 release-0.1.1
@@ -66,7 +66,7 @@ Creating and running a container:
         --log-opt elasticsearch-type=log \
         --log-opt elasticsearch-timeout=10 \
         --log-opt elasticsearch-version=5 \
-        --log-opt logstash-fields=containerID,containerName,containerImageID,containerImageName,containerCreated \
+        --log-opt elasticsearch-fields=containerID,containerName,containerImageID,containerImageName,containerCreated \
             alpine echo this is a test logging message
 
 ## Output Format
@@ -101,7 +101,7 @@ Query elasticsearch:
 | ----- | ----------- | ------- |
 | message  | The log message itself| yes |
 | source | Source of the log message as reported by docker | yes |
-| @timestamp | Timestamp that the log was collected by the log driver | yes |
+| timestamp | Timestamp that the log was collected by the log driver | yes |
 | partial | Whether docker reported that the log message was only partially collected | yes |
 | containerID | Id of the container that generated the log message | yes |
 | containerName | Name of the container that generated the log message | yes |

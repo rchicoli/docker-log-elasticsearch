@@ -145,6 +145,11 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 		if err != nil {
 			return fmt.Errorf("elasticsearch: cannot create a client: %v", err)
 		}
+	case "6":
+		d.esClient, err = elasticv5.NewClient(cfg.url, cfg.timeout)
+		if err != nil {
+			return fmt.Errorf("elasticsearch: cannot create a client: %v", err)
+		}
 	}
 
 	// var createIndex *elastic.IndicesCreateResult

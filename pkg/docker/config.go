@@ -85,16 +85,16 @@ func (c *LogOpt) validateLogOpt(cfg map[string]string) error {
 				// case "logPath":
 				case "daemonName":
 				default:
-					return fmt.Errorf("logstash-fields: invalid parameter %s", v)
+					return fmt.Errorf("elasticsearch-fields: invalid parameter %s", v)
 				}
 			}
 			c.fields = v
 		case "elasticsearch-version":
 			switch v {
-			case "1", "2", "5":
+			case "1", "2", "5", "6":
 				c.version = v
 			default:
-				return fmt.Errorf("logstash-version: version not support %s", v)
+				return fmt.Errorf("elasticsearch-version: version not support %s", v)
 			}
 		case "elasticsearch-timeout":
 			timeout, err := strconv.Atoi(v)
