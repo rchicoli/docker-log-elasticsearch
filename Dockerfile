@@ -7,7 +7,7 @@ ARG GOARM=
 WORKDIR  /go/src/github.com/rchicoli/docker-log-elasticsearch
 COPY . .
 
-RUN apk add -U git
+RUN apk add --no-cache git
 
 RUN go get -d -v ./...
 RUN CGO_ENABLED=0 go build -v -a -installsuffix cgo -o /usr/bin/docker-log-elasticsearch

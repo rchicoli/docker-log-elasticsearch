@@ -28,7 +28,7 @@ Additional information about Docker plugins [can be found here](https://docs.doc
 
 To install the plugin, run
 
-    docker plugin install rchicoli/docker-log-elasticsearch:0.5.7 --alias elasticsearch
+    docker plugin install rchicoli/docker-log-elasticsearch:0.1.1 --alias elasticsearch
 
 This command will pull and enable the plugin
 
