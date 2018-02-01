@@ -14,7 +14,7 @@ SHELL               := /bin/bash
 SYSCTL              := $(shell which sysctl)
 DOCKER_COMPOSE      := $(shell which docker-compose)
 
-.PHONY: all clean docker rootfs plugin install enable
+.PHONY: all clean rootfs plugin install enable
 
 all: clean build rootfs plugin enable clean
 
@@ -50,7 +50,7 @@ enable:
 	@echo ""
 	docker plugin enable $(PLUGIN_NAME):$(PLUGIN_TAG)
 
-push: clean build rootfs create enable
+push: clean build rootfs
 	@echo ""
 	docker plugin push $(PLUGIN_NAME):$(PLUGIN_TAG)
 

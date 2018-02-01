@@ -21,6 +21,7 @@ import (
 	elasticv2 "github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch/v1"
 	elasticv3 "github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch/v2"
 	elasticv5 "github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch/v5"
+	elasticv6 "github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch/v6"
 
 	protoio "github.com/gogo/protobuf/io"
 )
@@ -146,22 +147,11 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 			return fmt.Errorf("elasticsearch: cannot create a client: %v", err)
 		}
 	case "6":
-		d.esClient, err = elasticv5.NewClient(cfg.url, cfg.timeout)
+		d.esClient, err = elasticv6.NewClient(cfg.url, cfg.timeout)
 		if err != nil {
 			return fmt.Errorf("elasticsearch: cannot create a client: %v", err)
 		}
 	}
-
-	// var createIndex *elastic.IndicesCreateResult
-	// if exists, _ := d.esClient.Client.IndexExists(cfg.index).Do(ctx); !exists {
-	// 	createIndex, err = d.esClient.Client.CreateIndex(cfg.index).Do(ctx)
-	// 	if err != nil {
-	// 		return fmt.Errorf("elasticsearch: cannot create Index to elasticsearch: %v", err)
-	// 	}
-	// 	if !createIndex.Acknowledged {
-	// 		return fmt.Errorf("elasticsearch: index not Acknowledged: %v", err)
-	// 	}
-	// }
 
 	go d.consumeLog(ctx, cfg.tzpe, cfg.index, lf, cfg.fields)
 	return nil
@@ -215,6 +205,7 @@ func (d *Driver) StopLogging(file string) error {
 	}
 	d.mu.Unlock()
 
+	// TODO: fix this
 	// if d.esClient != nil {
 	// 	d.esClient.Client.Stop()
 	// }
