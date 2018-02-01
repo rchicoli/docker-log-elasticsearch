@@ -1,0 +1,12 @@
+---
+version: '3'
+services:
+
+  webapper:
+    logging:
+      options:
+        elasticsearch-url: 'http://172.31.0.2:9200'
+        elasticsearch-timeout: '1000'
+        elasticsearch-index: 'docker-compose'
+        elasticsearch-type: 'ci'
+        elasticsearch-fields: 'containerID,containerName,containerImageID,containerImageName,containerCreated'

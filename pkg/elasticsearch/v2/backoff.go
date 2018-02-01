@@ -1,4 +1,4 @@
-package elasticsearch
+package v3
 
 import (
 	"errors"
@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"golang.org/x/net/context"
-	"gopkg.in/olivere/elastic.v5"
+	"gopkg.in/olivere/elastic.v3"
 )
 
 type MyRetrier struct {

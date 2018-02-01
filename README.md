@@ -8,19 +8,19 @@ This application is under active development and will continue to be modified an
 
 | Branch Name | Docker Tag | Elasticsearch Version | Remark |
 | ----------- | ---------- | --------------------- | ------ |
-| release-1.5.x  | 1.5.x   | 5.x                | Future stable release. |
-| alpha-0.5.x    | 0.5.1, 0.5.2   | 5.x                | Actively alpha release. |
+| master      | 1.0.x      | 1.x, 2.x, 5.x, 6.x    | Future stable release. |
+| alpha       | 0.0.1, 0.2.1   | 1.x, 2.x, 5.x, 6.x   | Actively alpha release. |
 
 ```
-release-0.5.1
-        | | |_ new features or bug fixes
-        | |___ elasticsearch major version
+release-0.1.1
+        | | |_ bug fixes
+        | |___ new features
         |_____ release version
 ```
 
 ## Getting Started
 
-You need to install Docker Engine >= 1.12 and Elasticsearch 5
+You need to install Docker Engine >= 1.12 and Elasticsearch application
 
 Additional information about Docker plugins [can be found here](https://docs.docker.com/engine/extend/plugins_logging/).
 
@@ -52,6 +52,7 @@ To run a specific container with the logging driver:
 | elasticsearch-type  | log    | no  | docker-plugin |
 | elasticsearch-timeout | 1    | no  | 10 |
 | elasticsearch-fields | containerID,containerName,containerImageName,containerCreated | no | containerID,containerLabels,containerEnv |
+| elasticsearch-version | 5 | no | 1, 2, 5, 6 |
 
 
 #### Testing
@@ -64,7 +65,8 @@ Creating and running a container:
         --log-opt elasticsearch-index=docker \
         --log-opt elasticsearch-type=log \
         --log-opt elasticsearch-timeout=10 \
-        --log-opt logstash-fields=containerID,containerName,containerImageID,containerImageName,containerCreated \
+        --log-opt elasticsearch-version=5 \
+        --log-opt elasticsearch-fields=containerID,containerName,containerImageID,containerImageName,containerCreated \
             alpine echo this is a test logging message
 
 ## Output Format
@@ -99,7 +101,7 @@ Query elasticsearch:
 | ----- | ----------- | ------- |
 | message  | The log message itself| yes |
 | source | Source of the log message as reported by docker | yes |
-| @timestamp | Timestamp that the log was collected by the log driver | yes |
+| timestamp | Timestamp that the log was collected by the log driver | yes |
 | partial | Whether docker reported that the log message was only partially collected | yes |
 | containerID | Id of the container that generated the log message | yes |
 | containerName | Name of the container that generated the log message | yes |

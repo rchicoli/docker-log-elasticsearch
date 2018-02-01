@@ -1,0 +1,9 @@
+---
+version: '3'
+services:
+  elasticsearch:
+    image: elasticsearch:1-alpine
+  webapper:
+    logging:
+      options:
+        elasticsearch-version: '1'

@@ -25,7 +25,7 @@ function wait_for_it() {
 
   timeout=30
   count=0
-  until nc -z "$ip" "$port" >/dev/null; do
+  until nc -w 1 -z "$ip" "$port" >/dev/null; do
 
       if [ $count -lt $timeout ]; then
           count=$(($count+1));

@@ -1,10 +1,12 @@
-package elasticsearch
+package v5
 
 import (
 	"context"
 	"fmt"
 
-	elastic "gopkg.in/olivere/elastic.v5"
+	"gopkg.in/olivere/elastic.v5"
+
+	"github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch"
 )
 
 type Elasticsearch struct {
@@ -12,7 +14,7 @@ type Elasticsearch struct {
 	indexService *elastic.IndexService
 }
 
-func NewClient(url string, timeout int) (*Elasticsearch, error) {
+func NewClient(url string, timeout int) (elasticsearch.Client, error) {
 	c, err := elastic.NewClient(
 		elastic.SetURL(url),
 		elastic.SetRetrier(NewMyRetrier(timeout)),
