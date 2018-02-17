@@ -23,24 +23,23 @@ ELASTICSEARCH_HTTPS_URL="https://${ELASTICSEARCH_IP}:${ELASTICSEARCH_PORT}"
 
 MAKEFILE="${BASE_DIR}/Makefile"
 
-POST_MESSAGE="this-is-a-one-logging-line"
-
 function _post() {
   local id="$1"
-  curl "http://${WEBAPPER_IP}:${WEBAPPER_PORT}/${1}" &>/dev/null
+  curl -XPOST -H "Content-Type: application/json" -d "{\"message\":\"$1\"}" "http://${WEBAPPER_IP}:${WEBAPPER_PORT}/log" &>/dev/null
   sleep 2
 }
 
 function _search() {
     local message="$1"
-    curl -s ${ELASTICSEARCH_HTTP_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search\?pretty=true\&size=1\&q=message:\"${message}\"
+    curl -G -s ${ELASTICSEARCH_HTTP_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search\?pretty=true\&size=1 --data-urlencode "q=message:\"${message}\""
+}
+
+function _fields() {
+    local message="$1"
+    curl -G -s ${ELASTICSEARCH_HTTP_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search\?pretty=true\&size=1 --data-urlencode "q=message:\"${message}\"" | jq '.hits.hits[0]._source' | jq -r 'keys[]'
 }
 
 # make wrapper
 function _make() {
   make -f "$MAKEFILE" "$@"
-}
-
-function _expr() {
-  expr "$(cat /dev/stdin)" : "$@"
 }
