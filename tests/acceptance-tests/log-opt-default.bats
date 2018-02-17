@@ -10,20 +10,55 @@ function teardown(){
   _make delete_environment
 }
 
-@test "acceptance-tests:$BATS_TEST_NUMBER send log message to elasticsearch v${CLIENT_VERSION}" {
+@test "acceptance-tests (v${CLIENT_VERSION}): $BATS_TEST_NUMBER - all default fields" {
 
-  message="${POST_MESSAGE}/${BATS_TEST_NUMBER}"
+  message="$BATS_TEST_DESCRIPTION"
+  _post "$message"
+
+  run _fields "$message"
+  [[ "$status" -eq 0 ]]
+  [[ "${lines[0]}" == "containerCreated" ]]
+  [[ "${lines[1]}" == "containerID" ]]
+  [[ "${lines[2]}" == "containerImageName" ]]
+  [[ "${lines[3]}" == "containerName" ]]
+  [[ "${lines[4]}" == "message" ]]
+  [[ "${lines[5]}" == "partial" ]]
+  [[ "${lines[6]}" == "source" ]]
+  [[ "${lines[7]}" == "timestamp" ]]
+  [[ ${#lines[@]} -eq 8 ]]
+
+}
+
+@test "acceptance-tests (v${CLIENT_VERSION}): $BATS_TEST_NUMBER - log messages to elasticsearch with default options" {
+
+  [[ ${CLIENT_VERSION} -eq 1 ]] && skip "elasticsearch version ${CLIENT_VERSION} does not support unicode chars"
+
+  message="$BATS_TEST_DESCRIPTION"
   _post "$message"
 
   run _search "$message"
   [[ "$status" -eq 0 ]]
-  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.containerImageName')" ==  "rchicoli/webapper"  ]]
-  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.containerName')"      ==  "webapper"           ]]
 
-  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.message'     |  _expr  ".*${message}")" -eq 49 ]]
-  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.containerID' |  _expr  '[a-z0-9]*')" -eq 12    ]]
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.containerCreated' | egrep '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]+Z$')" ]]
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.containerID'      | egrep '^[a-z0-9]{12}$')" ]]
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.containerImageName')" == "rchicoli/webapper" ]]
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.containerName')"      == "webapper"          ]]
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.message')"            == *"$message"*        ]]
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.source')"             == "stdout"            ]]
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.partial')"            == "false"             ]]
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.timestamp' | egrep '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]+Z$')" ]]
+  [[ $(echo ${output} | jq -r '.hits.hits[0]._source[]' | wc -l) -eq 8 ]]
 
-  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.source')"  ==  "stderr" ]]
-  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.partial')" ==  "false"  ]]
+
+}
+
+@test "acceptance-tests (v${CLIENT_VERSION}): $BATS_TEST_NUMBER - log unicode chars" {
+
+  message="${BATS_TEST_NUMBER}:héllö-yöü ❤ ☀ ☆ ☂ ☻ ♞ ☯ ☭ ☢ €"
+  _post "$message"
+
+  run _search "$message"
+  [[ "$status" -eq 0 ]]
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.message')" == *"$message"* ]]
 
 }
