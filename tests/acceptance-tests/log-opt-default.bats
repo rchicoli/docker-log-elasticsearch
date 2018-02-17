@@ -49,7 +49,6 @@ function teardown(){
   [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.timestamp' | egrep '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]+Z$')" ]]
   [[ $(echo ${output} | jq -r '.hits.hits[0]._source[]' | wc -l) -eq 8 ]]
 
-
 }
 
 @test "acceptance-tests (v${CLIENT_VERSION}): $BATS_TEST_NUMBER - log unicode chars" {
