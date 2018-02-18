@@ -10,7 +10,7 @@ function teardown(){
   _make delete_environment
 }
 
-@test "acceptance-tests (v${CLIENT_VERSION}): $BATS_TEST_NUMBER - [default] all fields are logged" {
+@test "[${BATS_TEST_FILENAME##*/}] acceptance-tests (v${CLIENT_VERSION}): $BATS_TEST_NUMBER - all default fields are logged" {
 
   message="$BATS_TEST_DESCRIPTION"
   _post "$message"
@@ -29,7 +29,7 @@ function teardown(){
 
 }
 
-@test "acceptance-tests (v${CLIENT_VERSION}): $BATS_TEST_NUMBER - [default] every field has its data type set" {
+@test "[${BATS_TEST_FILENAME##*/}] acceptance-tests (v${CLIENT_VERSION}): $BATS_TEST_NUMBER - all default fields are filled out" {
 
   [[ ${CLIENT_VERSION} -eq 1 ]] && skip "elasticsearch version ${CLIENT_VERSION} does not support unicode chars"
 
@@ -48,32 +48,5 @@ function teardown(){
   [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.partial')"            == "false"             ]]
   [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.timestamp' | egrep '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]+Z$')" ]]
   [[ "$(echo ${output} | jq -r '.hits.hits[0]._source[]' | wc -l)" -eq 8 ]]
-
-}
-
-@test "acceptance-tests (v${CLIENT_VERSION}): $BATS_TEST_NUMBER - unicode chars are accepted" {
-
-  message="${BATS_TEST_NUMBER}:héllö-yöü ❤ ☀ ☆ ☂ ☻ ♞ ☯ ☭ ☢ €"
-  _post "$message"
-
-  run _search "$message"
-  [[ "$status" -eq 0 ]]
-  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.message')" == *"$message"* ]]
-
-}
-
-@test "acceptance-tests (v${CLIENT_VERSION}): $BATS_TEST_NUMBER - it is possible to log to a different elasticsearch index and type" {
-
-  export DOCKER_LOG_OPTIONS="${DOCKER_COMPOSE_DIR}/log-opt.index-and-type.yml"
-  export ELASTICSEARCH_INDEX="docker-compose"
-  export ELASTICSEARCH_TYPE="ci"
-  _make create_environment
-
-  message="${BATS_TEST_NUMBER} log this and that"
-  _post "$message"
-
-  run _search "$message"
-  [[ "$status" -eq 0 ]]
-  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.message')" == *"$message"* ]]
 
 }

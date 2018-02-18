@@ -10,7 +10,7 @@ function teardown(){
   _make delete_environment
 }
 
-@test "integration-tests (v${CLIENT_VERSION}): create a container with the default logging options" {
+@test  "[${BATS_TEST_FILENAME##*/}] integration-tests (v${CLIENT_VERSION}): create a container with the default logging options" {
 
   [[ ${CLIENT_VERSION} -ne 5 ]] && skip "this checks the default options which is version 5"
 
@@ -21,7 +21,7 @@ function teardown(){
 
 }
 
-@test "integration-tests (v${CLIENT_VERSION}): check the elasticsearch-version option for different elasticsearch versions" {
+@test "[${BATS_TEST_FILENAME##*/}] integration-tests (v${CLIENT_VERSION}): check the elasticsearch-version option for different elasticsearch versions" {
 
   [[ ${CLIENT_VERSION} -eq 5 ]] && skip "elasticsearch version 5 does contain the elasticsearch-version option, because it is the default version"
 

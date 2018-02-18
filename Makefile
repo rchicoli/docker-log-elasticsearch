@@ -84,7 +84,7 @@ endif
 	$(SYSCTL) -q -w vm.max_map_count=262144
 
 	# create and run elasticsearch as a container
-	docker-compose -f "$(DOCKER_COMPOSE_FILE)" -f "$(ELASTIC_VERSION)" $(DOCKER_LOG_OPTIONS) up -d elasticsearch
+	docker-compose -f "$(DOCKER_COMPOSE_FILE)" -f "$(ELASTIC_VERSION)" up -d elasticsearch
 
 stop_elasticsearch: docker_compose client_version
 	docker-compose -f "$(DOCKER_COMPOSE_FILE)" stop elasticsearch
