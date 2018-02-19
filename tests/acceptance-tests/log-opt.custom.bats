@@ -52,3 +52,29 @@ function teardown(){
   [[ "${#lines[@]}" -eq 13 ]]
 
 }
+
+@test "[${BATS_TEST_FILENAME##*/}] acceptance-tests (v${CLIENT_VERSION}): $BATS_TEST_NUMBER - all fields are logged, except of containerLabels" {
+
+  export DOCKER_LOG_OPTIONS="${DOCKER_COMPOSE_DIR}/log-opt.fields-without-labels.yml"
+  _make create_environment
+
+  message="$BATS_TEST_DESCRIPTION"
+  _post "$message"
+
+  run _fields "$message"
+  [[ "$status" -eq 0 ]]
+  [[ "${lines[0]}" == "config" ]]
+  [[ "${lines[1]}" == "containerCreated" ]]
+  [[ "${lines[2]}" == "containerEnv" ]]
+  [[ "${lines[3]}" == "containerID" ]]
+  [[ "${lines[4]}" == "containerImageID" ]]
+  [[ "${lines[5]}" == "containerImageName" ]]
+  [[ "${lines[6]}" == "containerName" ]]
+  [[ "${lines[7]}" == "daemonName" ]]
+  [[ "${lines[8]}" == "message" ]]
+  [[ "${lines[9]}" == "partial" ]]
+  [[ "${lines[10]}" == "source" ]]
+  [[ "${lines[11]}" == "timestamp" ]]
+  [[ "${#lines[@]}" -eq 12 ]]
+
+}

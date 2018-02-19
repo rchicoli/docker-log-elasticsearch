@@ -187,6 +187,7 @@ func (d *Driver) consumeLog(ctx context.Context, esType, esIndex string, lf *log
 			logrus.WithField("id", lf.info.ContainerID).
 				WithError(err).
 				WithField("message", msg).
+				WithField("line", string(msg.Line)).
 				Error("error writing log message")
 			continue
 		}
