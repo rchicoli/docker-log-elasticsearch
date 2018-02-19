@@ -89,8 +89,15 @@ endif
 stop_elasticsearch: docker_compose client_version
 	docker-compose -f "$(DOCKER_COMPOSE_FILE)" stop elasticsearch
 
-undeploy_elasticsearch: docker_compose client_version
-	docker-compose -f "$(DOCKER_COMPOSE_FILE)" rm --stop --force elasticsearch
+skip:
+ifeq ($(SKIP),"true")
+SKIP := :
+else
+SKIP :=
+endif
+
+undeploy_elasticsearch: docker_compose client_version skip
+	$(SKIP) docker-compose -f "$(DOCKER_COMPOSE_FILE)" rm --stop --force elasticsearch
 
 deploy_webapper: docker_compose client_version deploy_elasticsearch
 	# create a container for logging to elasticsearch
@@ -100,9 +107,9 @@ stop_webapper: docker_compose client_version
 	# create a container for logging to elasticsearch
 	docker-compose -f "$(DOCKER_COMPOSE_FILE)" stop webapper
 
-undeploy_webapper:
+undeploy_webapper: skip
 	# create a container for logging to elasticsearch
-	docker-compose -f "$(DOCKER_COMPOSE_FILE)" rm -s -f webapper
+	$(SKIP) docker-compose -f "$(DOCKER_COMPOSE_FILE)" rm -s -f webapper
 
 create_environment: deploy_elasticsearch deploy_webapper
 

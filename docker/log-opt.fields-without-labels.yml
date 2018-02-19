@@ -1,0 +1,8 @@
+---
+version: '3'
+services:
+
+  webapper:
+    logging:
+      options:
+        elasticsearch-fields: 'config,containerID,containerName,containerArgs,containerImageID,containerImageName,containerCreated,containerEnv,daemonName'
