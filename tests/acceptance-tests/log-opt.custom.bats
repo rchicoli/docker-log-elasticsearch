@@ -24,6 +24,10 @@ function teardown(){
 
 @test "[${BATS_TEST_FILENAME##*/}] acceptance-tests (v${CLIENT_VERSION}): $BATS_TEST_NUMBER - all available fields are logged" {
 
+  # TODO: label is not support on elasticsearch version 2, because of the dots "com.docker.compose.container-number"
+  # TODO: create another test scenario without labels
+  [[ ${CLIENT_VERSION} -eq 2 ]] && skip "MapperParsingException[Field name [com.docker.compose.config-hash] cannot contain '.']"
+
   export DOCKER_LOG_OPTIONS="${DOCKER_COMPOSE_DIR}/log-opt.all-fields.yml"
   _make create_environment
 

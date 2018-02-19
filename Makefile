@@ -109,7 +109,7 @@ create_environment: deploy_elasticsearch deploy_webapper
 delete_environment: undeploy_webapper undeploy_elasticsearch
 
 acceptance_tests: create_environment
-	bats $(TESTS_DIR)/acceptance-tests
+	bats $(TESTS_DIR)/acceptance-tests/$(BATS_TESTFILE)
 
 integration_tests: create_environment
-	bats $(TESTS_DIR)/integration-tests
+	bats $(TESTS_DIR)/integration-tests/$(BATS_TESTFILE)

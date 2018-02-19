@@ -31,8 +31,6 @@ function teardown(){
 
 @test "[${BATS_TEST_FILENAME##*/}] acceptance-tests (v${CLIENT_VERSION}): $BATS_TEST_NUMBER - all default fields are filled out" {
 
-  [[ ${CLIENT_VERSION} -eq 1 ]] && skip "elasticsearch version ${CLIENT_VERSION} does not support unicode chars"
-
   message="$BATS_TEST_DESCRIPTION"
   _post "$message"
 
