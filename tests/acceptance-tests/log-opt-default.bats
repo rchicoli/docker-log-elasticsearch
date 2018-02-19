@@ -10,7 +10,7 @@ function teardown(){
   _make delete_environment
 }
 
-@test "acceptance-tests (v${CLIENT_VERSION}): $BATS_TEST_NUMBER - all default fields" {
+@test "[${BATS_TEST_FILENAME##*/}] acceptance-tests (v${CLIENT_VERSION}): $BATS_TEST_NUMBER - all default fields are logged" {
 
   message="$BATS_TEST_DESCRIPTION"
   _post "$message"
@@ -29,9 +29,7 @@ function teardown(){
 
 }
 
-@test "acceptance-tests (v${CLIENT_VERSION}): $BATS_TEST_NUMBER - log messages to elasticsearch with default options" {
-
-  [[ ${CLIENT_VERSION} -eq 1 ]] && skip "elasticsearch version ${CLIENT_VERSION} does not support unicode chars"
+@test "[${BATS_TEST_FILENAME##*/}] acceptance-tests (v${CLIENT_VERSION}): $BATS_TEST_NUMBER - all default fields are filled out" {
 
   message="$BATS_TEST_DESCRIPTION"
   _post "$message"
@@ -47,17 +45,6 @@ function teardown(){
   [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.source')"             == "stdout"            ]]
   [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.partial')"            == "false"             ]]
   [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.timestamp' | egrep '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]+Z$')" ]]
-  [[ $(echo ${output} | jq -r '.hits.hits[0]._source[]' | wc -l) -eq 8 ]]
-
-}
-
-@test "acceptance-tests (v${CLIENT_VERSION}): $BATS_TEST_NUMBER - log unicode chars" {
-
-  message="${BATS_TEST_NUMBER}:héllö-yöü ❤ ☀ ☆ ☂ ☻ ♞ ☯ ☭ ☢ €"
-  _post "$message"
-
-  run _search "$message"
-  [[ "$status" -eq 0 ]]
-  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.message')" == *"$message"* ]]
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source[]' | wc -l)" -eq 8 ]]
 
 }

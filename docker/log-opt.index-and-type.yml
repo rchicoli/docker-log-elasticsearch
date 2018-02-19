@@ -1,0 +1,9 @@
+---
+version: '3'
+services:
+
+  webapper:
+    logging:
+      options:
+        elasticsearch-index: 'docker-compose'
+        elasticsearch-type: 'ci'

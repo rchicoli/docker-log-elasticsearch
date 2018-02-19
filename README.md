@@ -95,7 +95,7 @@ Query elasticsearch:
       }
 ```
 
-**Fields**
+**Static Fields** are always present
 
 | Field | Description | Default |
 | ----- | ----------- | ------- |
@@ -103,6 +103,12 @@ Query elasticsearch:
 | source | Source of the log message as reported by docker | yes |
 | timestamp | Timestamp that the log was collected by the log driver | yes |
 | partial | Whether docker reported that the log message was only partially collected | yes |
+
+**Dynamic Fields**: can be provided by `elasticsearch-fields` log paramenter
+
+| Field | Description | Default |
+| ----- | ----------- | ------- |
+| config | Config provided by log-opt | no |
 | containerID | Id of the container that generated the log message | yes |
 | containerName | Name of the container that generated the log message | yes |
 | containerArgs | Arguments of the container entrypoint | no |

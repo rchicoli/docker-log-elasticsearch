@@ -21,7 +21,7 @@ all: clean build rootfs plugin enable clean
 clean:
 	@echo ""
 	test -d $(ROOTFS_DIR) && rm -rf $(ROOTFS_DIR) || true
-	# 	docker rmi $(DOCKER_IMAGE):$(APP_VERSION)
+	# docker rmi $(DOCKER_IMAGE):$(APP_VERSION)
 
 build:
 	@echo ""
@@ -70,7 +70,12 @@ ifeq (, $(DOCKER_COMPOSE))
 	$(error "docker-compose: command not found")
 endif
 
-deploy_elasticsearch: docker_compose client_version
+docker_log_options:
+ifdef DOCKER_LOG_OPTIONS
+DOCKER_LOG_OPTIONS := -f $(DOCKER_LOG_OPTIONS)
+endif
+
+deploy_elasticsearch: docker_compose client_version docker_log_options
 ifeq (, $(SYSCTL))
 	$(error "sysctl: command not found")
 endif
@@ -89,7 +94,7 @@ undeploy_elasticsearch: docker_compose client_version
 
 deploy_webapper: docker_compose client_version deploy_elasticsearch
 	# create a container for logging to elasticsearch
-	$(SCRIPTS_DIR)/wait-for-it.sh elasticsearch 9200 docker-compose -f "$(DOCKER_COMPOSE_FILE)" -f "$(ELASTIC_VERSION)" up -d webapper
+	$(SCRIPTS_DIR)/wait-for-it.sh elasticsearch 9200 docker-compose -f "$(DOCKER_COMPOSE_FILE)" -f "$(ELASTIC_VERSION)" $(DOCKER_LOG_OPTIONS) up -d webapper
 
 stop_webapper: docker_compose client_version
 	# create a container for logging to elasticsearch
@@ -104,7 +109,7 @@ create_environment: deploy_elasticsearch deploy_webapper
 delete_environment: undeploy_webapper undeploy_elasticsearch
 
 acceptance_tests: create_environment
-	bats $(TESTS_DIR)/acceptance-tests
+	bats $(TESTS_DIR)/acceptance-tests/$(BATS_TESTFILE)
 
 integration_tests: create_environment
-	bats $(TESTS_DIR)/integration-tests
+	bats $(TESTS_DIR)/integration-tests/$(BATS_TESTFILE)
