@@ -12,12 +12,14 @@ import (
 )
 
 type LogOpt struct {
-	index   string
-	tzpe    string
-	url     string
-	timeout int
-	fields  string
-	version string
+	index    string
+	tzpe     string
+	url      string
+	timeout  int
+	fields   string
+	version  string
+	username string
+	password string
 }
 
 func defaultLogOpt() *LogOpt {
@@ -66,8 +68,10 @@ func (c *LogOpt) validateLogOpt(cfg map[string]string) error {
 			c.index = v
 		case "elasticsearch-type":
 			c.tzpe = v
-		// case "elasticsearch-username":
-		// case "elasticsearch-password":
+		case "elasticsearch-username":
+			c.username = v
+		case "elasticsearch-password":
+			c.password = v
 		// case "max-retry":
 		case "elasticsearch-fields":
 			for _, v := range strings.Split(v, ",") {
