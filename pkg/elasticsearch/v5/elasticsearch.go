@@ -2,7 +2,10 @@ package v5
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
+	"net/http"
+	"net/url"
 
 	"gopkg.in/olivere/elastic.v5"
 
@@ -14,9 +17,22 @@ type Elasticsearch struct {
 	indexService *elastic.IndexService
 }
 
-func NewClient(url string, timeout int) (elasticsearch.Client, error) {
+func NewClient(address string, timeout int) (elasticsearch.Client, error) {
+
+	url, _ := url.Parse(address)
+	tr := new(http.Transport)
+
+	if url.Scheme == "https" {
+		tr = &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+	}
+	client := &http.Client{Transport: tr}
+
 	c, err := elastic.NewClient(
-		elastic.SetURL(url),
+		elastic.SetURL(address),
+		elastic.SetScheme(url.Scheme),
+		elastic.SetHttpClient(client),
 		elastic.SetRetrier(NewMyRetrier(timeout)),
 	)
 	if err != nil {

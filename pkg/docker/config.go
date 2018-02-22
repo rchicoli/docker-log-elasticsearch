@@ -41,8 +41,8 @@ func parseAddress(address string) error {
 		return err
 	}
 
-	if url.Scheme != "http" {
-		return fmt.Errorf("elasticsearch: endpoint accepts only http at the moment")
+	if url.Scheme != "http" && url.Scheme != "https" {
+		return fmt.Errorf("elasticsearch: endpoint accepts only http/https, but provided: %v", url.Scheme)
 	}
 
 	_, _, err = net.SplitHostPort(url.Host)
