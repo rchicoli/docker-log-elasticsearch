@@ -1,0 +1,6 @@
+instances:
+  - name: "elasticsearch"
+    ip:
+      - "172.31.0.2"
+    dns:
+      - "elasticsearch"

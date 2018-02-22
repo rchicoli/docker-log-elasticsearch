@@ -1,0 +1,11 @@
+---
+version: '3'
+services:
+
+  webapper:
+    logging:
+      options:
+        elasticsearch-url: 'https://172.31.0.2:9200'
+        elasticsearch-sniff: 'false'
+        elasticsearch-username: 'elastic'
+        elasticsearch-password: 'changeme'

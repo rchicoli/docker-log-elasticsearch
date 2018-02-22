@@ -1,9 +1,27 @@
 ---
 version: '3'
 services:
+
+  certool:
+    container_name: certool
+    hostname: certool
+    image: rchicoli/elasticsearch:5-alpine.ssl
+    volumes:
+      - certs:/certool:rw
+      - ../config/certool.yml:/usr/share/elasticsearch/config/x-pack/certool.yml:ro
+    command: >
+      sh -c '
+        rm -rf /certool/*
+        if ! test -d /certool/ca; then
+          ./bin/x-pack/certgen --in certool.yml --out /tmp/certificate-bundle.zip
+          unzip /tmp/certificate-bundle.zip -d /certool
+        fi
+      '
+
   elasticsearch:
     image: elasticsearch:alpine
     container_name: elasticsearch
+    hostname: elasticsearch
     ports:
       - 9200
     networks:
@@ -15,6 +33,7 @@ services:
   webapper:
     image: rchicoli/webapper
     container_name: webapper
+    hostname: webapper
     ports:
       - 8080
     depends_on:
@@ -37,3 +56,7 @@ networks:
       driver: default
       config:
       - subnet: 172.31.0.0/24
+
+volumes:
+  certs:
+    driver: local
