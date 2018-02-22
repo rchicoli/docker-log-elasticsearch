@@ -58,11 +58,11 @@ client_version:
 ifeq ($(CLIENT_VERSION),6)
     ELASTIC_VERSION=$(DOCKER_DIR)/elastic-v6.yml
 else ifeq ($(CLIENT_VERSION),5)
-	ifeq ($(TLS),true)
-    	ELASTIC_VERSION=$(DOCKER_DIR)/elastic-v5-tls.yml
-	else
-    	ELASTIC_VERSION=$(DOCKER_DIR)/elastic-v5.yml
-	endif
+ifeq ($(TLS),true)
+    ELASTIC_VERSION=$(DOCKER_DIR)/elastic-v5-tls.yml
+else
+    ELASTIC_VERSION=$(DOCKER_DIR)/elastic-v5.yml
+endif
 else ifeq ($(CLIENT_VERSION),2)
     ELASTIC_VERSION=$(DOCKER_DIR)/elastic-v2.yml
 else ifeq ($(CLIENT_VERSION),1)

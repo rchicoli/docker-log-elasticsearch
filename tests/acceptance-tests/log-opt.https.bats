@@ -6,7 +6,7 @@ function teardown(){
   _make delete_environment
 }
 
-@test "[${BATS_TEST_FILENAME##*/}] acceptance-tests (v${CLIENT_VERSION}): $BATS_TEST_NUMBER - it is possible to log to a different elasticsearch index and type" {
+@test "[${BATS_TEST_FILENAME##*/}] acceptance-tests (v${CLIENT_VERSION}): $BATS_TEST_NUMBER - https protocol is supported" {
 
   export TLS="true"
   export ELASTICSEARCH_URL="$ELASTICSEARCH_HTTPS_URL"
