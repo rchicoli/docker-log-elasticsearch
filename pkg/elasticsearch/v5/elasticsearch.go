@@ -17,7 +17,7 @@ type Elasticsearch struct {
 	indexService *elastic.IndexService
 }
 
-func NewClient(address, username, password string, timeout int) (elasticsearch.Client, error) {
+func NewClient(address, username, password string, timeout int, sniff bool) (elasticsearch.Client, error) {
 
 	url, _ := url.Parse(address)
 	tr := new(http.Transport)
@@ -34,6 +34,7 @@ func NewClient(address, username, password string, timeout int) (elasticsearch.C
 		elastic.SetScheme(url.Scheme),
 		elastic.SetBasicAuth(username, password),
 		elastic.SetHttpClient(client),
+		elastic.SetSniff(sniff),
 		elastic.SetRetrier(NewMyRetrier(timeout)),
 	)
 	if err != nil {
