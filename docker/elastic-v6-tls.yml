@@ -1,0 +1,14 @@
+---
+version: '3'
+services:
+  elasticsearch:
+    image: rchicoli/elasticsearch:6-tls
+    volumes:
+      - ../config/elasticsearch-v6.yml:/etc/elasticsearch/elasticsearch.yml:ro
+      - certs:/etc/elasticsearch/certool:ro
+    depends_on:
+      - certool
+  webapper:
+    logging:
+      options:
+        elasticsearch-version: '6'

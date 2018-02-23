@@ -56,7 +56,11 @@ push: clean build rootfs
 
 client_version:
 ifeq ($(CLIENT_VERSION),6)
+ifeq ($(TLS),true)
+    ELASTIC_VERSION=$(DOCKER_DIR)/elastic-v6-tls.yml
+else
     ELASTIC_VERSION=$(DOCKER_DIR)/elastic-v6.yml
+endif
 else ifeq ($(CLIENT_VERSION),5)
 ifeq ($(TLS),true)
     ELASTIC_VERSION=$(DOCKER_DIR)/elastic-v5-tls.yml

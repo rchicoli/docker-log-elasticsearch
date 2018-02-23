@@ -7,5 +7,5 @@ services:
       options:
         elasticsearch-url: 'https://172.31.0.2:9200'
         elasticsearch-sniff: 'false'
-        elasticsearch-username: 'elastic'
-        elasticsearch-password: 'changeme'
+        elasticsearch-username: ${ELASTICSEARCH_USERNAME:-elastic}
+        elasticsearch-password: ${ELASTICSEARCH_PASSWORD:-changeme}

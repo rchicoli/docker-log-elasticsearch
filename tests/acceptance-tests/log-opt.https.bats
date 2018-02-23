@@ -11,7 +11,14 @@ function teardown(){
   export TLS="true"
   export ELASTICSEARCH_URL="$ELASTICSEARCH_HTTPS_URL"
   export DOCKER_LOG_OPTIONS="${DOCKER_COMPOSE_DIR}/log-opt.https.yml"
-  _make create_environment
+
+  _make deploy_elasticsearch
+  if [[ ${CLIENT_VERSION} -eq 6 ]]; then
+    ${SCRIPTS_DIR}/wait-for-it.sh elasticsearch 9200 echo wait before setting up a password
+    export ELASTICSEARCH_PASSWORD="`docker exec -ti elasticsearch bash -c './bin/x-pack/setup-passwords auto --batch' | awk '/PASSWORD elastic/ {print $4}' | tr -d '[:space:]'`"
+  fi
+
+  _make deploy_webapper
 
   message="${BATS_TEST_NUMBER} log this and that"
   _post "$message"
