@@ -132,7 +132,8 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 
 	switch cfg.version {
 	case "1":
-		d.esClient, err = elasticv2.NewClient(cfg.url, cfg.timeout)
+		d.esClient, err = elasticv2.NewClient(cfg.url, cfg.username, cfg.password, cfg.timeout, cfg.sniff)
+
 		if err != nil {
 			return fmt.Errorf("elasticsearch: cannot create a client: %v", err)
 		}
