@@ -28,7 +28,7 @@ Additional information about Docker plugins [can be found here](https://docs.doc
 
 To install the plugin, run
 
-    docker plugin install rchicoli/docker-log-elasticsearch:0.1.1 --alias elasticsearch
+    docker plugin install rchicoli/docker-log-elasticsearch:0.2.1 --alias elasticsearch
 
 This command will pull and enable the plugin
 
@@ -47,13 +47,19 @@ To run a specific container with the logging driver:
 
 | Key | Default Value | Required | Examples |
 | --- | ------------- | -------- | ------- |
-| elasticsearch-url   | no     | yes | http://127.0.0.1:9200 |
+| elasticsearch-url   | no     | yes | http://127.0.0.1:9200, https://127.0.0.1:9200 |
 | elasticsearch-index | docker | no  | docker-logs |
 | elasticsearch-type  | log    | no  | docker-plugin |
 | elasticsearch-timeout | 1    | no  | 10 |
 | elasticsearch-fields | containerID,containerName,containerImageName,containerCreated | no | containerID,containerLabels,containerEnv |
+| elasticsearch-username | no | no | elastic |
+| elasticsearch-password | no | no | changeme |
+| elasticsearch-sniff | yes | no | 0, f, F, false, FALSE, False |
 | elasticsearch-version | 5 | no | 1, 2, 5, 6 |
 
+*Warning*
+
+- the `elasticsearch-password` log-opt parameter will be stored as clear text password in the container config. This will be changed in the future versions.
 
 #### Testing
 
@@ -61,7 +67,10 @@ Creating and running a container:
 
     $ docker run --rm  -ti \
         --log-driver elasticsearch \
-        --log-opt elasticsearch-url=http://127.0.0.1:9200 \
+        --log-opt elasticsearch-url=https://127.0.0.1:9200 \
+        --log-opt elasticsearch-username=elastic \
+        --log-opt elasticsearch-password=changeme \
+        --log-opt elasticsearch-sniff=false \
         --log-opt elasticsearch-index=docker \
         --log-opt elasticsearch-type=log \
         --log-opt elasticsearch-timeout=10 \
