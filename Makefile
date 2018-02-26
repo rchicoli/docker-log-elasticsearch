@@ -68,7 +68,11 @@ else
     ELASTIC_VERSION=$(DOCKER_DIR)/elastic-v5.yml
 endif
 else ifeq ($(CLIENT_VERSION),2)
+ifeq ($(TLS),true)
+    ELASTIC_VERSION=$(DOCKER_DIR)/elastic-v2-tls.yml
+else
     ELASTIC_VERSION=$(DOCKER_DIR)/elastic-v2.yml
+endif
 else ifeq ($(CLIENT_VERSION),1)
     ELASTIC_VERSION=$(DOCKER_DIR)/elastic-v1.yml
 endif

@@ -1,0 +1,12 @@
+http.host: 0.0.0.0
+transport.host: 0.0.0.0
+network.host: 0.0.0.0
+
+shield.ssl.keystore.path: /usr/share/elasticsearch/config/keystore.jks
+shield.ssl.keystore.password: password
+shield.ssl.keystore.key_password: password
+
+# shield.transport.ssl: true
+shield.http.ssl: true
+
+# ssl_certificate_verification: true
