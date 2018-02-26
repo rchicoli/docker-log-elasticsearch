@@ -3,10 +3,3 @@ version: '3'
 services:
   elasticsearch:
     image: elasticsearch:5-alpine
-    # sysctls:
-    #   - vm.max_map_count=262144
-  # webapper:
-  #   logging:
-  #     options:
-  # it is the default version of this logging
-  #       elasticsearch-version: '5'

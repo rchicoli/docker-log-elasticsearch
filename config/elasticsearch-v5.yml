@@ -1,0 +1,12 @@
+http.host: 0.0.0.0
+transport.host: 0.0.0.0
+network.host: 0.0.0.0
+
+# ssl_certificate_verification: true
+
+xpack.ssl.key:                        /usr/share/elasticsearch/config/x-pack/certool/elasticsearch/elasticsearch.key
+xpack.ssl.certificate:                /usr/share/elasticsearch/config/x-pack/certool/elasticsearch/elasticsearch.crt
+xpack.ssl.certificate_authorities: [ "/usr/share/elasticsearch/config/x-pack/certool/ca/ca.crt" ]
+
+# xpack.security.transport.ssl.enabled: true
+xpack.security.http.ssl.enabled: true

@@ -56,11 +56,23 @@ push: clean build rootfs
 
 client_version:
 ifeq ($(CLIENT_VERSION),6)
+ifeq ($(TLS),true)
+    ELASTIC_VERSION=$(DOCKER_DIR)/elastic-v6-tls.yml
+else
     ELASTIC_VERSION=$(DOCKER_DIR)/elastic-v6.yml
+endif
 else ifeq ($(CLIENT_VERSION),5)
+ifeq ($(TLS),true)
+    ELASTIC_VERSION=$(DOCKER_DIR)/elastic-v5-tls.yml
+else
     ELASTIC_VERSION=$(DOCKER_DIR)/elastic-v5.yml
+endif
 else ifeq ($(CLIENT_VERSION),2)
+ifeq ($(TLS),true)
+    ELASTIC_VERSION=$(DOCKER_DIR)/elastic-v2-tls.yml
+else
     ELASTIC_VERSION=$(DOCKER_DIR)/elastic-v2.yml
+endif
 else ifeq ($(CLIENT_VERSION),1)
     ELASTIC_VERSION=$(DOCKER_DIR)/elastic-v1.yml
 endif
@@ -90,7 +102,7 @@ stop_elasticsearch: docker_compose client_version
 	docker-compose -f "$(DOCKER_COMPOSE_FILE)" stop elasticsearch
 
 skip:
-ifeq ($(SKIP),"true")
+ifeq ($(SKIP),true)
 SKIP := :
 else
 SKIP :=
@@ -111,9 +123,16 @@ undeploy_webapper: skip
 	# create a container for logging to elasticsearch
 	$(SKIP) docker-compose -f "$(DOCKER_COMPOSE_FILE)" rm -s -f webapper
 
+deploy_nginx: docker_compose client_version deploy_elasticsearch
+	$(SCRIPTS_DIR)/wait-for-it.sh elasticsearch 9200 docker-compose -f "$(DOCKER_COMPOSE_FILE)" -f "$(ELASTIC_VERSION)" $(DOCKER_LOG_OPTIONS) up -d nginx
+
+undeploy_nginx: skip
+	# create a container for logging to elasticsearch
+	$(SKIP) docker-compose -f "$(DOCKER_COMPOSE_FILE)" rm -s -f nginx
+
 create_environment: deploy_elasticsearch deploy_webapper
 
-delete_environment: undeploy_webapper undeploy_elasticsearch
+delete_environment: undeploy_webapper undeploy_nginx undeploy_elasticsearch
 
 acceptance_tests: create_environment
 	bats $(TESTS_DIR)/acceptance-tests/$(BATS_TESTFILE)

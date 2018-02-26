@@ -1,0 +1,14 @@
+---
+version: '3'
+services:
+  elasticsearch:
+    image: rchicoli/elasticsearch:2-tls
+    volumes:
+      - ../config/elasticsearch-v2.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
+      - ../config/keystore.jks:/usr/share/elasticsearch/config/keystore.jks
+      - ../config/shield:/usr/share/elasticsearch/config/shield
+      - ../config/shield:/etc/elasticsearch/shield:rw
+  webapper:
+    logging:
+      options:
+        elasticsearch-version: '2'

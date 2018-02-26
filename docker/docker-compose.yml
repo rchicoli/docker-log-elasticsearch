@@ -1,9 +1,27 @@
 ---
 version: '3'
 services:
+
+  certool:
+    container_name: certool
+    hostname: certool
+    image: rchicoli/elasticsearch:5-alpine.ssl
+    volumes:
+      - certs:/certool:rw
+      - ../config/certool.yml:/usr/share/elasticsearch/config/x-pack/certool.yml:ro
+    command: >
+      sh -c '
+        if ! test -d /certool/ca; then
+          ./bin/x-pack/certgen --in certool.yml --out /tmp/certificate-bundle.zip
+          unzip /tmp/certificate-bundle.zip -d /certool
+        fi
+      '
+  # '
+
   elasticsearch:
     image: elasticsearch:alpine
     container_name: elasticsearch
+    hostname: elasticsearch
     ports:
       - 9200
     networks:
@@ -15,6 +33,7 @@ services:
   webapper:
     image: rchicoli/webapper
     container_name: webapper
+    hostname: webapper
     ports:
       - 8080
     depends_on:
@@ -30,6 +49,22 @@ services:
       options:
         elasticsearch-url: 'http://172.31.0.2:9200'
 
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    hostname: nginx
+    volumes:
+      - ../config/nginx/ssl:/etc/nginx/ssl
+      - ../config/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - 443
+    networks:
+      development:
+        aliases:
+          - nginx
+        ipv4_address: 172.31.0.4
+
+
 networks:
   development:
     driver: "bridge"
@@ -37,3 +72,7 @@ networks:
       driver: default
       config:
       - subnet: 172.31.0.0/24
+
+volumes:
+  certs:
+    driver: local

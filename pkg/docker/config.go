@@ -12,12 +12,15 @@ import (
 )
 
 type LogOpt struct {
-	index   string
-	tzpe    string
-	url     string
-	timeout int
-	fields  string
-	version string
+	index    string
+	tzpe     string
+	url      string
+	timeout  int
+	fields   string
+	version  string
+	username string
+	password string
+	sniff    bool
 }
 
 func defaultLogOpt() *LogOpt {
@@ -28,6 +31,7 @@ func defaultLogOpt() *LogOpt {
 		timeout: 1,
 		fields:  "containerID,containerName,containerImageName,containerCreated",
 		version: "5",
+		sniff:   true,
 	}
 }
 
@@ -41,8 +45,8 @@ func parseAddress(address string) error {
 		return err
 	}
 
-	if url.Scheme != "http" {
-		return fmt.Errorf("elasticsearch: endpoint accepts only http at the moment")
+	if url.Scheme != "http" && url.Scheme != "https" {
+		return fmt.Errorf("elasticsearch: endpoint accepts only http/https, but provided: %v", url.Scheme)
 	}
 
 	_, _, err = net.SplitHostPort(url.Host)
@@ -66,8 +70,10 @@ func (c *LogOpt) validateLogOpt(cfg map[string]string) error {
 			c.index = v
 		case "elasticsearch-type":
 			c.tzpe = v
-		// case "elasticsearch-username":
-		// case "elasticsearch-password":
+		case "elasticsearch-username":
+			c.username = v
+		case "elasticsearch-password":
+			c.password = v
 		// case "max-retry":
 		case "elasticsearch-fields":
 			for _, v := range strings.Split(v, ",") {
@@ -89,6 +95,12 @@ func (c *LogOpt) validateLogOpt(cfg map[string]string) error {
 				}
 			}
 			c.fields = v
+		case "elasticsearch-sniff":
+			s, err := strconv.ParseBool(v)
+			if err != nil {
+				return errors.Wrapf(err, "error: elasticsearch-sniff: %q", err)
+			}
+			c.sniff = s
 		case "elasticsearch-version":
 			switch v {
 			case "1", "2", "5", "6":

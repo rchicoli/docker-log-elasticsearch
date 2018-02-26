@@ -21,6 +21,14 @@ DOCKER_COMPOSE_FILE="${DOCKER_COMPOSE_DIR}/docker-compose.yml"
 ELASTICSEARCH_HTTP_URL="http://${ELASTICSEARCH_IP}:${ELASTICSEARCH_PORT}"
 ELASTICSEARCH_HTTPS_URL="https://${ELASTICSEARCH_IP}:${ELASTICSEARCH_PORT}"
 
+ELASTICSEARCH_URL="$ELASTICSEARCH_HTTP_URL"
+if [[ "$TLS" == "true" ]]; then
+  ELASTICSEARCH_URL="$ELASTICSEARCH_HTTPS_URL"
+fi
+
+ELASTICSEARCH_USERNAME="${ELASTICSEARCH_USERNAME:-elastic}"
+ELASTICSEARCH_PASSWORD="${ELASTICSEARCH_PASSWORD:-changeme}"
+
 MAKEFILE="${BASE_DIR}/Makefile"
 
 function _post() {
@@ -31,12 +39,12 @@ function _post() {
 
 function _search() {
     local message="$1"
-    curl -G -s ${ELASTICSEARCH_HTTP_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search\?pretty=true\&size=1 --data-urlencode "q=message:\"${message}\""
+    curl -G -s -k -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" ${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search\?pretty=true\&size=1 --data-urlencode "q=message:\"${message}\""
 }
 
 function _fields() {
     local message="$1"
-    curl -G -s ${ELASTICSEARCH_HTTP_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search\?pretty=true\&size=1 --data-urlencode "q=message:\"${message}\"" | jq '.hits.hits[0]._source' | jq -r 'keys[]'
+    curl -G -s -k -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" ${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search\?pretty=true\&size=1 --data-urlencode "q=message:\"${message}\"" | jq '.hits.hits[0]._source' | jq -r 'keys[]'
 }
 
 # make wrapper
