@@ -1,0 +1,7 @@
+---
+version: '3'
+services:
+  webapper:
+    logging:
+      options:
+        elasticsearch-fields: ''
