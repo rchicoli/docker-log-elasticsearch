@@ -15,6 +15,8 @@ function teardown(){
   message="${BATS_TEST_NUMBER}:héllö-yöü ❤ ☀ ☆ ☂ ☻ ♞ ☯ ☭ ☢ €"
   _post "$message"
 
+  sleep 2
+
   run _search "$message"
   [[ "$status" -eq 0 ]]
   [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.message')" == *"$message"* ]]

@@ -12,21 +12,25 @@ before_install:
 
 script:
   - sudo make -v
-  - sudo make
-  - sudo make integration_tests
-  - sudo make acceptance_tests
+  - ./scripts/ci.sh
+
+stages:
+  - build
+  - release
 
 matrix:
   include:
-    - os: linux
+    - stage: build
       env: CLIENT_VERSION=1
-    - os: linux
-      env: CLIENT_VERSION=2
-    - os: linux
-      env: CLIENT_VERSION=5
-    - os: linux
-      env: CLIENT_VERSION=6
+    - env: CLIENT_VERSION=2
+    - env: CLIENT_VERSION=5
+    - env: CLIENT_VERSION=6
+    - stage: release
+      branch:
+        only:
+          - master
+      script:
+        - ./scripts/git-release.sh
 
 after_install:
   - docker plugin ls
-  # TODO: add tag and publish docker plugin, if merged to master
