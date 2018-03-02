@@ -12,11 +12,14 @@ before_install:
 
 script:
   - sudo make -v
-  - ./scripts/ci.sh
+  - sudo make || exit 1
+  - sudo make integration_tests || exit 1
+  - sudo make acceptance_tests || exit 1
 
 stages:
   - build
-  - release
+  - name: release
+    if: branch = master
 
 matrix:
   include:
@@ -26,9 +29,6 @@ matrix:
     - env: CLIENT_VERSION=5
     - env: CLIENT_VERSION=6
     - stage: release
-      branch:
-        only:
-          - master
       script:
         - ./scripts/git-release.sh
 
