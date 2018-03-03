@@ -26,16 +26,25 @@ matrix:
     - stage: build
       if: type IN (pull_request)
       env: CLIENT_VERSION=1
+
     - env: CLIENT_VERSION=2
       if: type IN (pull_request)
+
     - env: CLIENT_VERSION=5
       if: type IN (pull_request)
+
     - env: CLIENT_VERSION=6
       if: type IN (pull_request)
+
     - stage: release
       if: type IN (push)
       script:
         - ./scripts/git-release.sh
+      deploy:
+        provider: releases
+        api_key: $GITHUB_TOKEN
+        on:
+          branch: master
 
 after_install:
   - docker plugin ls
