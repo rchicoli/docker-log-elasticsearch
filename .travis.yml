@@ -11,7 +11,10 @@ before_install:
   - docker version
 
 cache:
-  - /var/lib/docker/plugins
+  directories:
+    - ${TRAVIS_BUILD_DIR}/vendor/github.com
+    - ${TRAVIS_BUILD_DIR}/vendor/golang.org
+    - ${TRAVIS_BUILD_DIR}/vendor/gopkg.in
 
 script:
   - sudo make integration_tests || exit 1
@@ -30,10 +33,8 @@ matrix:
     - stage: build
       if: type IN (pull_request)
       script:
-        - whoami
-        - df -h
-        - ls -lR /var/lib/docker
-        - sudo make
+        - govendor sync +external
+        - make
 
     - stage: test
       if: type IN (pull_request)
