@@ -15,7 +15,7 @@ function teardown(){
   message="${BATS_TEST_NUMBER}:héllö-yöü ❤ ☀ ☆ ☂ ☻ ♞ ☯ ☭ ☢ €"
   _post "$message"
 
-  sleep 2
+  sleep 5
 
   run _search "$message"
   [[ "$status" -eq 0 ]]
