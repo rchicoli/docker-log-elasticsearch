@@ -30,7 +30,7 @@ function teardown(){
 
 }
 
-@test "[${BATS_TEST_FILENAME##*/}] acceptance-tests (v${CLIENT_VERSION}): $BATS_TEST_NUMBER - https protocol can be proxied" {
+@test "[${BATS_TEST_FILENAME##*/}] acceptance-tests (v${CLIENT_VERSION}): $BATS_TEST_NUMBER - https protocol works through the proxy" {
 
   _make deploy_elasticsearch
   if [[ ${CLIENT_VERSION} -eq 6 ]]; then
@@ -45,6 +45,9 @@ function teardown(){
 
   message="${BATS_TEST_NUMBER} log this and that"
   _post "$message"
+
+  # no idea why travis fails time to time, so we sleep
+  sleep 1
 
   run _search "$message"
   [[ "$status" -eq 0 ]]
