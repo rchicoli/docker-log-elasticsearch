@@ -14,11 +14,7 @@ NEW_TAG="$(awk -F. '{printf "%d.%d.%d", $1, $2, $3+1}' <(echo "$LAST_TAG"))"
 export PLUGIN_TAG="$NEW_TAG"
 make
 
-docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"
+docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD" &>/dev/null
 make push
 
-git tag -a "$NEW_TAG" -m "new release"
-
-# publish new tag
-# TODO: fix authentication
-# git push -u origin "$NEW_TAG"
+# git tag -a "$NEW_TAG" -m "new release"
