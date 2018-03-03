@@ -14,7 +14,6 @@ NEW_TAG="$(awk -F. '{printf "%d.%d.%d", $1, $2, $3+1}' <(echo "$LAST_TAG"))"
 git tag -a "$NEW_TAG" -m "new release"
 
 export PLUGIN_TAG="$NEW_TAG"
-
 make
 
 docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"
