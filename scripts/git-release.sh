@@ -16,9 +16,9 @@ git tag -a "$NEW_TAG" -m "new release"
 export PLUGIN_TAG="$NEW_TAG"
 
 make
+
+docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"
 make push
-make integration_tests
-make acceptance_tests
 
 # publish new tag
 git push -u origin "$NEW_TAG"
