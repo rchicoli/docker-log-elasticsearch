@@ -11,13 +11,13 @@ before_install:
   - docker version
 
 script:
-  - sudo make -v
   - sudo make || exit 1
   - sudo make integration_tests || exit 1
   - sudo make acceptance_tests || exit 1
 
 stages:
-  - build
+  - name: build
+    if: branch = development
   - name: release
     if: branch = master
 
@@ -29,6 +29,7 @@ matrix:
     - env: CLIENT_VERSION=5
     - env: CLIENT_VERSION=6
     - stage: release
+      if: type IN (push)
       script:
         - ./scripts/git-release.sh
 
