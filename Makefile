@@ -50,7 +50,7 @@ enable:
 	@echo ""
 	docker plugin enable $(PLUGIN_NAME):$(PLUGIN_TAG)
 
-push: clean build rootfs
+push:
 	@echo ""
 	docker plugin push $(PLUGIN_NAME):$(PLUGIN_TAG)
 
