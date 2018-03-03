@@ -51,7 +51,7 @@ To run a specific container with the logging driver:
 | elasticsearch-index | docker | no  | docker-logs |
 | elasticsearch-type  | log    | no  | docker-plugin |
 | elasticsearch-timeout | 1    | no  | 10 |
-| elasticsearch-fields | containerID,containerName,containerImageName,containerCreated | no | containerID,containerLabels,containerEnv |
+| elasticsearch-fields | containerID,containerName,containerImageName,containerCreated | no | containerID,containerLabels,containerEnv or none |
 | elasticsearch-username | no | no | elastic |
 | elasticsearch-password | no | no | changeme |
 | elasticsearch-sniff | yes | no | 0, f, F, false, FALSE, False |

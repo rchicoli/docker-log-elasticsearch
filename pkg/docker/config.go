@@ -90,6 +90,7 @@ func (c *LogOpt) validateLogOpt(cfg map[string]string) error {
 				case "containerLabels":
 				// case "logPath":
 				case "daemonName":
+				case "none", "null", "":
 				default:
 					return fmt.Errorf("elasticsearch-fields: invalid parameter %s", v)
 				}
@@ -156,7 +157,6 @@ func getLostashFields(fields string, info logger.Info) LogMessage {
 		default:
 		}
 	}
-	// TODO: omityempty does not work for type time
-	l.ContainerCreated = info.ContainerCreated
+
 	return l
 }

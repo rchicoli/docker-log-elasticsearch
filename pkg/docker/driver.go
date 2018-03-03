@@ -79,7 +79,7 @@ func (l LogMessage) MarshalJSON() ([]byte, error) {
 			ContainerArgs:       l.ContainerArgs,
 			ContainerImageID:    l.ContainerImageID,
 			ContainerImageName:  l.ContainerImageName,
-			ContainerCreated:    &l.ContainerCreated,
+			ContainerCreated:    l.timeOmityEmpty(),
 			ContainerEnv:        l.ContainerEnv,
 			ContainerLabels:     l.ContainerLabels,
 			LogPath:             l.LogPath,
@@ -91,6 +91,13 @@ func (l LogMessage) MarshalJSON() ([]byte, error) {
 			Partial:  l.Partial,
 		})
 
+}
+
+func (l LogMessage) timeOmityEmpty() *time.Time {
+	if l.ContainerCreated.IsZero() {
+		return nil
+	}
+	return &l.ContainerCreated
 }
 
 func NewDriver() *Driver {
@@ -133,7 +140,6 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 	switch cfg.version {
 	case "1":
 		d.esClient, err = elasticv2.NewClient(cfg.url, cfg.username, cfg.password, cfg.timeout, cfg.sniff)
-
 		if err != nil {
 			return fmt.Errorf("elasticsearch: cannot create a client: %v", err)
 		}
