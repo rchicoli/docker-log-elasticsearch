@@ -30,7 +30,7 @@ function teardown(){
 
 }
 
-@test "[${BATS_TEST_FILENAME##*/}] acceptance-tests (v${CLIENT_VERSION}): $BATS_TEST_NUMBER - https protocol can be proxied" {
+@test "[${BATS_TEST_FILENAME##*/}] acceptance-tests (v${CLIENT_VERSION}): $BATS_TEST_NUMBER - https protocol works through the proxy" {
 
   _make deploy_elasticsearch
   if [[ ${CLIENT_VERSION} -eq 6 ]]; then

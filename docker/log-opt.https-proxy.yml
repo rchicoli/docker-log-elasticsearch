@@ -9,3 +9,4 @@ services:
         elasticsearch-sniff: 'false'
         elasticsearch-username: ${ELASTICSEARCH_USERNAME:-elastic}
         elasticsearch-password: ${ELASTICSEARCH_PASSWORD:-changeme}
+        elasticsearch-insecure: 'true'
