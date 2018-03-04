@@ -48,6 +48,7 @@ To run a specific container with the logging driver:
 | Key | Default Value | Required | Examples |
 | --- | ------------- | -------- | ------- |
 | elasticsearch-url   | no     | yes | http://127.0.0.1:9200, https://127.0.0.1:9200 |
+| elasticsearch-insecure | no | no | 0, f, F, false, FALSE, False |
 | elasticsearch-index | docker | no  | docker-logs |
 | elasticsearch-type  | log    | no  | docker-plugin |
 | elasticsearch-timeout | 1    | no  | 10 |
@@ -68,6 +69,7 @@ Creating and running a container:
     $ docker run --rm  -ti \
         --log-driver elasticsearch \
         --log-opt elasticsearch-url=https://127.0.0.1:9200 \
+        --log-opt elasticsearch-insecure=false \
         --log-opt elasticsearch-username=elastic \
         --log-opt elasticsearch-password=changeme \
         --log-opt elasticsearch-sniff=false \
