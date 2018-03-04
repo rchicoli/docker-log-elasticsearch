@@ -21,17 +21,19 @@ type LogOpt struct {
 	username string
 	password string
 	sniff    bool
+	insecure bool
 }
 
 func defaultLogOpt() *LogOpt {
 	return &LogOpt{
 		// TODO: update index name to docker-YYYY.MM.dd
-		index:   "docker",
-		tzpe:    "log",
-		timeout: 1,
-		fields:  "containerID,containerName,containerImageName,containerCreated",
-		version: "5",
-		sniff:   true,
+		index:    "docker",
+		tzpe:     "log",
+		timeout:  1,
+		fields:   "containerID,containerName,containerImageName,containerCreated",
+		version:  "5",
+		sniff:    true,
+		insecure: false,
 	}
 }
 
@@ -102,6 +104,12 @@ func (c *LogOpt) validateLogOpt(cfg map[string]string) error {
 				return errors.Wrapf(err, "error: elasticsearch-sniff: %q", err)
 			}
 			c.sniff = s
+		case "elasticsearch-insecure":
+			s, err := strconv.ParseBool(v)
+			if err != nil {
+				return errors.Wrapf(err, "error: elasticsearch-insecure: %q", err)
+			}
+			c.insecure = s
 		case "elasticsearch-version":
 			switch v {
 			case "1", "2", "5", "6":
