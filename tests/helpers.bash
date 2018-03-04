@@ -34,7 +34,8 @@ MAKEFILE="${BASE_DIR}/Makefile"
 function _post() {
   local id="$1"
   curl -XPOST -H "Content-Type: application/json" -d "{\"message\":\"$1\"}" "http://${WEBAPPER_IP}:${WEBAPPER_PORT}/log" &>/dev/null
-  sleep 2
+  # wait 5 seconds until the message can be processed, just in case if there is a system load
+  sleep 5
 }
 
 function _search() {
