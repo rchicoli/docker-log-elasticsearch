@@ -42,6 +42,7 @@ plugin:
 
 	@echo
 	docker plugin create $(PLUGIN_NAME):$(PLUGIN_TAG) ${BASE_DIR}/plugin
+	docker plugin create $(PLUGIN_NAME):latest ${BASE_DIR}/plugin
 
 install:
 	docker plugin install $(PLUGIN_NAME):$(PLUGIN_TAG) --alias elasticsearch
@@ -53,6 +54,7 @@ enable:
 push:
 	@echo ""
 	docker plugin push $(PLUGIN_NAME):$(PLUGIN_TAG)
+	docker plugin push $(PLUGIN_NAME):latest
 
 client_version:
 ifeq ($(CLIENT_VERSION),6)
