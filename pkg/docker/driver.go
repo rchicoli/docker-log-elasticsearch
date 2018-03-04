@@ -32,13 +32,13 @@ const (
 
 type Driver struct {
 	mu     sync.Mutex
-	logs   map[string]*logPair
+	logs   map[string]*container
 	logger logger.Logger
 
 	esClient elasticsearch.Client
 }
 
-type logPair struct {
+type container struct {
 	stream io.ReadCloser
 	info   logger.Info
 }
@@ -103,7 +103,7 @@ func (l LogMessage) timeOmityEmpty() *time.Time {
 func NewDriver() *Driver {
 
 	return &Driver{
-		logs: make(map[string]*logPair),
+		logs: make(map[string]*container),
 	}
 }
 
@@ -124,11 +124,11 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 	}
 
 	d.mu.Lock()
-	lf := &logPair{
+	c := &container{
 		stream: f,
 		info:   info,
 	}
-	d.logs[file] = lf
+	d.logs[file] = c
 	d.mu.Unlock()
 
 	cfg := defaultLogOpt()
@@ -139,49 +139,49 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 
 	switch cfg.version {
 	case "1":
-		d.esClient, err = elasticv2.NewClient(cfg.url, cfg.username, cfg.password, cfg.timeout, cfg.sniff)
+		d.esClient, err = elasticv2.NewClient(cfg.url, cfg.username, cfg.password, cfg.timeout, cfg.sniff, cfg.insecure)
 		if err != nil {
 			return fmt.Errorf("elasticsearch: cannot create a client: %v", err)
 		}
 	case "2":
-		d.esClient, err = elasticv3.NewClient(cfg.url, cfg.username, cfg.password, cfg.timeout, cfg.sniff)
+		d.esClient, err = elasticv3.NewClient(cfg.url, cfg.username, cfg.password, cfg.timeout, cfg.sniff, cfg.insecure)
 		if err != nil {
 			return fmt.Errorf("elasticsearch: cannot create a client: %v", err)
 		}
 	case "5":
-		d.esClient, err = elasticv5.NewClient(cfg.url, cfg.username, cfg.password, cfg.timeout, cfg.sniff)
+		d.esClient, err = elasticv5.NewClient(cfg.url, cfg.username, cfg.password, cfg.timeout, cfg.sniff, cfg.insecure)
 		if err != nil {
 			return fmt.Errorf("elasticsearch: cannot create a client: %v", err)
 		}
 	case "6":
-		d.esClient, err = elasticv6.NewClient(cfg.url, cfg.username, cfg.password, cfg.timeout, cfg.sniff)
+		d.esClient, err = elasticv6.NewClient(cfg.url, cfg.username, cfg.password, cfg.timeout, cfg.sniff, cfg.insecure)
 		if err != nil {
 			return fmt.Errorf("elasticsearch: cannot create a client: %v", err)
 		}
 	}
 
-	go d.consumeLog(ctx, cfg.tzpe, cfg.index, lf, cfg.fields)
+	go d.consumeLog(ctx, cfg.tzpe, cfg.index, c, cfg.fields)
 	return nil
 }
 
-func (d *Driver) consumeLog(ctx context.Context, esType, esIndex string, lf *logPair, fields string) {
+func (d *Driver) consumeLog(ctx context.Context, esType, esIndex string, c *container, fields string) {
 
-	dec := protoio.NewUint32DelimitedReader(lf.stream, binary.BigEndian, 1e6)
+	dec := protoio.NewUint32DelimitedReader(c.stream, binary.BigEndian, 1e6)
 	defer dec.Close()
 
 	// var msg LogMessage
 	// custom log message fields
-	msg := getLostashFields(fields, lf.info)
+	msg := getLostashFields(fields, c.info)
 
 	var buf logdriver.LogEntry
 	for {
 		if err := dec.ReadMsg(&buf); err != nil {
 			if err == io.EOF {
-				logrus.WithField("id", lf.info.ContainerID).WithError(err).Debug("shutting down log logger")
-				lf.stream.Close()
+				logrus.WithField("id", c.info.ContainerID).WithError(err).Debug("shutting down log logger")
+				c.stream.Close()
 				return
 			}
-			dec = protoio.NewUint32DelimitedReader(lf.stream, binary.BigEndian, 1e6)
+			dec = protoio.NewUint32DelimitedReader(c.stream, binary.BigEndian, 1e6)
 		}
 
 		// create message
@@ -191,7 +191,7 @@ func (d *Driver) consumeLog(ctx context.Context, esType, esIndex string, lf *log
 		msg.TimeNano = buf.TimeNano
 
 		if err := d.esClient.Log(ctx, esIndex, esType, msg); err != nil {
-			logrus.WithField("id", lf.info.ContainerID).
+			logrus.WithField("id", c.info.ContainerID).
 				WithError(err).
 				WithField("message", msg).
 				WithField("line", string(msg.Line)).
@@ -206,17 +206,16 @@ func (d *Driver) consumeLog(ctx context.Context, esType, esIndex string, lf *log
 func (d *Driver) StopLogging(file string) error {
 	logrus.WithField("file", file).Debugf("Stop logging")
 	d.mu.Lock()
-	lf, ok := d.logs[file]
+	c, ok := d.logs[file]
 	if ok {
-		lf.stream.Close()
+		c.stream.Close()
 		delete(d.logs, file)
 	}
 	d.mu.Unlock()
 
-	// TODO: fix this
-	// if d.esClient != nil {
-	// 	d.esClient.Client.Stop()
-	// }
+	if d.esClient != nil {
+		d.esClient.Stop()
+	}
 
 	return nil
 }
