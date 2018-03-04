@@ -17,14 +17,14 @@ type Elasticsearch struct {
 	indexService *elastic.IndexService
 }
 
-func NewClient(address, username, password string, timeout int, sniff bool) (elasticsearch.Client, error) {
+func NewClient(address, username, password string, timeout int, sniff bool, insecure bool) (elasticsearch.Client, error) {
 
 	url, _ := url.Parse(address)
 	tr := new(http.Transport)
 
 	if url.Scheme == "https" {
 		tr = &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: insecure},
 		}
 	}
 	client := &http.Client{Transport: tr}
