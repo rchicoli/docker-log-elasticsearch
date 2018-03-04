@@ -2,87 +2,131 @@
 
 `docker-log-elasticsearch` forwards container logs to Elasticsearch service.
 
-This application is under active development and will continue to be modified and improved over time. The current release is an "alpha." (see [Roadmap](ROADMAP.md)).
+This application is under active development and will continue to be modified and improved over time. The current release is an *alpha*." (see [Roadmap](ROADMAP.md)).
 
 ## Releases
 
 | Branch Name | Docker Tag | Elasticsearch Version | Remark |
 | ----------- | ---------- | --------------------- | ------ |
 | master      | 1.0.x      | 1.x, 2.x, 5.x, 6.x    | Future stable release. |
-| alpha       | 0.0.1, 0.2.1   | 1.x, 2.x, 5.x, 6.x   | Actively alpha release. |
-
-```
-release-0.1.1
-        | | |_ bug fixes
-        | |___ new features
-        |_____ release version
-```
+| development | 0.0.1, 0.2.1   | 1.x, 2.x, 5.x, 6.x   | Actively alpha release. |
 
 ## Getting Started
 
-You need to install Docker Engine >= 1.12 and Elasticsearch application
+You need to install Docker Engine >= 1.12 and Elasticsearch application. Additional information about Docker plugins [can be found here](https://docs.docker.com/engine/extend/plugins_logging/).
 
-Additional information about Docker plugins [can be found here](https://docs.docker.com/engine/extend/plugins_logging/).
+### How to install
 
-### Installing
+The following command will download and enable the plugin.
 
-To install the plugin, run
+```bash
+docker plugin install rchicoli/docker-log-elasticsearch:latest --alias elasticsearch
+```
 
-    docker plugin install rchicoli/docker-log-elasticsearch:0.2.1 --alias elasticsearch
+### How to use
 
-This command will pull and enable the plugin
+#### Prerequisites
 
-### Using
+Before creating a docker container, a healthy instance of Elasticsearch service must be running.
 
-First of all, a healthy instance of Elasticsearch service must be running.
+##### Options #####
 
-#### Note
+| Key | Default Value | Required |
+| --- | ------------- | -------- |
+| elasticsearch-fields | containerID,containerName,containerImageName,containerCreated | no |
+| elasticsearch-index | docker | no  |
+| elasticsearch-insecure | false | no |
+| elasticsearch-password | no | no |  |
+| elasticsearch-sniff | yes | no | |
+| elasticsearch-timeout | 1    | no  |
+| elasticsearch-type  | log    | no  |
+| elasticsearch-username | no | no |  |
+| elasticsearch-url   | no     | yes |
+| elasticsearch-version | 5 | no |
 
-To run a specific container with the logging driver:
+###### elasticsearch-url ######
 
-    Use the --log-driver flag to specify the plugin.
-    Use the --log-opt flag to specify the URL for the HTTP connection and further options.
+  - *url* to connect to the Elasticsearch cluster.
+  - examples:
+    - http://127.0.0.1:9200
+    - https://127.0.0.1:443
 
-**Options**
+###### elasticsearch-insecure ######
+  - *insecure* controls whether a client verifies the server's certificate chain and host name. If *insecure* is true, TLS accepts any certificate presented by the server and any host name in that certificate. In this mode, TLS is susceptible to man-in-the-middle attacks.
+  - examples:
+    - 0
+    - false
 
-| Key | Default Value | Required | Examples |
-| --- | ------------- | -------- | ------- |
-| elasticsearch-url   | no     | yes | http://127.0.0.1:9200, https://127.0.0.1:9200 |
-| elasticsearch-insecure | no | no | 0, f, F, false, FALSE, False |
-| elasticsearch-index | docker | no  | docker-logs |
-| elasticsearch-type  | log    | no  | docker-plugin |
-| elasticsearch-timeout | 1    | no  | 10 |
-| elasticsearch-fields | containerID,containerName,containerImageName,containerCreated | no | containerID,containerLabels,containerEnv or none |
-| elasticsearch-username | no | no | elastic |
-| elasticsearch-password | no | no | changeme |
-| elasticsearch-sniff | yes | no | 0, f, F, false, FALSE, False |
-| elasticsearch-version | 5 | no | 1, 2, 5, 6 |
+######  elasticsearch-index ######
+  - *index* to write log messages to
+  - examples:
+    - docker
+    - logging
 
-*Warning*
+###### elasticsearch-username ######
+  - *username* to authenticate to a secure Elasticsearch cluster
+  - example:
+    - elastic
 
-- the `elasticsearch-password` log-opt parameter will be stored as clear text password in the container config. This will be changed in the future versions.
+###### elasticsearch-password ######
+  - *password* to authenticate to a secure Elasticsearch cluster
+  - *WARNING*: the password will be stored as clear text password in the container config. This will be changed in the future versions.
+  - example:
+    - changeme
 
-#### Testing
+###### elasticsearch-type ######
+  - *type* to write log messages to
+  - example:
+    - log
+
+###### elasticsearch-timeout ######
+  - *timeout* maximum time in seconds that a connection is allowed to take
+  - example:
+    - 10
+
+###### elasticsearch-fields ######
+  - *fields* to log to Elasticsearch Cluster
+  - examples:
+    - containerID,containerLabels,containerEnv
+    - none
+
+###### elasticsearch-sniff ######
+
+  - *sniff* uses the Node Info API to return the list of nodes in the cluster. It uses the list of URLs passed on startup plus the list of URLs found
+ by the preceding sniffing process.
+  - examples:
+    - 0
+    - false
+
+###### elasticsearch-version ######
+  - *version* of Elasticsearch cluster
+  - examples:
+    -  1
+    -  2
+    -  5
+    -  6
+
+### How to test ###
 
 Creating and running a container:
 
-    $ docker run --rm  -ti \
-        --log-driver elasticsearch \
-        --log-opt elasticsearch-url=https://127.0.0.1:9200 \
-        --log-opt elasticsearch-insecure=false \
-        --log-opt elasticsearch-username=elastic \
-        --log-opt elasticsearch-password=changeme \
-        --log-opt elasticsearch-sniff=false \
-        --log-opt elasticsearch-index=docker \
-        --log-opt elasticsearch-type=log \
-        --log-opt elasticsearch-timeout=10 \
-        --log-opt elasticsearch-version=5 \
-        --log-opt elasticsearch-fields=containerID,containerName,containerImageID,containerImageName,containerCreated \
-            alpine echo this is a test logging message
+```bash
+$ docker run --rm -ti \
+    --log-driver elasticsearch \
+    --log-opt elasticsearch-url=https://127.0.0.1:9200 \
+    --log-opt elasticsearch-insecure=false \
+    --log-opt elasticsearch-username=elastic \
+    --log-opt elasticsearch-password=changeme \
+    --log-opt elasticsearch-sniff=false \
+    --log-opt elasticsearch-index=docker \
+    --log-opt elasticsearch-type=log \
+    --log-opt elasticsearch-timeout=10 \
+    --log-opt elasticsearch-version=5 \
+    --log-opt elasticsearch-fields=containerID,containerName,containerImageID,containerImageName,containerCreated \
+        alpine echo this is a test logging message
+```
 
-## Output Format
-
-Query elasticsearch:
+Search in Elasticsearch for the log message:
 
 ```bash
     $ curl 127.0.0.1:9200/docker/log/_search\?pretty=true
@@ -105,6 +149,8 @@ Query elasticsearch:
         }
       }
 ```
+
+### Description of fields
 
 **Static Fields** are always present
 
