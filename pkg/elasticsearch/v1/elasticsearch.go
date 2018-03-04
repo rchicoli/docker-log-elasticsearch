@@ -53,3 +53,10 @@ func (e *Elasticsearch) Log(ctx context.Context, index, tzpe string, msg interfa
 	}
 	return nil
 }
+
+// Stop stops the background processes that the client is running,
+// i.e. sniffing the cluster periodically and running health checks
+// on the nodes.
+func (e *Elasticsearch) Stop() {
+	e.Client.Stop()
+}
