@@ -47,64 +47,46 @@ Before creating a docker container, a healthy instance of Elasticsearch service 
 ###### elasticsearch-url ######
 
   - *url* to connect to the Elasticsearch cluster.
-  - examples:
-    - http://127.0.0.1:9200
-    - https://127.0.0.1:443
+  - *examples*: http://127.0.0.1:9200, https://127.0.0.1:443
 
 ###### elasticsearch-insecure ######
   - *insecure* controls whether a client verifies the server's certificate chain and host name. If *insecure* is true, TLS accepts any certificate presented by the server and any host name in that certificate. In this mode, TLS is susceptible to man-in-the-middle attacks.
-  - examples:
-    - 0
-    - false
+  - *examples*: 1, t, T, TRUE, true, True, 0, f, F, FALSE, false, False
 
 ######  elasticsearch-index ######
   - *index* to write log messages to
-  - examples:
-    - docker
-    - logging
+  - *examples*: docker, logging
 
 ###### elasticsearch-username ######
   - *username* to authenticate to a secure Elasticsearch cluster
-  - example:
-    - elastic
+  - *example*: elastic
 
 ###### elasticsearch-password ######
   - *password* to authenticate to a secure Elasticsearch cluster
   - *WARNING*: the password will be stored as clear text password in the container config. This will be changed in the future versions.
-  - example:
-    - changeme
+  - *examples*: changeme
 
 ###### elasticsearch-type ######
   - *type* to write log messages to
-  - example:
-    - log
+  - *example*: log
 
 ###### elasticsearch-timeout ######
   - *timeout* maximum time in seconds that a connection is allowed to take
-  - example:
-    - 10
+  - *example*: 10
 
 ###### elasticsearch-fields ######
   - *fields* to log to Elasticsearch Cluster
-  - examples:
-    - containerID,containerLabels,containerEnv
-    - none
+  - *examples*: containerID,containerLabels,containerEnv or none
 
 ###### elasticsearch-sniff ######
 
   - *sniff* uses the Node Info API to return the list of nodes in the cluster. It uses the list of URLs passed on startup plus the list of URLs found
  by the preceding sniffing process.
-  - examples:
-    - 0
-    - false
+  - *examples*: 1, t, T, TRUE, true, True, 0, f, F, FALSE, false, False
 
 ###### elasticsearch-version ######
   - *version* of Elasticsearch cluster
-  - examples:
-    -  1
-    -  2
-    -  5
-    -  6
+  - *examples*: 1, 2, 5, 6
 
 ### How to test ###
 
