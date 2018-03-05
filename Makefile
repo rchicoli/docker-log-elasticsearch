@@ -39,6 +39,7 @@ rootfs:
 plugin:
 	@echo ""
 	docker plugin rm -f $(PLUGIN_NAME):$(PLUGIN_TAG) || true
+	docker plugin rm -f $(PLUGIN_NAME):latest || true
 
 	@echo
 	docker plugin create $(PLUGIN_NAME):$(PLUGIN_TAG) ${BASE_DIR}/plugin
