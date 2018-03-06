@@ -16,8 +16,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/tonistiigi/fifo"
+	"github.com/vjeantet/grok"
 
+	"github.com/rchicoli/cfssl/log"
 	"github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch"
+
 	elasticv2 "github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch/v1"
 	elasticv3 "github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch/v2"
 	elasticv5 "github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch/v5"
@@ -36,6 +39,8 @@ type Driver struct {
 	logger logger.Logger
 
 	esClient elasticsearch.Client
+
+	groker *grok.Grok
 }
 
 type container struct {
@@ -46,6 +51,8 @@ type container struct {
 type LogMessage struct {
 	logdriver.LogEntry
 	logger.Info
+
+	GrokLine map[string]string
 }
 
 func (l LogMessage) MarshalJSON() ([]byte, error) {
@@ -67,10 +74,12 @@ func (l LogMessage) MarshalJSON() ([]byte, error) {
 			DaemonName          string            `json:"daemonName,omitempty"`
 
 			//  api/types/plugin/logdriver/LogEntry
-			Line     string    `json:"message"` // []byte to string
+			Line     string    `json:"message,omitempty"` // []byte to string
 			Source   string    `json:"source"`
 			TimeNano time.Time `json:"timestamp"` // int64 to Time
 			Partial  bool      `json:"partial"`
+
+			GrokLine map[string]string `json:"grok,omitempty"`
 		}{
 			Config:              l.Config,
 			ContainerID:         l.ContainerID,
@@ -84,6 +93,8 @@ func (l LogMessage) MarshalJSON() ([]byte, error) {
 			ContainerLabels:     l.ContainerLabels,
 			LogPath:             l.LogPath,
 			DaemonName:          l.DaemonName,
+
+			GrokLine: l.GrokLine,
 
 			Line:     strings.TrimSpace(string(l.Line)),
 			Source:   l.Source,
@@ -160,22 +171,27 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 		}
 	}
 
-	go d.consumeLog(ctx, cfg.tzpe, cfg.index, c, cfg.fields)
+	if cfg.grokPattern != "" {
+		d.groker, _ = grok.NewWithConfig(&grok.Config{})
+	}
+
+	go d.consumeLog(ctx, cfg.tzpe, cfg.index, c, cfg.fields, cfg.grokPattern)
 	return nil
 }
 
-func (d *Driver) consumeLog(ctx context.Context, esType, esIndex string, c *container, fields string) {
+func (d *Driver) consumeLog(ctx context.Context, esType, esIndex string, c *container, fields, grokPattern string) {
 
 	dec := protoio.NewUint32DelimitedReader(c.stream, binary.BigEndian, 1e6)
 	defer dec.Close()
 
-	// var msg LogMessage
 	// custom log message fields
 	msg := getLostashFields(fields, c.info)
 
 	var buf logdriver.LogEntry
+	var err error
+
 	for {
-		if err := dec.ReadMsg(&buf); err != nil {
+		if err = dec.ReadMsg(&buf); err != nil {
 			if err == io.EOF {
 				logrus.WithField("id", c.info.ContainerID).WithError(err).Debug("shutting down log logger")
 				c.stream.Close()
@@ -187,10 +203,13 @@ func (d *Driver) consumeLog(ctx context.Context, esType, esIndex string, c *cont
 		// create message
 		msg.Source = buf.Source
 		msg.Partial = buf.Partial
-		msg.Line = buf.Line
+		msg.GrokLine, msg.Line, err = d.parseLine(grokPattern, buf.Line)
+		if err != nil {
+			log.Errorf("elasticsearch: grok failed to parse line: %v", err)
+		}
 		msg.TimeNano = buf.TimeNano
 
-		if err := d.esClient.Log(ctx, esIndex, esType, msg); err != nil {
+		if err = d.esClient.Log(ctx, esIndex, esType, msg); err != nil {
 			logrus.WithField("id", c.info.ContainerID).
 				WithError(err).
 				WithField("message", msg).
@@ -201,6 +220,33 @@ func (d *Driver) consumeLog(ctx context.Context, esType, esIndex string, c *cont
 
 		buf.Reset()
 	}
+}
+
+func (d *Driver) parseLine(pattern string, line []byte) (map[string]string, []byte, error) {
+
+	if d.groker == nil {
+		return nil, line, nil
+	}
+
+	// TODO: create a PR to grok upstream for returning a regexp
+	// doing so we avoid to compile the regexp twice
+	// TODO: profile line above and perhaps place variables outside this function
+	grokMatch, err := d.groker.Match(pattern, string(line))
+	if err != nil {
+		return nil, nil, err
+	}
+	if !grokMatch {
+		// do not try parse this line, because it will return an empty map
+		return map[string]string{"failed": string(line)}, nil, fmt.Errorf("elasticsearch: grok pattern does not match line: %s", string(line))
+	}
+
+	grokLine, err := d.groker.Parse(pattern, string(line))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return grokLine, nil, nil
+
 }
 
 func (d *Driver) StopLogging(file string) error {
