@@ -22,6 +22,12 @@ type LogOpt struct {
 	password string
 	sniff    bool
 	insecure bool
+
+	Grok
+}
+
+type Grok struct {
+	grokPattern string
 }
 
 func defaultLogOpt() *LogOpt {
@@ -123,6 +129,8 @@ func (c *LogOpt) validateLogOpt(cfg map[string]string) error {
 				return errors.Wrapf(err, "error: elasticsearch-timeout: %q", err)
 			}
 			c.timeout = timeout
+		case "grok-pattern":
+			c.grokPattern = v
 		// case "tag":
 		// case "labels":
 		// case "env":
