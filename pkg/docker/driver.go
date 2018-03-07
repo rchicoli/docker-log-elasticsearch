@@ -171,18 +171,18 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 		}
 	}
 
-	if cfg.grokPattern != "" {
-		d.groker, _ = grok.NewWithConfig(&grok.Config{})
-	}
-
 	go d.consumeLog(ctx, cfg.tzpe, cfg.index, c, cfg.fields, cfg.grokPattern)
 	return nil
 }
 
-func (d *Driver) consumeLog(ctx context.Context, esType, esIndex string, c *container, fields, grokPattern string) {
+func (d Driver) consumeLog(ctx context.Context, esType, esIndex string, c *container, fields, grokPattern string) {
 
 	dec := protoio.NewUint32DelimitedReader(c.stream, binary.BigEndian, 1e6)
 	defer dec.Close()
+
+	if grokPattern != "" {
+		d.groker, _ = grok.NewWithConfig(&grok.Config{})
+	}
 
 	// custom log message fields
 	msg := getLostashFields(fields, c.info)
@@ -230,7 +230,7 @@ func (d *Driver) parseLine(pattern string, line []byte) (map[string]string, []by
 
 	// TODO: create a PR to grok upstream for returning a regexp
 	// doing so we avoid to compile the regexp twice
-	// TODO: profile line above and perhaps place variables outside this function
+	// TODO: profile line below and perhaps place variables outside this function
 	grokMatch, err := d.groker.Match(pattern, string(line))
 	if err != nil {
 		return nil, nil, err
