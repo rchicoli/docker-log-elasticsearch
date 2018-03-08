@@ -17,15 +17,15 @@ function teardown(){
   message="127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] \"GET /index.php HTTP/1.1\" 404 207"
   run _search "$message"
   [[ "$status" -eq 0 ]]
-
-  #[[ "$(echo ${output} | jq -r '.hits.hits[0]._source.containerCreated' | egrep '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]+Z$')" ]]
-  #[[ "$(echo ${output} | jq -r '.hits.hits[0]._source.containerID'      | egrep '^[a-z0-9]{12}$')" ]]
-  #[[ "$(echo ${output} | jq -r '.hits.hits[0]._source.containerImageName')" == "rchicoli/webapper" ]]
-  #[[ "$(echo ${output} | jq -r '.hits.hits[0]._source.containerName')"      == "webapper"          ]]
-  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok.COMMONAPACHELOG')"            == *"$message"*        ]]
-  #[[ "$(echo ${output} | jq -r '.hits.hits[0]._source.source')"             == "stdout"            ]]
-  #[[ "$(echo ${output} | jq -r '.hits.hits[0]._source.partial')"            == "false"             ]]
-  #[[ "$(echo ${output} | jq -r '.hits.hits[0]._source.timestamp' | egrep '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]+Z$')" ]]
-  #[[ "$(echo ${output} | jq -r '.hits.hits[0]._source[]' | wc -l)" -eq 8 ]]
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok.auth')"        == "-"         ]]
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok.bytes')"       == "207"       ]]
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok.clientip')"    == "127.0.0.1" ]]
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok.httpversion')" == "1.1"   ]]
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok.ident')"       == "-"     ]]
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok.rawrequest')"  == ""      ]]
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok.response')"    == "404"   ]]
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok.timestamp')"   == "23/Apr/2014:22:58:32 +0200" ]]
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok.verb')"        == "GET"   ]]
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok[]' | wc -l)" -eq 10 ]]
 
 }
