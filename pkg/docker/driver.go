@@ -181,7 +181,7 @@ func (d Driver) consumeLog(ctx context.Context, esType, esIndex string, c *conta
 	defer dec.Close()
 
 	if grokPattern != "" {
-		d.groker, _ = grok.NewWithConfig(&grok.Config{})
+		d.groker, _ = grok.NewWithConfig(&grok.Config{NamedCapturesOnly: true})
 	}
 
 	// custom log message fields
