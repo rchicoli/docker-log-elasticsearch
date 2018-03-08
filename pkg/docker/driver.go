@@ -111,14 +111,13 @@ func (l LogMessage) timeOmityEmpty() *time.Time {
 	return &l.ContainerCreated
 }
 
-func NewDriver() *Driver {
-
-	return &Driver{
+func NewDriver() Driver {
+	return Driver{
 		logs: make(map[string]*container),
 	}
 }
 
-func (d *Driver) StartLogging(file string, info logger.Info) error {
+func (d Driver) StartLogging(file string, info logger.Info) error {
 	d.mu.Lock()
 	if _, exists := d.logs[file]; exists {
 		d.mu.Unlock()
@@ -222,7 +221,7 @@ func (d Driver) consumeLog(ctx context.Context, esType, esIndex string, c *conta
 	}
 }
 
-func (d *Driver) parseLine(pattern string, line []byte) (map[string]string, []byte, error) {
+func (d Driver) parseLine(pattern string, line []byte) (map[string]string, []byte, error) {
 
 	if d.groker == nil {
 		return nil, line, nil
@@ -249,7 +248,7 @@ func (d *Driver) parseLine(pattern string, line []byte) (map[string]string, []by
 
 }
 
-func (d *Driver) StopLogging(file string) error {
+func (d Driver) StopLogging(file string) error {
 	logrus.WithField("file", file).Debugf("Stop logging")
 	d.mu.Lock()
 	c, ok := d.logs[file]
@@ -266,7 +265,7 @@ func (d *Driver) StopLogging(file string) error {
 	return nil
 }
 
-func (d *Driver) Name() string {
+func (d Driver) Name() string {
 	return name
 }
 
