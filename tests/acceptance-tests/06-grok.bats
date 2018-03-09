@@ -2,23 +2,27 @@
 
 load ../helpers
 
+function setup(){
+  _make deploy_elasticsearch
+}
+
 function teardown(){
-  _make delete_environment
+  _make undeploy_elasticsearch
 }
 
 @test "[${BATS_TEST_FILENAME##*/}] acceptance-tests (v${CLIENT_VERSION}): $BATS_TEST_NUMBER - line can be parsed with grok" {
 
-  export DOCKER_LOG_OPTIONS="${DOCKER_COMPOSE_DIR}/log-opt.grok.yml"
-  _make create_environment
+  name="${BATS_TEST_FILENAME##*/}.${BATS_TEST_NUMBER}"
+  message="127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] \"GET /index.php HTTP/1.1\" 404 $((RANDOM))"
 
-  message='127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] \"GET /index.php HTTP/1.1\" 404 207'
-  _post "$message"
+  _dockerRun --rm --name $name \
+    --log-opt grok-pattern='%{COMMONAPACHELOG}' \
+    alpine echo -n "$message"
 
-  message="127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] \"GET /index.php HTTP/1.1\" 404 207"
   run _search "$message"
   [[ "$status" -eq 0 ]]
   [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok.auth')"        == "-"         ]]
-  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok.bytes')"       == "207"       ]]
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok.bytes')"       =~ [0-9]+      ]]
   [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok.clientip')"    == "127.0.0.1" ]]
   [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok.httpversion')" == "1.1"   ]]
   [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok.ident')"       == "-"     ]]
@@ -32,10 +36,13 @@ function teardown(){
 
 @test "[${BATS_TEST_FILENAME##*/}] acceptance-tests (v${CLIENT_VERSION}): $BATS_TEST_NUMBER - failed parsed lines are logged" {
 
-  _make deploy_elasticsearch_and_wait
-  message="failed to parse message"
+  name="${BATS_TEST_FILENAME##*/}.${BATS_TEST_NUMBER}"
+  message="$((RANDOM)) $BATS_TEST_DESCRIPTION"
+  message="$((RANDOM)) failed to parse message"
 
-  _dockerRun --log-opt grok-pattern='wrong %{WORD:test1} %{WORD:test2}' alpine echo -n "$message"
+  _dockerRun --rm --name $name \
+    --name ${BATS_TEST_FILENAME##*/}.${BATS_TEST_NUMBER} \
+    --log-opt grok-pattern='wrong %{WORD:test1} %{WORD:test2}' alpine echo -n "$message"
 
   run _curl "grok.failed:$message"
   [[ "$status" -eq 0 ]]
