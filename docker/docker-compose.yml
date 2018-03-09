@@ -22,7 +22,8 @@ services:
     image: elasticsearch:alpine
     container_name: elasticsearch
     hostname: elasticsearch
-    ports:
+    restart: 'unless-stopped'
+    expose:
       - 9200
     networks:
       development:
@@ -34,7 +35,7 @@ services:
     image: rchicoli/webapper
     container_name: webapper
     hostname: webapper
-    ports:
+    expose:
       - 8080
     depends_on:
       - elasticsearch
@@ -52,11 +53,12 @@ services:
   nginx:
     image: nginx:alpine
     container_name: nginx
+    restart: 'unless-stopped'
     hostname: nginx
     volumes:
       - ../config/nginx/ssl:/etc/nginx/ssl
       - ../config/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-    ports:
+    expose:
       - 443
     networks:
       development:

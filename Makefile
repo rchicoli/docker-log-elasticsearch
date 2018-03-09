@@ -104,9 +104,6 @@ endif
 stop_elasticsearch: docker_compose client_version
 	docker-compose -f "$(DOCKER_COMPOSE_FILE)" stop elasticsearch
 
-deploy_elasticsearch_and_wait: deploy_elasticsearch
-	$(SCRIPTS_DIR)/wait-for-it.sh elasticsearch 9200 echo
-
 skip:
 ifeq ($(SKIP),true)
 SKIP := :
@@ -115,6 +112,7 @@ SKIP :=
 endif
 
 undeploy_elasticsearch: docker_compose client_version skip
+	docker logs elasticsearch
 	$(SKIP) docker-compose -f "$(DOCKER_COMPOSE_FILE)" rm --stop --force elasticsearch
 
 deploy_webapper: docker_compose client_version deploy_elasticsearch
@@ -132,16 +130,12 @@ undeploy_webapper: skip
 deploy_nginx: docker_compose client_version deploy_elasticsearch
 	$(SCRIPTS_DIR)/wait-for-it.sh elasticsearch 9200 docker-compose -f "$(DOCKER_COMPOSE_FILE)" -f "$(ELASTIC_VERSION)" $(DOCKER_LOG_OPTIONS) up -d nginx
 
-undeploy_nginx: skip
+undeploy_nginx: docker_compose skip
 	# create a container for logging to elasticsearch
 	$(SKIP) docker-compose -f "$(DOCKER_COMPOSE_FILE)" rm -s -f nginx
 
-create_environment: deploy_elasticsearch deploy_webapper
-
-delete_environment: undeploy_webapper undeploy_nginx undeploy_elasticsearch
-
-acceptance_tests: create_environment
+acceptance_tests:
 	bats $(TESTS_DIR)/acceptance-tests/$(BATS_TESTFILE)
 
-integration_tests: create_environment
+integration_tests:
 	bats $(TESTS_DIR)/integration-tests/$(BATS_TESTFILE)
