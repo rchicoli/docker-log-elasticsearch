@@ -104,6 +104,9 @@ endif
 stop_elasticsearch: docker_compose client_version
 	docker-compose -f "$(DOCKER_COMPOSE_FILE)" stop elasticsearch
 
+deploy_elasticsearch_and_wait: deploy_elasticsearch
+	$(SCRIPTS_DIR)/wait-for-it.sh elasticsearch 9200 echo
+
 skip:
 ifeq ($(SKIP),true)
 SKIP := :

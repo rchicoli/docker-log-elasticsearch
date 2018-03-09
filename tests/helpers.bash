@@ -33,6 +33,13 @@ ELASTICSEARCH_PASSWORD="${ELASTICSEARCH_PASSWORD:-changeme}"
 
 MAKEFILE="${BASE_DIR}/Makefile"
 
+function _dockerRun(){
+  docker run --rm -ti \
+    --log-driver rchicoli/docker-log-elasticsearch:development \
+    --log-opt elasticsearch-url=http://${ELASTICSEARCH_IP}:${ELASTICSEARCH_PORT} \
+    "$@"
+}
+
 function _post() {
   local id="$1"
   curl -s -XPOST -H "Content-Type: application/json" --data "{\"message\":\"$1\"}" "http://${WEBAPPER_IP}:${WEBAPPER_PORT}/log" &>/tmp/test.log
@@ -44,6 +51,12 @@ function _search() {
     _getProtocol
     local message="$1"
     curl -G -s -k -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" ${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search\?pretty=true\&size=1 --data-urlencode "q=message:\"${message}\""
+}
+
+function _curl() {
+    _getProtocol
+    local message="$1"
+    curl -G -s -k -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" ${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search\?pretty=true\&size=1 --data-urlencode "q=${message}"
 }
 
 function _fields() {
