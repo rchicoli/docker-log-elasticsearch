@@ -31,8 +31,8 @@ function teardown(){
     alpine echo -n "$message"
 
   run _search "$message"
-  [[ "$status" -eq 0 ]] || (echo -n "${output}" && 	docker logs elasticsearch && return 1)
-  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.message')" == "$message" ]]
+  [[ "$status" -eq 0 ]] || _debug "$output"
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.message')" == "$message" ]] || _debug "$output"
 
 }
 
@@ -58,7 +58,7 @@ function teardown(){
     alpine echo -n "$message"
 
   run _search "$message"
-  [[ "$status" -eq 0 ]] || (echo -n "${output}" && 	docker logs elasticsearch && return 1)
-  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.message')" == "$message" ]]
+  [[ "$status" -eq 0 ]] || _debug "$output"
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.message')" == "$message" ]] || _debug "$output"
 
 }

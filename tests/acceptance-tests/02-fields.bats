@@ -20,12 +20,12 @@ function teardown(){
     alpine echo -n "$message"
 
   run _fields "$message"
-  [[ "$status" -eq 0 ]]
-  [[ "${lines[0]}" == "message" ]]
-  [[ "${lines[1]}" == "partial" ]]
-  [[ "${lines[2]}" == "source" ]]
-  [[ "${lines[3]}" == "timestamp" ]]
-  [[ "${#lines[@]}" -eq 4 ]]
+  [[ "$status" -eq 0 ]]              || _debug "$output"
+  [[ "${lines[0]}" == "message" ]]   || _debug "$output"
+  [[ "${lines[1]}" == "partial" ]]   || _debug "$output"
+  [[ "${lines[2]}" == "source" ]]    || _debug "$output"
+  [[ "${lines[3]}" == "timestamp" ]] || _debug "$output"
+  [[ "${#lines[@]}" -eq 4 ]]         || _debug "$output"
 
 }
 
@@ -39,21 +39,21 @@ function teardown(){
     alpine echo -n "$message"
 
   run _fields "$message"
-  [[ "$status" -eq 0 ]] || (echo -n "${output}" && 	docker logs elasticsearch && return 1)
-  [[ "${lines[0]}" == "config" ]]
-  [[ "${lines[1]}" == "containerArgs" ]]
-  [[ "${lines[2]}" == "containerCreated" ]]
-  [[ "${lines[3]}" == "containerEnv" ]]
-  [[ "${lines[4]}" == "containerID" ]]
-  [[ "${lines[5]}" == "containerImageID" ]]
-  [[ "${lines[6]}" == "containerImageName" ]]
-  [[ "${lines[7]}" == "containerName" ]]
-  [[ "${lines[8]}" == "daemonName" ]]
-  [[ "${lines[9]}" == "message" ]]
-  [[ "${lines[10]}" == "partial" ]]
-  [[ "${lines[11]}" == "source" ]]
-  [[ "${lines[12]}" == "timestamp" ]]
-  [[ "${#lines[@]}" -eq 13 ]]
+  [[ "$status" -eq 0 ]]                       || _debug "$output"
+  [[ "${lines[0]}" == "config" ]]             || _debug "$output"
+  [[ "${lines[1]}" == "containerArgs" ]]      || _debug "$output"
+  [[ "${lines[2]}" == "containerCreated" ]]   || _debug "$output"
+  [[ "${lines[3]}" == "containerEnv" ]]       || _debug "$output"
+  [[ "${lines[4]}" == "containerID" ]]        || _debug "$output"
+  [[ "${lines[5]}" == "containerImageID" ]]   || _debug "$output"
+  [[ "${lines[6]}" == "containerImageName" ]] || _debug "$output"
+  [[ "${lines[7]}" == "containerName" ]]      || _debug "$output"
+  [[ "${lines[8]}" == "daemonName" ]]         || _debug "$output"
+  [[ "${lines[9]}" == "message" ]]            || _debug "$output"
+  [[ "${lines[10]}" == "partial" ]]           || _debug "$output"
+  [[ "${lines[11]}" == "source" ]]            || _debug "$output"
+  [[ "${lines[12]}" == "timestamp" ]]         || _debug "$output"
+  [[ "${#lines[@]}" -eq 13 ]]                 || _debug "$output"
 
 }
 
@@ -71,21 +71,21 @@ function teardown(){
     alpine echo -n "$message"
 
   run _fields "$message"
-  [[ "$status" -eq 0 ]] || (echo -n "${output}" && 	docker logs elasticsearch && return 1)
-  [[ "${lines[0]}" == "config" ]]
-  [[ "${lines[1]}" == "containerArgs" ]]
-  [[ "${lines[2]}" == "containerCreated" ]]
-  [[ "${lines[3]}" == "containerEnv" ]]
-  [[ "${lines[4]}" == "containerID" ]]
-  [[ "${lines[5]}" == "containerImageID" ]]
-  [[ "${lines[6]}" == "containerImageName" ]]
-  [[ "${lines[7]}" == "containerLabels" ]]
-  [[ "${lines[8]}" == "containerName" ]]
-  [[ "${lines[9]}" == "daemonName" ]]
-  [[ "${lines[10]}" == "message" ]]
-  [[ "${lines[11]}" == "partial" ]]
-  [[ "${lines[12]}" == "source" ]]
-  [[ "${lines[13]}" == "timestamp" ]]
-  [[ "${#lines[@]}" -eq 14 ]]
+  [[ "$status" -eq 0 ]]                       || _debug "$output"
+  [[ "${lines[0]}" == "config" ]]             || _debug "$output"
+  [[ "${lines[1]}" == "containerArgs" ]]      || _debug "$output"
+  [[ "${lines[2]}" == "containerCreated" ]]   || _debug "$output"
+  [[ "${lines[3]}" == "containerEnv" ]]       || _debug "$output"
+  [[ "${lines[4]}" == "containerID" ]]        || _debug "$output"
+  [[ "${lines[5]}" == "containerImageID" ]]   || _debug "$output"
+  [[ "${lines[6]}" == "containerImageName" ]] || _debug "$output"
+  [[ "${lines[7]}" == "containerLabels" ]]    || _debug "$output"
+  [[ "${lines[8]}" == "containerName" ]]      || _debug "$output"
+  [[ "${lines[9]}" == "daemonName" ]]         || _debug "$output"
+  [[ "${lines[10]}" == "message" ]]           || _debug "$output"
+  [[ "${lines[11]}" == "partial" ]]           || _debug "$output"
+  [[ "${lines[12]}" == "source" ]]            || _debug "$output"
+  [[ "${lines[13]}" == "timestamp" ]]         || _debug "$output"
+  [[ "${#lines[@]}" -eq 14 ]]                 || _debug "$output"
 
 }
