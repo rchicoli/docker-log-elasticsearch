@@ -39,7 +39,7 @@ function teardown(){
     alpine echo -n "$message"
 
   run _fields "$message"
-  [[ "$status" -eq 0 ]]
+  [[ "$status" -eq 0 ]] || (echo -n "${output}" && 	docker logs elasticsearch && return 1)
   [[ "${lines[0]}" == "config" ]]
   [[ "${lines[1]}" == "containerArgs" ]]
   [[ "${lines[2]}" == "containerCreated" ]]
@@ -71,7 +71,7 @@ function teardown(){
     alpine echo -n "$message"
 
   run _fields "$message"
-  [[ "$status" -eq 0 ]]
+  [[ "$status" -eq 0 ]] || (echo -n "${output}" && 	docker logs elasticsearch && return 1)
   [[ "${lines[0]}" == "config" ]]
   [[ "${lines[1]}" == "containerArgs" ]]
   [[ "${lines[2]}" == "containerCreated" ]]
