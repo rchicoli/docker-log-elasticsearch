@@ -8,10 +8,12 @@ function setup(){
 
 function teardown(){
   _make undeploy_elasticsearch
-  docker rm $(docker ps --filter status=exited -q)
+  docker system prune -f
 }
 
 @test "[${BATS_TEST_FILENAME##*/}] integration-tests (v${CLIENT_VERSION}): $BATS_TEST_NUMBER - create a container with the default logging options" {
+
+  [[ ${CLIENT_VERSION} -ne 5 ]] && skip "this checks the default options which is version 5"
 
   name="${BATS_TEST_FILENAME##*/}.${BATS_TEST_NUMBER}"
   message="$((RANDOM)) $BATS_TEST_DESCRIPTION"
