@@ -3,6 +3,7 @@
 load ../helpers
 
 function teardown(){
+  [[ ${CLIENT_VERSION} -eq 1 ]] && return 0
   _make undeploy_nginx
   _make undeploy_elasticsearch
 }

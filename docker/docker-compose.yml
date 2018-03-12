@@ -1,5 +1,5 @@
 ---
-version: '3'
+version: '2.3'
 services:
 
   certool:
@@ -25,11 +25,16 @@ services:
     restart: 'unless-stopped'
     expose:
       - 9200
+    environment:
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
     networks:
       development:
         aliases:
           - elasticsearch
         ipv4_address: 172.31.0.2
+    # TODO: configure heap size config
+    mem_limit: 1000M
+    # cpu_percent: 10
 
   webapper:
     image: rchicoli/webapper

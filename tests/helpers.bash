@@ -34,10 +34,19 @@ ELASTICSEARCH_PASSWORD="${ELASTICSEARCH_PASSWORD:-changeme}"
 
 MAKEFILE="${BASE_DIR}/Makefile"
 
-function _retrySearch() {
+function _elasticsearchHealth() {
+  color="$(wget --no-check-certificate -q --tries 20 --waitretry=1 --retry-connrefused --timeout 5 --user "${ELASTICSEARCH_USERNAME}" --password "${ELASTICSEARCH_PASSWORD}" -O - ${ELASTICSEARCH_URL}/_cluster/health | jq -r '.status')"
+  if [[ "$color" =~ (green|yellow) ]]; then
+    echo "$(date) elasticsearch cluster is up"
+  else
+    echo "$(date) timeout: elasticsearch cluster is not up"
+    exit 2
+  fi
+}
+
+function _retry() {
   local timeout="$1"; shift
   local count=0
-  # _elasticsearchHealth
   until [[ $("$@" | jq -r '.hits.total' 2>/dev/null) -ne 0 ]]; do
      if [ $count -lt $timeout ]; then
           count=$(($count+1));
@@ -50,34 +59,10 @@ function _retrySearch() {
   "$@"
 }
 
-function _elasticsearchHealth() {
-  if [[ "$(wget -q --tries 10 --waitretry=1 --retry-connrefused --timeout 10 -O --user "${ELASTICSEARCH_USERNAME}" --password "${ELASTICSEARCH_PASSWORD}" ${ELASTICSEARCH_URL}/_cluster/health | jq -r '.status' 2>/dev/null)" =~ (green|yellow) ]]; then
-    echo "elasticsearch cluster is up"
-  else
-    echo "timeout: elasticsearch cluster is not up"
-    exit 2
-  fi
-}
-
-function _retryCmd() {
-  local timeout="$1"; shift
-  local count=0
-  until "$@" 2>/dev/null; do
-     if [ $count -lt $timeout ]; then
-          count=$(($count+1));
-      else
-          echo "timing out: command failed"
-          exit 1
-      fi
-      sleep 1
-  done
-}
-
 function _dockerRunDefault(){
   _getProtocol
-  # _elasticsearchHealth
+  _elasticsearchHealth
   sleep 30
-
   docker run -ti \
     --log-driver rchicoli/docker-log-elasticsearch:development \
     --log-opt elasticsearch-url="${ELASTICSEARCH_URL}" \
@@ -86,8 +71,8 @@ function _dockerRunDefault(){
 
 function _dockerRun(){
   _getProtocol
-  # _elasticsearchHealth
-  sleep 30
+  _elasticsearchHealth
+  sleep 10
   docker run -ti \
     --log-driver rchicoli/docker-log-elasticsearch:development \
     --log-opt elasticsearch-url="${ELASTICSEARCH_URL}" \
@@ -97,32 +82,37 @@ function _dockerRun(){
 
 function _post() {
   local id="$1"
-  curl -s -XPOST -H "Content-Type: application/json" --data "{\"message\":\"$1\"}" "http://${WEBAPPER_IP}:${WEBAPPER_PORT}/log"
+  curl -s -XPOST -H "Content-Type: application/json" --data "{\"message\":\"$id\"}" "http://${WEBAPPER_IP}:${WEBAPPER_PORT}/log"
 }
 
 function _search() {
   _getProtocol
   local message="$1"
-  _retrySearch 10 curl -G -s -k --connect-timeout 5 -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" \
-                    ${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search\?pretty=true\&size=1 \
-                    --data-urlencode "q=message:\"${message}\""
+  sleep 10
+  curl -G -s -k --connect-timeout 5 -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" \
+    ${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search\?pretty=true\&size=1 \
+    --data-urlencode "q=message:\"${message}\""
 }
 
 
 function _curl() {
   _getProtocol
   local message="$1"
-  _retrySearch 10 curl -G -s -k --connect-timeout 5 -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" \
-                    ${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search\?pretty=true\&size=1 \
-                    --data-urlencode "q=${message}"
+  sleep 10
+  curl -G -s -k --connect-timeout 5 -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" \
+    ${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search\?pretty=true\&size=1 \
+    --data-urlencode "q=${message}"
+
 }
 
 function _fields() {
   _getProtocol
   local message="$1"
-  _retrySearch 10 curl -G -s -k --connect-timeout 5 -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" \
-                    ${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search\?pretty=true\&size=1 \
-                    --data-urlencode "q=message:\"${message}\"" | jq '.hits.hits[0]._source' | jq -r 'keys[]'
+  sleep 10
+  curl -G -s -k --connect-timeout 5 -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" \
+    ${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search\?pretty=true\&size=1 \
+    --data-urlencode "q=message:\"${message}\"" | jq '.hits.hits[0]._source' | jq -r 'keys[]'
+
 }
 
 # make wrapper
