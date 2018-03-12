@@ -20,7 +20,7 @@ function teardown(){
     alpine echo -n "$message"
 
   run _search "$message"
-  [[ "$status" -eq 0 ]]
+  [[ "$status" -eq 0 ]] || (echo -n "${output}" && 	docker logs elasticsearch && return 1)
   [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok.auth')"        == "-"         ]]
   [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok.bytes')"       =~ [0-9]+      ]]
   [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok.clientip')"    == "127.0.0.1" ]]
@@ -45,7 +45,7 @@ function teardown(){
     --log-opt grok-pattern='wrong %{WORD:test1} %{WORD:test2}' alpine echo -n "$message"
 
   run _curl "grok.failed:$message"
-  [[ "$status" -eq 0 ]]
+  [[ "$status" -eq 0 ]] || (echo -n "${output}" && 	docker logs elasticsearch && return 1)
   [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok.failed')" == "$message" ]]
   [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok[]' | wc -l)" -eq 1 ]]
 

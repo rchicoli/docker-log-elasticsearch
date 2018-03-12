@@ -19,7 +19,7 @@ function teardown(){
     alpine echo -n "$message"
 
   run _fields "$message"
-  [[ "$status" -eq 0 ]]
+  [[ "$status" -eq 0 ]] || (echo -n "${output}" && 	docker logs elasticsearch && return 1)
   [[ "${lines[0]}" == "containerCreated" ]]
   [[ "${lines[1]}" == "containerID" ]]
   [[ "${lines[2]}" == "containerImageName" ]]
@@ -41,8 +41,7 @@ function teardown(){
     alpine echo -n "$message"
 
   run _search "$message"
-  [[ "$status" -eq 0 ]]
-
+  [[ "$status" -eq 0 ]] || (echo -n "${output}" && 	docker logs elasticsearch && return 1)
   [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.containerCreated')"   =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]+Z$ ]]
   [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.containerID')"        =~ ^[a-z0-9]{12}$ ]]
   [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.containerImageName')" == "alpine"       ]]

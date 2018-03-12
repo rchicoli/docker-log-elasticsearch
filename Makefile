@@ -112,7 +112,6 @@ SKIP :=
 endif
 
 undeploy_elasticsearch: docker_compose client_version skip
-	docker logs elasticsearch
 	$(SKIP) docker-compose -f "$(DOCKER_COMPOSE_FILE)" rm --stop --force elasticsearch
 
 deploy_webapper: docker_compose client_version deploy_elasticsearch

@@ -22,6 +22,7 @@ function teardown(){
     alpine echo -n "$message"
 
   run docker inspect $name
+  [[ "$status" -eq 0 ]] || (echo -n "${output}" && 	docker logs elasticsearch && return 1)
   [[ "$(echo ${output} | jq -r '.[0].HostConfig.LogConfig.Config' | jq -r 'keys[]')" == "elasticsearch-url" ]]
   [[ "$(echo ${output} | jq -r '.[0].HostConfig.LogConfig.Config[]' | wc -l)" -eq 1 ]]
 
@@ -36,7 +37,7 @@ function teardown(){
     alpine echo -n "$message"
 
   run docker inspect $name
-  [[ "$status" -eq 0 ]]
+  [[ "$status" -eq 0 ]] || (echo -n "${output}" && 	docker logs elasticsearch && return 1)
   [[ "$(echo ${output} | jq -r '.[0].HostConfig.LogConfig.Config[]' | wc -l)" -eq 2 ]]
   [[ "$(echo ${output} | jq -r '.[0].HostConfig.LogConfig.Config."elasticsearch-version"')" -eq "$CLIENT_VERSION" ]]
 
