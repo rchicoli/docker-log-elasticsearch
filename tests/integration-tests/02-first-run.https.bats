@@ -30,7 +30,7 @@ function teardown(){
     --log-opt elasticsearch-insecure='true' \
     alpine echo -n "$message"
 
-  [[ "$status" -eq 0 ]] || (echo -n "${output}" && 	docker logs elasticsearch && return 1)
+  [[ "$status" -eq 0 ]] || _debug "$output"
 
 }
 
@@ -59,6 +59,6 @@ function teardown(){
     --log-opt elasticsearch-sniff='false' \
     alpine echo -n "$message"
 
-  [[ "$status" -eq 0 ]] || (echo -n "${output}" && 	docker logs elasticsearch && return 1)
+  [[ "$status" -eq 0 ]] || _debug "$output"
 
 }

@@ -35,7 +35,12 @@ ELASTICSEARCH_PASSWORD="${ELASTICSEARCH_PASSWORD:-changeme}"
 MAKEFILE="${BASE_DIR}/Makefile"
 
 function _elasticsearchHealth() {
-  color="$(wget --no-check-certificate -q --tries 20 --waitretry=1 --retry-connrefused --timeout 5 --user "${ELASTICSEARCH_USERNAME}" --password "${ELASTICSEARCH_PASSWORD}" -O - ${ELASTICSEARCH_URL}/_cluster/health | jq -r '.status')"
+  color="$(
+    wget --no-check-certificate -q --tries 20 --waitretry=1 --retry-connrefused --timeout 5 \
+      --user "${ELASTICSEARCH_USERNAME}" --password "${ELASTICSEARCH_PASSWORD}" \
+      -O - ${ELASTICSEARCH_URL}/_cluster/health \
+      | jq -r '.status'
+  )"
   if [[ "$color" =~ (green|yellow) ]]; then
     echo "$(date) elasticsearch cluster is up"
   else
@@ -47,11 +52,13 @@ function _elasticsearchHealth() {
 function _retry() {
   local timeout="$1"; shift
   local count=0
-  until [[ $("$@" | jq -r '.hits.total' 2>/dev/null) -ne 0 ]]; do
+  until [[ "$("$@" | jq -r '.hits.total' 2>/dev/null)" -ne 0 ]]; do
      if [ $count -lt $timeout ]; then
-          count=$(($count+1));
+          count=$((count+1));
       else
           echo "timing out: document not found"
+          curl -G -s -k --connect-timeout 5 -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" \
+            ${ELASTICSEARCH_URL}/_search\?pretty=true\&size=100
           exit 1
       fi
       sleep 1
@@ -89,7 +96,7 @@ function _search() {
   _getProtocol
   local message="$1"
   sleep 10
-  curl -G -s -k --connect-timeout 5 -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" \
+  _retry 60 curl -G -s -k --connect-timeout 5 -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" \
     ${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search\?pretty=true\&size=1 \
     --data-urlencode "q=message:\"${message}\""
 }
@@ -99,7 +106,7 @@ function _curl() {
   _getProtocol
   local message="$1"
   sleep 10
-  curl -G -s -k --connect-timeout 5 -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" \
+  _retry 60 curl -G -s -k --connect-timeout 5 -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" \
     ${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search\?pretty=true\&size=1 \
     --data-urlencode "q=${message}"
 
@@ -109,7 +116,7 @@ function _fields() {
   _getProtocol
   local message="$1"
   sleep 10
-  curl -G -s -k --connect-timeout 5 -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" \
+  _retry 60 curl -G -s -k --connect-timeout 5 -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" \
     ${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search\?pretty=true\&size=1 \
     --data-urlencode "q=message:\"${message}\"" | jq '.hits.hits[0]._source' | jq -r 'keys[]'
 
@@ -122,4 +129,10 @@ function _make() {
 
 function _getIP() {
   docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$1" 2>/dev/null
+}
+
+function _debug() {
+  echo -n -e "\nDebug:\n" "${@}" "\n\n" \
+  && docker logs elasticsearch \
+  && return 1
 }

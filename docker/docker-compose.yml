@@ -26,14 +26,14 @@ services:
     expose:
       - 9200
     environment:
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - "ES_JAVA_OPTS=-Xms1024m -Xmx1024m"
     networks:
       development:
         aliases:
           - elasticsearch
         ipv4_address: 172.31.0.2
     # TODO: configure heap size config
-    mem_limit: 1000M
+    mem_limit: 2000M
     # cpu_percent: 10
 
   webapper:
