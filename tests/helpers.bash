@@ -52,11 +52,14 @@ function _elasticsearchHealth() {
 function _retry() {
   local timeout="$1"; shift
   local count=0
-  until [[ "$("$@" | jq -r '.hits.total' 2>/dev/null)" -ne 0 ]]; do
-     if [ $count -lt $timeout ]; then
+  until [[ "$("$@" | jq -r '.hits.total' 2>/dev/null)" -gt 0 ]]; do
+     if [ $count -lt "$timeout" ]; then
           count=$((count+1));
       else
           echo "timing out: document not found"
+          echo "output: " "$@"
+          "$@"
+          echo "searching for all documents: "
           curl -G -s -k --connect-timeout 5 -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" \
             ${ELASTICSEARCH_URL}/_search\?pretty=true\&size=100
           exit 1

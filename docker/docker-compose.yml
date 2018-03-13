@@ -22,7 +22,7 @@ services:
     image: elasticsearch:alpine
     container_name: elasticsearch
     hostname: elasticsearch
-    restart: 'unless-stopped'
+    # restart: 'unless-stopped'
     expose:
       - 9200
     environment:
@@ -44,7 +44,7 @@ services:
       - 8080
     depends_on:
       - elasticsearch
-    restart: 'unless-stopped'
+    # restart: 'unless-stopped'
     networks:
       development:
         aliases:
@@ -58,7 +58,7 @@ services:
   nginx:
     image: nginx:alpine
     container_name: nginx
-    restart: 'unless-stopped'
+    # restart: 'unless-stopped'
     hostname: nginx
     volumes:
       - ../config/nginx/ssl:/etc/nginx/ssl

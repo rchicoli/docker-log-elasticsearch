@@ -8,8 +8,9 @@ services:
 sudo: required
 
 before_install:
-  - sudo apt-get install jq -y || exit 1
-  - jq --version
+  # - sudo apt-get install jq -y || exit 1
+  # - jq --version
+  - echo
 
 # cache:
 #   directories:
@@ -19,7 +20,7 @@ before_install:
 
 script:
   - sudo make || exit 1
-  - sudo make integration_tests || exit 1
+  # - sudo make integration_tests || exit 1
   - sudo make acceptance_tests || exit 1
 
 stages:
