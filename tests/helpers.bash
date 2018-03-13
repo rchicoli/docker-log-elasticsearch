@@ -49,24 +49,24 @@ function _elasticsearchHealth() {
   fi
 }
 
-function _retry() {
-  local timeout="$1"; shift
-  local count=0
-  until [[ "$("$@" | jq -r '.hits.total' 2>/dev/null)" -gt 0 ]]; do
-     if [ $count -lt "$timeout" ]; then
-          count=$((count+1));
-      else
-          echo "timing out: document not found"
-          echo "output: " "$@"
-          "$@"
-          echo "searching for all documents: "
-          curl -G -s -k --connect-timeout 5 -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" \
-            ${ELASTICSEARCH_URL}/_search\?pretty=true\&size=100
-          exit 1
-      fi
-      sleep 1
-  done
-}
+# function _retry() {
+#   local timeout="$1"; shift
+#   local count=0
+#   until [[ "$("$@" | jq -r '.hits.total' 2>/dev/null)" -gt 0 ]]; do
+#      if [ $count -lt "$timeout" ]; then
+#           count=$((count+1));
+#       else
+#           echo "timing out: document not found"
+#           echo "output: " "$@"
+#           "$@"
+#           echo "searching for all documents: "
+#           curl -G -s -k --connect-timeout 5 -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" \
+#             ${ELASTICSEARCH_URL}/_search\?pretty=true\&size=100
+#           exit 1
+#       fi
+#       sleep 1
+#   done
+# }
 
 function _dockerRunDefault(){
   _getProtocol
@@ -129,9 +129,9 @@ function _make() {
   make -f "$MAKEFILE" "$@"
 }
 
-function _getIP() {
-  docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$1" 2>/dev/null
-}
+# function _getIP() {
+#   docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$1" 2>/dev/null
+# }
 
 function _debug() {
   echo -n -e "$(date)\nDebug:\n" "${@}" "\n\n" \
