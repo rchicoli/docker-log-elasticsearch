@@ -66,13 +66,12 @@ function _retry() {
       fi
       sleep 1
   done
-  "$@"
 }
 
 function _dockerRunDefault(){
   _getProtocol
   _elasticsearchHealth
-  sleep 30
+  sleep 10
   docker run -ti \
     --log-driver rchicoli/docker-log-elasticsearch:development \
     --log-opt elasticsearch-url="${ELASTICSEARCH_URL}" \
@@ -98,8 +97,8 @@ function _post() {
 function _search() {
   _getProtocol
   local message="$1"
-  sleep 10
-  _retry 60 curl -G -s -k --connect-timeout 5 -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" \
+  sleep 15
+  curl -G -s -k --connect-timeout 5 -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" \
     ${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search\?pretty=true\&size=1 \
     --data-urlencode "q=message:\"${message}\""
 }
@@ -108,8 +107,8 @@ function _search() {
 function _curl() {
   _getProtocol
   local message="$1"
-  sleep 10
-  _retry 60 curl -G -s -k --connect-timeout 5 -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" \
+  sleep 15
+  curl -G -s -k --connect-timeout 5 -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" \
     ${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search\?pretty=true\&size=1 \
     --data-urlencode "q=${message}"
 
@@ -118,8 +117,8 @@ function _curl() {
 function _fields() {
   _getProtocol
   local message="$1"
-  sleep 10
-  _retry 60 curl -G -s -k --connect-timeout 5 -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" \
+  sleep 15
+  curl -G -s -k --connect-timeout 5 -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" \
     ${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search\?pretty=true\&size=1 \
     --data-urlencode "q=message:\"${message}\"" | jq '.hits.hits[0]._source' | jq -r 'keys[]'
 
@@ -135,7 +134,10 @@ function _getIP() {
 }
 
 function _debug() {
-  echo -n -e "\nDebug:\n" "${@}" "\n\n" \
+  echo -n -e "$(date)\nDebug:\n" "${@}" "\n\n" \
+  && docker ps -a \
+  && echo "searching for all documents: " \
+  && curl -G -s -k --connect-timeout 5 -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" ${ELASTICSEARCH_URL}/_search\?pretty=true\&size=100 \
   && docker logs elasticsearch \
   && return 1
 }
