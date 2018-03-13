@@ -18,17 +18,17 @@ function teardown(){
   _dockerRun --rm --name $name \
     alpine echo -n "$message"
 
-  run _fields "$message"
+  run _curl "message:\"$message\""
   [[ "$status" -eq 0 ]]                       || _debug "$output"
-  [[ "${lines[0]}" == "containerCreated" ]]   || _debug "$output"
-  [[ "${lines[1]}" == "containerID" ]]        || _debug "$output"
-  [[ "${lines[2]}" == "containerImageName" ]] || _debug "$output"
-  [[ "${lines[3]}" == "containerName" ]]      || _debug "$output"
-  [[ "${lines[4]}" == "message" ]]            || _debug "$output"
-  [[ "${lines[5]}" == "partial" ]]            || _debug "$output"
-  [[ "${lines[6]}" == "source" ]]             || _debug "$output"
-  [[ "${lines[7]}" == "timestamp" ]]          || _debug "$output"
-  [[ ${#lines[@]} -eq 8 ]]                    || _debug "$output"
+  [[ "$(echo ${output} | jq '.hits.hits[0]._source' | jq -r 'keys[]' | sed -n '1 p')" == "containerCreated" ]]   || _debug "$output"
+  [[ "$(echo ${output} | jq '.hits.hits[0]._source' | jq -r 'keys[]' | sed -n '2 p')" == "containerID" ]]        || _debug "$output"
+  [[ "$(echo ${output} | jq '.hits.hits[0]._source' | jq -r 'keys[]' | sed -n '3 p')" == "containerImageName" ]] || _debug "$output"
+  [[ "$(echo ${output} | jq '.hits.hits[0]._source' | jq -r 'keys[]' | sed -n '4 p')" == "containerName" ]]      || _debug "$output"
+  [[ "$(echo ${output} | jq '.hits.hits[0]._source' | jq -r 'keys[]' | sed -n '5 p')" == "message" ]]            || _debug "$output"
+  [[ "$(echo ${output} | jq '.hits.hits[0]._source' | jq -r 'keys[]' | sed -n '6 p')" == "partial" ]]            || _debug "$output"
+  [[ "$(echo ${output} | jq '.hits.hits[0]._source' | jq -r 'keys[]' | sed -n '7 p')" == "source" ]]             || _debug "$output"
+  [[ "$(echo ${output} | jq '.hits.hits[0]._source' | jq -r 'keys[]' | sed -n '8 p')" == "timestamp" ]]          || _debug "$output"
+  [[ "$(echo ${output} | jq '.hits.hits[0]._source' | jq -r 'keys[]' | wc -l)" -eq 8 ]]                    || _debug "$output"
 
 }
 
