@@ -18,8 +18,13 @@ function teardown(){
   name="${BATS_TEST_FILENAME##*/}.${BATS_TEST_NUMBER}"
   message="$((RANDOM)) $BATS_TEST_DESCRIPTION"
 
-  _dockerRunDefault --name $name \
-    alpine echo -n "$message"
+  _getProtocol
+  _elasticsearchHealth
+  run docker run -ti \
+    --log-driver rchicoli/docker-log-elasticsearch:development \
+    --log-opt elasticsearch-url="${ELASTICSEARCH_URL}" \
+    --name "$name" alpine echo -n "$message"
+  [[ "$status" -eq 0 ]]                       || _debug "$output"
 
   run docker inspect $name
   [[ "$status" -eq 0 ]] || _debug "$output"
