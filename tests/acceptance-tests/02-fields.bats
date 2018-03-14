@@ -15,11 +15,12 @@ function teardown(){
   name="${BATS_TEST_FILENAME##*/}.${BATS_TEST_NUMBER}"
   message="$((RANDOM)) $BATS_TEST_DESCRIPTION"
 
-  _dockerRun --rm --name $name \
+  run _dockerRun --rm --name "$name" \
     --log-opt elasticsearch-fields='none' \
     alpine echo -n "$message"
+  [[ "$status" -eq 0 ]] || _debug "$output"
 
-  run _curl "message:\"$message\""
+  run _get "message:\"$message\""
   [[ "$status" -eq 0 ]]              || _debug "$output"
   [[ "$(echo ${output} | jq '.hits.hits[0]._source' | jq -r 'keys[]' | sed -n '1 p')" == "message" ]]   || _debug "$output"
   [[ "$(echo ${output} | jq '.hits.hits[0]._source' | jq -r 'keys[]' | sed -n '2 p')" == "partial" ]]   || _debug "$output"
@@ -38,7 +39,7 @@ function teardown(){
     --log-opt elasticsearch-fields='config,containerID,containerName,containerArgs,containerImageID,containerImageName,containerCreated,containerEnv,daemonName' \
     alpine echo -n "$message"
 
-  run _curl "message:\"$message\""
+  run _get "message:\"$message\""
   [[ "$status" -eq 0 ]]                       || _debug "$output"
   [[ "$(echo ${output} | jq '.hits.hits[0]._source' | jq -r 'keys[]' | sed -n '1 p')" == "config" ]]             || _debug "$output"
   [[ "$(echo ${output} | jq '.hits.hits[0]._source' | jq -r 'keys[]' | sed -n '2 p')" == "containerArgs" ]]      || _debug "$output"
@@ -65,12 +66,13 @@ function teardown(){
   name="${BATS_TEST_FILENAME##*/}.${BATS_TEST_NUMBER}"
   message="$((RANDOM)) $BATS_TEST_DESCRIPTION"
 
-  _dockerRun --rm --name $name \
+  run _dockerRun --rm --name "$name" \
     --log-opt elasticsearch-fields='config,containerID,containerName,containerArgs,containerImageID,containerImageName,containerCreated,containerEnv,containerLabels,daemonName' \
     --label environment=testing \
     alpine echo -n "$message"
+  [[ "$status" -eq 0 ]] || _debug "$output"
 
-  run _curl "message:\"$message\""
+  run _get "message:\"$message\""
   [[ "$status" -eq 0 ]]                       || _debug "$output"
   [[ "$(echo ${output} | jq '.hits.hits[0]._source' | jq -r 'keys[]' | sed -n '1 p')" == "config" ]]             || _debug "$output"
   [[ "$(echo ${output} | jq '.hits.hits[0]._source' | jq -r 'keys[]' | sed -n '2 p')" == "containerArgs" ]]      || _debug "$output"
