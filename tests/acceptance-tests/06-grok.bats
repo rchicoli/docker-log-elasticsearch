@@ -15,11 +15,12 @@ function teardown(){
   name="${BATS_TEST_FILENAME##*/}.${BATS_TEST_NUMBER}"
   message="127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] \"GET /index.php HTTP/1.1\" 404 $((RANDOM))"
 
-  _dockerRun --rm --name $name \
+  run _dockerRun --rm --name "$name" \
     --log-opt grok-pattern='%{COMMONAPACHELOG}' \
     alpine echo -n "$message"
+  [[ "$status" -eq 0 ]] || _debug "$output"
 
-  run _search "$message"
+  run _get "message:\"$message\""
   [[ "$status" -eq 0 ]] || _debug "$output"
   [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok.auth')"        == "-"         ]] || _debug "$output"
   [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok.bytes')"       =~ [0-9]+      ]] || _debug "$output"
@@ -40,11 +41,12 @@ function teardown(){
   message="$((RANDOM)) $BATS_TEST_DESCRIPTION"
   message="$((RANDOM)) failed to parse message"
 
-  _dockerRun --rm --name $name \
+  run _dockerRun --rm --name "$name" \
     --name ${BATS_TEST_FILENAME##*/}.${BATS_TEST_NUMBER} \
     --log-opt grok-pattern='wrong %{WORD:test1} %{WORD:test2}' alpine echo -n "$message"
+  [[ "$status" -eq 0 ]] || _debug "$output"
 
-  run _curl "grok.failed:$message"
+  run _get "grok.failed:$message"
   [[ "$status" -eq 0 ]] || _debug "$output"
   [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok.failed')" == "$message" ]] || _debug "$output"
   [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok[]' | wc -l)" -eq 1 ]] || _debug "$output"
