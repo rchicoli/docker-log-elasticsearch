@@ -198,6 +198,11 @@ func (d Driver) consumeLog(ctx context.Context, esType, esIndex string, c *conta
 			}
 			dec = protoio.NewUint32DelimitedReader(c.stream, binary.BigEndian, 1e6)
 		}
+		// BUG: some times docker run throws empty line
+		if len(strings.TrimSpace(string(buf.Line))) == 0 {
+			// TODO: add log debug level
+			continue
+		}
 
 		// create message
 		msg.Source = buf.Source
