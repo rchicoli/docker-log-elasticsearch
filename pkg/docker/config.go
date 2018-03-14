@@ -27,7 +27,11 @@ type LogOpt struct {
 }
 
 type Grok struct {
-	grokPattern string
+	grokPattern         string
+	grokPatternFile     string
+	grokPatternDir      string
+	grokPatternSplitter string
+	grokMatch           string
 }
 
 func defaultLogOpt() *LogOpt {
@@ -40,6 +44,10 @@ func defaultLogOpt() *LogOpt {
 		version:  "5",
 		sniff:    true,
 		insecure: false,
+
+		Grok: Grok{
+			grokPatternSplitter: " and ",
+		},
 	}
 }
 
@@ -131,6 +139,14 @@ func (c *LogOpt) validateLogOpt(cfg map[string]string) error {
 			c.timeout = timeout
 		case "grok-pattern":
 			c.grokPattern = v
+		case "grok-pattern-directory":
+			c.grokPatternFile = v
+		case "grok-pattern-file":
+			c.grokPatternDir = v
+		case "grok-pattern-splitter":
+			c.grokPatternSplitter = v
+		case "grok-match":
+			c.grokMatch = v
 		// case "tag":
 		// case "labels":
 		// case "env":

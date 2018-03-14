@@ -170,18 +170,47 @@ func (d Driver) StartLogging(file string, info logger.Info) error {
 		}
 	}
 
-	go d.consumeLog(ctx, cfg.tzpe, cfg.index, c, cfg.fields, cfg.grokPattern)
+	if cfg.grokMatch != "" {
+		// TODO: add config grok-name-only
+		d.groker, _ = grok.NewWithConfig(&grok.Config{NamedCapturesOnly: true})
+
+		if cfg.grokPattern != "" {
+			var patternNames []string
+			grokPatterns := strings.Split(cfg.grokPattern, cfg.grokPatternSplitter)
+			for _, v := range grokPatterns {
+				patternNames = strings.Split(v, "=")
+
+				err = d.groker.AddPattern(patternNames[0], patternNames[1])
+				if err != nil {
+					log.Fatalf("grok: add pattern failed: %v", err)
+				}
+			}
+		}
+
+		if cfg.grokPatternDir != "" {
+			err = d.groker.AddPatternsFromPath(cfg.grokPatternDir)
+			if err != nil {
+				log.Fatalf("grok: add pattern from directory failed: %v", err)
+			}
+		}
+
+		if cfg.grokPatternFile != "" {
+			err = d.groker.AddPatternsFromPath(cfg.grokPatternFile)
+			if err != nil {
+				log.Fatalf("grok: add pattern from file failed: %v", err)
+			}
+		}
+
+	}
+
+	go d.consumeLog(ctx, cfg.tzpe, cfg.index, c, cfg.fields, cfg.grokMatch)
 	return nil
 }
 
-func (d Driver) consumeLog(ctx context.Context, esType, esIndex string, c *container, fields, grokPattern string) {
+func (d Driver) consumeLog(ctx context.Context, esType, esIndex string, c *container, fields, grokMatch string) {
 
 	dec := protoio.NewUint32DelimitedReader(c.stream, binary.BigEndian, 1e6)
 	defer dec.Close()
-
-	if grokPattern != "" {
-		d.groker, _ = grok.NewWithConfig(&grok.Config{NamedCapturesOnly: true})
-	}
 
 	// custom log message fields
 	msg := getLostashFields(fields, c.info)
@@ -198,7 +227,8 @@ func (d Driver) consumeLog(ctx context.Context, esType, esIndex string, c *conta
 			}
 			dec = protoio.NewUint32DelimitedReader(c.stream, binary.BigEndian, 1e6)
 		}
-		// BUG: some times docker run throws empty line
+		// BUG(17.09.0~ce-0~debian): docker run throws lots empty line messages
+		// TODO: profile: check for resource consumption
 		if len(strings.TrimSpace(string(buf.Line))) == 0 {
 			// TODO: add log debug level
 			continue
@@ -207,7 +237,7 @@ func (d Driver) consumeLog(ctx context.Context, esType, esIndex string, c *conta
 		// create message
 		msg.Source = buf.Source
 		msg.Partial = buf.Partial
-		msg.GrokLine, msg.Line, err = d.parseLine(grokPattern, buf.Line)
+		msg.GrokLine, msg.Line, err = d.parseLine(grokMatch, buf.Line)
 		if err != nil {
 			log.Errorf("elasticsearch: grok failed to parse line: %v", err)
 		}
