@@ -42,7 +42,8 @@ function teardown(){
   _make deploy_elasticsearch
   if [[ ${CLIENT_VERSION} -eq 6 ]]; then
     ${SCRIPTS_DIR}/wait-for-it.sh elasticsearch 9200 echo wait before setting up a password
-    export ELASTICSEARCH_PASSWORD="`docker exec -ti elasticsearch bash -c './bin/x-pack/setup-passwords auto --batch' | awk '/PASSWORD elastic/ {print $4}' | tr -d '[:space:]'`"
+    run export ELASTICSEARCH_PASSWORD="`docker exec -ti elasticsearch bash -c './bin/x-pack/setup-passwords auto --batch' | awk '/PASSWORD elastic/ {print $4}' | tr -d '[:space:]'`"
+    [[ "$status" -eq 0 ]] || _debug "$output"
   fi
 
   _make deploy_nginx

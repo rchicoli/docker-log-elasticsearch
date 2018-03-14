@@ -88,6 +88,26 @@ Before creating a docker container, a healthy instance of Elasticsearch service 
   - *version* of Elasticsearch cluster
   - *examples*: 1, 2, 5, 6
 
+###### grok-pattern ######
+  - *pattern* customer pattern
+  - *examples*: CUSTOM_IP=(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)
+
+###### grok-pattern-from ######
+  - *pattern-from* add custom pattern from file or folder
+  - *examples*: /srv/grok/pattern
+
+###### grok-pattern-splitter ######
+  - *pattern-splitter* is used for identifying multiple patterns from grok-pattern
+  - *examples*: AND
+
+###### grok-match ######
+  - *match* the line to parse
+  - *examples*: %{WORD:test1} %{WORD:test2}
+
+###### grok-named-capture ######
+  - *named-capture* parse all or only named captures
+  - *examples*: 1, t, T, TRUE, true, True, 0, f, F, FALSE, false, False
+
 ### How to test ###
 
 Creating and running a container:
