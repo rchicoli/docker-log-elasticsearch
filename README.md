@@ -15,6 +15,11 @@ This application is under active development and will continue to be modified an
 
 You need to install Docker Engine >= 1.12 and Elasticsearch application. Additional information about Docker plugins [can be found here](https://docs.docker.com/engine/extend/plugins_logging/).
 
+## Incompatible docker version
+
+It was found a bug with docker version `17.09.0~ce`. Currently I've been developing this plugin using the docker version `17.05.0~ce`.
+Before going stable I will add a cross test for multiple docker versions.
+
 ### How to install
 
 The following command will download and enable the plugin.
@@ -43,6 +48,11 @@ Before creating a docker container, a healthy instance of Elasticsearch service 
 | elasticsearch-username | no | no |  |
 | elasticsearch-url   | no     | yes |
 | elasticsearch-version | 5 | no |
+| grok-named-capture | true | no |
+| grok-pattern | no | no |
+| grok-pattern-from | no | no |
+| grok-pattern-splitter |  and  | no |
+| grok-pattern-match | no | no |
 
 ###### elasticsearch-url ######
 
@@ -89,23 +99,23 @@ Before creating a docker container, a healthy instance of Elasticsearch service 
   - *examples*: 1, 2, 5, 6
 
 ###### grok-pattern ######
-  - *pattern* customer pattern
+  - *pattern* add customer pattern
   - *examples*: CUSTOM_IP=(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)
 
 ###### grok-pattern-from ######
-  - *pattern-from* add custom pattern from file or folder
+  - *pattern-from* add custom pattern from a file or folder
   - *examples*: /srv/grok/pattern
 
 ###### grok-pattern-splitter ######
-  - *pattern-splitter* is used for identifying multiple patterns from grok-pattern
-  - *examples*: AND
+  - *pattern-splitter* is used for splitting multiple patterns from grok-pattern
+  - *examples*: " AND " (with white spaces before and after the work AND)
 
 ###### grok-match ######
-  - *match* the line to parse
+  - *match* the log line to parse
   - *examples*: %{WORD:test1} %{WORD:test2}
 
 ###### grok-named-capture ######
-  - *named-capture* parse all or only named captures
+  - *named-capture* parse each inner pattern or only named captures
   - *examples*: 1, t, T, TRUE, true, True, 0, f, F, FALSE, false, False
 
 ### How to test ###
