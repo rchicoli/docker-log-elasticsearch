@@ -47,8 +47,9 @@ function teardown(){
 
   run _get "grok.failed:$message"
   [[ "$status" -eq 0 ]] || _debug "$output"
-  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok.failed')" == "$message" ]] || _debug "$output"
-  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok[]' | wc -l)" -eq 1 ]] || _debug "$output"
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok.line')" == "$message" ]] || _debug "$output"
+  [[ -n "$(echo ${output} | jq -r '.hits.hits[0]._source.grok.err')" ]] || _debug "$output"
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok[]' | wc -l)" -eq 2 ]] || _debug "$output"
 
 }
 
