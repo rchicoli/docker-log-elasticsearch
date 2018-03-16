@@ -260,16 +260,16 @@ func (d Driver) parseLine(pattern string, line []byte) (map[string]string, []byt
 	// TODO: profile line below and perhaps place variables outside this function
 	grokMatch, err := d.groker.Match(pattern, string(line))
 	if err != nil {
-		return nil, nil, err
+		return map[string]string{"line": string(line), "err": err.Error()}, nil, err
 	}
 	if !grokMatch {
 		// do not try parse this line, because it will return an empty map
-		return map[string]string{"failed": string(line)}, nil, fmt.Errorf("elasticsearch: grok pattern does not match line: %s", string(line))
+		return map[string]string{"line": string(line), "err": "grok pattern does not match line"}, nil, fmt.Errorf("elasticsearch: grok pattern does not match line: %s", string(line))
 	}
 
 	grokLine, err := d.groker.Parse(pattern, string(line))
 	if err != nil {
-		return nil, nil, err
+		return map[string]string{"line": string(line), "err": err.Error()}, nil, err
 	}
 
 	return grokLine, nil, nil

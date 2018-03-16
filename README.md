@@ -267,7 +267,7 @@ Note we are using multiple custom patterns and also a different pattern splitter
 }
 ```
 
-b. by providing a directory with different grok patterns in it or just a single file, e.g:
+b. by providing a directory with different grok patterns in it or just a single file, e.g.:
 
 At first, you have to place the file or directory inside the docker's rootfs. It is up to you to choose the right way to do it.
 You could link the file, mount the directory or simply copy it inside `/var/lib/docker/plugin/<plugin-id>/rootfs/`. Afterwards you can pass it as following:
@@ -276,6 +276,15 @@ You could link the file, mount the directory or simply copy it inside `/var/lib/
 docker run -ti --rm --log-driver rchicoli/docker-log-elasticsearch:development --log-opt elasticsearch-url=http://172.31.0.2:9200 \
   --log-opt grok-pattern-from="/patterns" \
   rchicoli/webapper
+```
+
+4. If grok is not able to parse the log line, then it will still send the unparsed message to Elasticsearch with an error description, e.g.:
+
+```bash
+"grok": {
+  "err": "grok pattern does not match line",
+  "line": "4721 tester"
+}
 ```
 
 ### Limitations
