@@ -74,7 +74,6 @@ function teardown(){
 
 }
 
-
 @test "[${BATS_TEST_FILENAME##*/}] acceptance-tests (v${CLIENT_VERSION}): $BATS_TEST_NUMBER - custom grok pattern with different splitter" {
 
   name="${BATS_TEST_FILENAME##*/}.${BATS_TEST_NUMBER}"
@@ -118,5 +117,52 @@ function teardown(){
   [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok.user')" == "tester" ]] || _debug "$output"
   [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok.random_number')" =~ [0-9]+ ]] || _debug "$output"
   [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok[]' | wc -l)" -eq 5 ]] || _debug "$output"
+
+}
+
+@test "[${BATS_TEST_FILENAME##*/}] acceptance-tests (v${CLIENT_VERSION}): $BATS_TEST_NUMBER - add grok pattern from file" {
+
+  name="${BATS_TEST_FILENAME##*/}.${BATS_TEST_NUMBER}"
+  message="$((RANDOM)) theo"
+
+  run ${SCRIPTS_DIR}/docker-plugin-folder.sh docker-log-elasticsearch "${CONFIG_DIR}/grok/patterns.txt"
+  [[ "$status" -eq 0 ]] || _debug "$output"
+
+  run _dockerRun --rm --name "$name" \
+    --name ${BATS_TEST_FILENAME##*/}.${BATS_TEST_NUMBER} \
+    --log-opt grok-pattern-from='/tmp/patterns.txt' \
+    --log-opt grok-match='%{MY_PATTERN}' \
+     alpine echo -n "$message"
+  [[ "$status" -eq 0 ]] || _debug "$output"
+
+  run _get "grok:$message"
+  [[ "$status" -eq 0 ]] || _debug "$output"
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok.user')" == "theo" ]] || _debug "$output"
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok.random_number')" =~ [0-9]+ ]] || _debug "$output"
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok[]' | wc -l)" -eq 2 ]] || _debug "$output"
+
+}
+
+
+@test "[${BATS_TEST_FILENAME##*/}] acceptance-tests (v${CLIENT_VERSION}): $BATS_TEST_NUMBER - add grok pattern from directory" {
+
+  name="${BATS_TEST_FILENAME##*/}.${BATS_TEST_NUMBER}"
+  message="$((RANDOM)) max"
+
+  run ${SCRIPTS_DIR}/docker-plugin-folder.sh docker-log-elasticsearch "${CONFIG_DIR}/grok"
+  [[ "$status" -eq 0 ]] || _debug "$output"
+
+  run _dockerRun --rm --name "$name" \
+    --name ${BATS_TEST_FILENAME##*/}.${BATS_TEST_NUMBER} \
+    --log-opt grok-pattern-from='/tmp/grok' \
+    --log-opt grok-match='%{MY_PATTERN}' \
+     alpine echo -n "$message"
+  [[ "$status" -eq 0 ]] || _debug "$output"
+
+  run _get "grok:$message"
+  [[ "$status" -eq 0 ]] || _debug "$output"
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok.user')" == "max" ]] || _debug "$output"
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok.random_number')" =~ [0-9]+ ]] || _debug "$output"
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok[]' | wc -l)" -eq 2 ]] || _debug "$output"
 
 }
