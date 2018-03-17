@@ -97,7 +97,7 @@ func (l LogMessage) MarshalJSON() ([]byte, error) {
 
 			GrokLine: l.GrokLine,
 
-			Line:     strings.TrimSpace(string(l.Line)),
+			Line:     string(l.Line),
 			Source:   l.Source,
 			TimeNano: time.Unix(0, l.TimeNano),
 			Partial:  l.Partial,
@@ -214,6 +214,7 @@ func (d Driver) consumeLog(ctx context.Context, esType, esIndex string, c *conta
 
 	var buf logdriver.LogEntry
 	var err error
+	var logMessage string
 
 	for {
 		if err = dec.ReadMsg(&buf); err != nil {
@@ -224,9 +225,12 @@ func (d Driver) consumeLog(ctx context.Context, esType, esIndex string, c *conta
 			}
 			dec = protoio.NewUint32DelimitedReader(c.stream, binary.BigEndian, 1e6)
 		}
+
+		logMessage = string(buf.Line)
+
 		// BUG(17.09.0~ce-0~debian): docker run throws lots empty line messages
 		// TODO: profile: check for resource consumption
-		if len(strings.TrimSpace(string(buf.Line))) == 0 {
+		if len(strings.TrimSpace(logMessage)) == 0 {
 			// TODO: add log debug level
 			continue
 		}
@@ -234,14 +238,14 @@ func (d Driver) consumeLog(ctx context.Context, esType, esIndex string, c *conta
 		// create message
 		msg.Source = buf.Source
 		msg.Partial = buf.Partial
-		msg.GrokLine, msg.Line, err = d.parseLine(grokMatch, buf.Line)
+		msg.GrokLine, msg.Line, err = d.parseLine(grokMatch, logMessage, buf.Line)
 		if err != nil {
-			l.Printf("error: [%v] parsing log message: %v\n", c.info.ContainerID, err)
+			l.Printf("error: [%v] parsing log message: %v\n", c.info.ID(), err)
 		}
 		msg.TimeNano = buf.TimeNano
 
 		if err = d.esClient.Log(ctx, esIndex, esType, msg); err != nil {
-			l.Printf("error: [%v] writting log message: %v\n", c.info.ID(), string(msg.Line))
+			l.Printf("error: [%v] writting log message: %v\n", c.info.ID(), logMessage)
 			continue
 		}
 
@@ -249,7 +253,7 @@ func (d Driver) consumeLog(ctx context.Context, esType, esIndex string, c *conta
 	}
 }
 
-func (d Driver) parseLine(pattern string, line []byte) (map[string]string, []byte, error) {
+func (d Driver) parseLine(pattern, logMessage string, line []byte) (map[string]string, []byte, error) {
 
 	if d.groker == nil {
 		return nil, line, nil
@@ -258,18 +262,20 @@ func (d Driver) parseLine(pattern string, line []byte) (map[string]string, []byt
 	// TODO: create a PR to grok upstream for returning a regexp
 	// doing so we avoid to compile the regexp twice
 	// TODO: profile line below and perhaps place variables outside this function
-	grokMatch, err := d.groker.Match(pattern, string(line))
+	grokMatch, err := d.groker.Match(pattern, logMessage)
 	if err != nil {
-		return map[string]string{"line": string(line), "err": err.Error()}, nil, err
+		return map[string]string{"line": logMessage, "err": err.Error()}, nil, err
 	}
 	if !grokMatch {
 		// do not try parse this line, because it will return an empty map
-		return map[string]string{"line": string(line), "err": "grok pattern does not match log line"}, nil, fmt.Errorf("error: grok pattern does not match line: %s", string(line))
+		return map[string]string{"line": logMessage, "err": "grok pattern does not match log line"},
+			nil,
+			fmt.Errorf("error: grok pattern does not match line: %s", logMessage)
 	}
 
-	grokLine, err := d.groker.Parse(pattern, string(line))
+	grokLine, err := d.groker.Parse(pattern, logMessage)
 	if err != nil {
-		return map[string]string{"line": string(line), "err": err.Error()}, nil, err
+		return map[string]string{"line": logMessage, "err": err.Error()}, nil, err
 	}
 
 	return grokLine, nil, nil
