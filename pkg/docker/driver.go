@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
+	"os"
 	"strings"
 	"sync"
 	"syscall"
@@ -13,12 +15,9 @@ import (
 
 	"github.com/docker/docker/api/types/plugins/logdriver"
 	"github.com/docker/docker/daemon/logger"
-	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 	"github.com/tonistiigi/fifo"
 	"github.com/vjeantet/grok"
 
-	"github.com/rchicoli/cfssl/log"
 	"github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch"
 
 	elasticv2 "github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch/v1"
@@ -32,6 +31,8 @@ import (
 const (
 	name = "elasticsearchlog"
 )
+
+var l = log.New(os.Stderr, "", 0)
 
 type Driver struct {
 	mu     sync.Mutex
@@ -121,16 +122,18 @@ func (d Driver) StartLogging(file string, info logger.Info) error {
 	d.mu.Lock()
 	if _, exists := d.logs[file]; exists {
 		d.mu.Unlock()
-		return fmt.Errorf("logger for %q already exists", file)
+		return fmt.Errorf("error: logger for %q already exists", file)
+
 	}
 	d.mu.Unlock()
 
 	ctx := context.Background()
 
-	logrus.WithField("id", info.ContainerID).WithField("file", file).WithField("logpath", info.LogPath).Debugf("Start logging")
+	// log.Printf("info: starting log: %s\n", file)
+
 	f, err := fifo.OpenFifo(ctx, file, syscall.O_RDONLY, 0700)
 	if err != nil {
-		return errors.Wrapf(err, "error opening logger fifo: %q", file)
+		return fmt.Errorf("error: opening logger fifo: %q", file)
 	}
 
 	d.mu.Lock()
@@ -143,30 +146,29 @@ func (d Driver) StartLogging(file string, info logger.Info) error {
 
 	cfg := defaultLogOpt()
 	if err := cfg.validateLogOpt(info.Config); err != nil {
-		return errors.Wrapf(err, "error: elasticsearch-options: %q", err)
+		return fmt.Errorf("error: validating log options: %v", err)
 	}
-	logrus.WithField("id", info.ContainerID).Debugf("log-opt: %v", cfg)
 
 	switch cfg.version {
 	case "1":
 		d.esClient, err = elasticv2.NewClient(cfg.url, cfg.username, cfg.password, cfg.timeout, cfg.sniff, cfg.insecure)
 		if err != nil {
-			return fmt.Errorf("elasticsearch: cannot create a client: %v", err)
+			return fmt.Errorf("error: cannot create an elasticsearch client: %v", err)
 		}
 	case "2":
 		d.esClient, err = elasticv3.NewClient(cfg.url, cfg.username, cfg.password, cfg.timeout, cfg.sniff, cfg.insecure)
 		if err != nil {
-			return fmt.Errorf("elasticsearch: cannot create a client: %v", err)
+			return fmt.Errorf("error: cannot create an elasticsearch client: %v", err)
 		}
 	case "5":
 		d.esClient, err = elasticv5.NewClient(cfg.url, cfg.username, cfg.password, cfg.timeout, cfg.sniff, cfg.insecure)
 		if err != nil {
-			return fmt.Errorf("elasticsearch: cannot create a client: %v", err)
+			return fmt.Errorf("error: cannot create an elasticsearch client: %v", err)
 		}
 	case "6":
 		d.esClient, err = elasticv6.NewClient(cfg.url, cfg.username, cfg.password, cfg.timeout, cfg.sniff, cfg.insecure)
 		if err != nil {
-			return fmt.Errorf("elasticsearch: cannot create a client: %v", err)
+			return fmt.Errorf("error: cannot create an elasticsearch client: %v", err)
 		}
 	}
 
@@ -180,11 +182,11 @@ func (d Driver) StartLogging(file string, info logger.Info) error {
 			for _, v := range grokPatterns {
 				patternNames = strings.Split(v, "=")
 				if len(patternNames) != 2 {
-					return fmt.Errorf("grok: missing equals separator for pattern string")
+					return fmt.Errorf("error: parsing grok-pattern, missing '=' separator")
 				}
 				err = d.groker.AddPattern(patternNames[0], patternNames[1])
 				if err != nil {
-					return fmt.Errorf("grok: add pattern failed: %v", err)
+					return fmt.Errorf("error: adding grok pattern: %v", err)
 				}
 			}
 		}
@@ -192,7 +194,7 @@ func (d Driver) StartLogging(file string, info logger.Info) error {
 		if cfg.grokPatternFrom != "" {
 			err = d.groker.AddPatternsFromPath(cfg.grokPatternFrom)
 			if err != nil {
-				return fmt.Errorf("grok: add pattern from file failed: %v", err)
+				return fmt.Errorf("error: adding grok pattern from %s: %v", cfg.grokPatternFrom, err)
 			}
 		}
 
@@ -216,7 +218,7 @@ func (d Driver) consumeLog(ctx context.Context, esType, esIndex string, c *conta
 	for {
 		if err = dec.ReadMsg(&buf); err != nil {
 			if err == io.EOF {
-				logrus.WithField("id", c.info.ContainerID).WithError(err).Debug("shutting down log logger")
+				// log.Infof("info: [%v] shutting down log logger: %v", c.info.ContainerID, err)
 				c.stream.Close()
 				return
 			}
@@ -234,16 +236,12 @@ func (d Driver) consumeLog(ctx context.Context, esType, esIndex string, c *conta
 		msg.Partial = buf.Partial
 		msg.GrokLine, msg.Line, err = d.parseLine(grokMatch, buf.Line)
 		if err != nil {
-			log.Errorf("elasticsearch: grok failed to parse line: %v", err)
+			l.Printf("error: [%v] parsing log message: %v\n", c.info.ContainerID, err)
 		}
 		msg.TimeNano = buf.TimeNano
 
 		if err = d.esClient.Log(ctx, esIndex, esType, msg); err != nil {
-			logrus.WithField("id", c.info.ContainerID).
-				WithError(err).
-				WithField("message", msg).
-				WithField("line", string(msg.Line)).
-				Error("error writing log message")
+			l.Printf("error: [%v] writting log message: %v\n", c.info.ID(), string(msg.Line))
 			continue
 		}
 
@@ -266,7 +264,7 @@ func (d Driver) parseLine(pattern string, line []byte) (map[string]string, []byt
 	}
 	if !grokMatch {
 		// do not try parse this line, because it will return an empty map
-		return map[string]string{"line": string(line), "err": "grok pattern does not match line"}, nil, fmt.Errorf("elasticsearch: grok pattern does not match line: %s", string(line))
+		return map[string]string{"line": string(line), "err": "grok pattern does not match log line"}, nil, fmt.Errorf("error: grok pattern does not match line: %s", string(line))
 	}
 
 	grokLine, err := d.groker.Parse(pattern, string(line))
@@ -279,7 +277,9 @@ func (d Driver) parseLine(pattern string, line []byte) (map[string]string, []byt
 }
 
 func (d Driver) StopLogging(file string) error {
-	logrus.WithField("file", file).Debugf("Stop logging")
+
+	// log.Infof("info: stopping log: %s\n", file)
+
 	d.mu.Lock()
 	c, ok := d.logs[file]
 	if ok {
@@ -297,13 +297,4 @@ func (d Driver) StopLogging(file string) error {
 
 func (d Driver) Name() string {
 	return name
-}
-
-func logError(msg interface{}, str string, err error) {
-	logrus.WithFields(
-		logrus.Fields{
-			"message": msg,
-			"error":   err,
-		},
-	).Error(str)
 }
