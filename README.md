@@ -120,7 +120,7 @@ Before creating a docker container, a healthy instance of Elasticsearch service 
 
 ### How to test ###
 
-1. Creating and running a container:
+1 - Creating and running a container:
 
 ```bash
 $ docker run --rm -ti \
@@ -162,7 +162,7 @@ $ curl 127.0.0.1:9200/docker/log/_search\?pretty=true
 }
 ```
 
-2. Using grok extension for parsing the log messages:
+2 - Using grok extension for parsing the log messages:
 
 ```bash
 docker run --rm -ti \
@@ -234,7 +234,7 @@ In case you want to save the complete log line and its meta fields, you can set 
 }
 ```
 
-3. There are two different ways of adding custom grok patterns.
+3 - There are two different ways of adding custom grok patterns.
 
 a. by providing the grok pattern as parameter, e.g.:
 
@@ -278,7 +278,7 @@ docker run -ti --rm --log-driver rchicoli/docker-log-elasticsearch:development -
   rchicoli/webapper
 ```
 
-4. If grok is not able to parse the log line, then it will still send the unparsed message to Elasticsearch with an error description, e.g.:
+4 - If grok is not able to parse the log line, then it will still send the unparsed message to Elasticsearch with an error description, e.g.:
 
 ```bash
 "grok": {
