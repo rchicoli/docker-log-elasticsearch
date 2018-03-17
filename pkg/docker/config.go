@@ -8,9 +8,9 @@ import (
 	"strings"
 
 	"github.com/docker/docker/daemon/logger"
-	"github.com/pkg/errors"
 )
 
+// LogOpt ...
 type LogOpt struct {
 	index    string
 	tzpe     string
@@ -26,6 +26,7 @@ type LogOpt struct {
 	Grok
 }
 
+// Grok ...
 type Grok struct {
 	grokPattern         string
 	grokPatternFrom     string
@@ -109,20 +110,20 @@ func (c *LogOpt) validateLogOpt(cfg map[string]string) error {
 				case "daemonName":
 				case "none", "null", "":
 				default:
-					return fmt.Errorf("elasticsearch-fields: invalid parameter %s", v)
+					return fmt.Errorf("error: invalid parameter elasticsearch-fields: %s", v)
 				}
 			}
 			c.fields = v
 		case "elasticsearch-sniff":
 			s, err := strconv.ParseBool(v)
 			if err != nil {
-				return errors.Wrapf(err, "error: elasticsearch-sniff: %q", err)
+				return fmt.Errorf("error: parsing elasticsearch-sniff: %q", err)
 			}
 			c.sniff = s
 		case "elasticsearch-insecure":
 			s, err := strconv.ParseBool(v)
 			if err != nil {
-				return errors.Wrapf(err, "error: elasticsearch-insecure: %q", err)
+				return fmt.Errorf("error: parsing elasticsearch-insecure: %q", err)
 			}
 			c.insecure = s
 		case "elasticsearch-version":
@@ -130,12 +131,12 @@ func (c *LogOpt) validateLogOpt(cfg map[string]string) error {
 			case "1", "2", "5", "6":
 				c.version = v
 			default:
-				return fmt.Errorf("elasticsearch-version: version not support %s", v)
+				return fmt.Errorf("error: elasticsearch-version not supported: %s", v)
 			}
 		case "elasticsearch-timeout":
 			timeout, err := strconv.Atoi(v)
 			if err != nil {
-				return errors.Wrapf(err, "error: elasticsearch-timeout: %q", err)
+				return fmt.Errorf("error: parsing elasticsearch-timeout: %q", err)
 			}
 			c.timeout = timeout
 		case "grok-pattern":
@@ -149,14 +150,14 @@ func (c *LogOpt) validateLogOpt(cfg map[string]string) error {
 		case "grok-named-capture":
 			s, err := strconv.ParseBool(v)
 			if err != nil {
-				return errors.Wrapf(err, "error: grok-named-capture: %q", err)
+				return fmt.Errorf("error: parsing grok-named-capture: %q", err)
 			}
 			c.grokNamedCapture = s
 		// case "tag":
 		// case "labels":
 		// case "env":
 		default:
-			return fmt.Errorf("unknown log opt %q for elasticsearch log Driver", key)
+			return fmt.Errorf("error: unknown log-opt: %q", v)
 		}
 	}
 

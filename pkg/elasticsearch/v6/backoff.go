@@ -10,16 +10,19 @@ import (
 	"golang.org/x/net/context"
 )
 
+// MyRetrier ...
 type MyRetrier struct {
 	backoff elastic.Backoff
 }
 
+// NewMyRetrier ...
 func NewMyRetrier(timeout int) *MyRetrier {
 	return &MyRetrier{
 		backoff: elastic.NewExponentialBackoff(100*time.Millisecond, time.Duration(timeout)*time.Second),
 	}
 }
 
+// Retry ...
 func (r *MyRetrier) Retry(ctx context.Context, retry int, req *http.Request, resp *http.Response, err error) (time.Duration, bool, error) {
 	// Fail hard on a specific error
 	if err == syscall.ECONNREFUSED {
