@@ -17,8 +17,8 @@ make
 docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD" &>/dev/null
 make push
 
-git log --oneline "${LAST_TAG}..HEAD"
+# git log --oneline "${LAST_TAG}..HEAD"
 
 git tag -a "$NEW_TAG" -m "$(git log --oneline ${LAST_TAG}..HEAD)"
 
-git tag -n10
+git tag -n100

@@ -1,5 +1,26 @@
 # Docker Log Elasticsearch
 
+[![GoDoc][1]][2] [![License: Apache 2.0][3]][4] [![Release][5]][6] [![Travis Status][7]][8] [![Coveralls Coverage][9]][10] [![Go Report Card][13]][14] [![Downloads][15]][16]
+
+[1]: https://godoc.org/github.com/rchicoli/docker-log-elasticsearch?status.svg
+[2]: https://godoc.org/github.com/rchicoli/docker-log-elasticsearch
+[3]: https://img.shields.io/badge/License-Apache%202.0-blue.svg
+[4]: LICENSE.md
+[5]: https://img.shields.io/github/release/rchicoli/docker-log-elasticsearch.svg
+[6]: https://github.com/rchicoli/docker-log-elasticsearch/releases/latest
+[7]: https://travis-ci.org/rchicoli/docker-log-elasticsearch.svg?branch=master
+[8]: https://travis-ci.org/rchicoli/docker-log-elasticsearch
+[9]: https://coveralls.io/repos/rchicoli/docker-log-elasticsearch/badge.svg?branch=master&service=github
+[10]: https://coveralls.io/github/rchicoli/docker-log-elasticsearch?branch=master
+[11]: https://codecov.io/github/rchicoli/docker-log-elasticsearch/coverage.svg?branch=master
+[12]: https://codecov.io/github/rchicoli/docker-log-elasticsearch?branch=master
+[13]: https://goreportcard.com/badge/github.com/rchicoli/docker-log-elasticsearch
+[14]: https://goreportcard.com/report/github.com/rchicoli/docker-log-elasticsearch
+[15]: https://img.shields.io/github/downloads/rchicoli/docker-log-elasticsearch/total.svg?maxAge=1800
+[16]: https://github.com/rchicoli/docker-log-elasticsearch/releases
+[17]: https://img.shields.io/github/stars/rchicoli/docker-log-elasticsearch.svg
+[18]: https://github.com/rchicoli/docker-log-elasticsearch/stargazers
+
 `docker-log-elasticsearch` forwards container logs to Elasticsearch service.
 
 This application is under active development and will continue to be modified and improved over time. The current release is an *alpha*." (see [Roadmap](ROADMAP.md)).
