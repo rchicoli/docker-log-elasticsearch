@@ -36,7 +36,7 @@ var l = log.New(os.Stderr, "", 0)
 
 // Driver ...
 type Driver struct {
-	mu     sync.Mutex
+	mu     *sync.Mutex
 	logs   map[string]*container
 	logger logger.Logger
 
@@ -119,6 +119,7 @@ func (l LogMessage) timeOmityEmpty() *time.Time {
 func NewDriver() Driver {
 	return Driver{
 		logs: make(map[string]*container),
+		mu:   new(sync.Mutex),
 	}
 }
 
