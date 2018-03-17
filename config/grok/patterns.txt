@@ -1,0 +1,3 @@
+MY_NUMBER (?:[+-]?(?:[0-9]+))
+MY_USER [a-zA-Z0-9._-]+
+MY_PATTERN %{MY_NUMBER:random_number} %{MY_USER:user}
