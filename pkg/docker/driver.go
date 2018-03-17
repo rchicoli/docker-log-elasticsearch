@@ -179,10 +179,12 @@ func (d Driver) StartLogging(file string, info logger.Info) error {
 			grokPatterns := strings.Split(cfg.grokPattern, cfg.grokPatternSplitter)
 			for _, v := range grokPatterns {
 				patternNames = strings.Split(v, "=")
-
+				if len(patternNames) != 2 {
+					return fmt.Errorf("grok: missing equals separator for pattern string")
+				}
 				err = d.groker.AddPattern(patternNames[0], patternNames[1])
 				if err != nil {
-					log.Fatalf("grok: add pattern failed: %v", err)
+					return fmt.Errorf("grok: add pattern failed: %v", err)
 				}
 			}
 		}
@@ -190,7 +192,7 @@ func (d Driver) StartLogging(file string, info logger.Info) error {
 		if cfg.grokPatternFrom != "" {
 			err = d.groker.AddPatternsFromPath(cfg.grokPatternFrom)
 			if err != nil {
-				log.Fatalf("grok: add pattern from file failed: %v", err)
+				return fmt.Errorf("grok: add pattern from file failed: %v", err)
 			}
 		}
 
