@@ -27,7 +27,11 @@ type LogOpt struct {
 }
 
 type Grok struct {
-	grokPattern string
+	grokPattern         string
+	grokPatternFrom     string
+	grokPatternSplitter string
+	grokMatch           string
+	grokNamedCapture    bool
 }
 
 func defaultLogOpt() *LogOpt {
@@ -40,6 +44,11 @@ func defaultLogOpt() *LogOpt {
 		version:  "5",
 		sniff:    true,
 		insecure: false,
+
+		Grok: Grok{
+			grokPatternSplitter: " and ",
+			grokNamedCapture:    true,
+		},
 	}
 }
 
@@ -131,6 +140,18 @@ func (c *LogOpt) validateLogOpt(cfg map[string]string) error {
 			c.timeout = timeout
 		case "grok-pattern":
 			c.grokPattern = v
+		case "grok-pattern-from":
+			c.grokPatternFrom = v
+		case "grok-pattern-splitter":
+			c.grokPatternSplitter = v
+		case "grok-match":
+			c.grokMatch = v
+		case "grok-named-capture":
+			s, err := strconv.ParseBool(v)
+			if err != nil {
+				return errors.Wrapf(err, "error: grok-named-capture: %q", err)
+			}
+			c.grokNamedCapture = s
 		// case "tag":
 		// case "labels":
 		// case "env":

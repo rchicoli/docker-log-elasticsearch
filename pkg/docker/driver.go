@@ -170,18 +170,42 @@ func (d Driver) StartLogging(file string, info logger.Info) error {
 		}
 	}
 
-	go d.consumeLog(ctx, cfg.tzpe, cfg.index, c, cfg.fields, cfg.grokPattern)
+	if cfg.grokMatch != "" {
+
+		d.groker, _ = grok.NewWithConfig(&grok.Config{NamedCapturesOnly: cfg.grokNamedCapture})
+
+		if cfg.grokPattern != "" {
+			var patternNames []string
+			grokPatterns := strings.Split(cfg.grokPattern, cfg.grokPatternSplitter)
+			for _, v := range grokPatterns {
+				patternNames = strings.Split(v, "=")
+				if len(patternNames) != 2 {
+					return fmt.Errorf("grok: missing equals separator for pattern string")
+				}
+				err = d.groker.AddPattern(patternNames[0], patternNames[1])
+				if err != nil {
+					return fmt.Errorf("grok: add pattern failed: %v", err)
+				}
+			}
+		}
+
+		if cfg.grokPatternFrom != "" {
+			err = d.groker.AddPatternsFromPath(cfg.grokPatternFrom)
+			if err != nil {
+				return fmt.Errorf("grok: add pattern from file failed: %v", err)
+			}
+		}
+
+	}
+
+	go d.consumeLog(ctx, cfg.tzpe, cfg.index, c, cfg.fields, cfg.grokMatch)
 	return nil
 }
 
-func (d Driver) consumeLog(ctx context.Context, esType, esIndex string, c *container, fields, grokPattern string) {
+func (d Driver) consumeLog(ctx context.Context, esType, esIndex string, c *container, fields, grokMatch string) {
 
 	dec := protoio.NewUint32DelimitedReader(c.stream, binary.BigEndian, 1e6)
 	defer dec.Close()
-
-	if grokPattern != "" {
-		d.groker, _ = grok.NewWithConfig(&grok.Config{NamedCapturesOnly: true})
-	}
 
 	// custom log message fields
 	msg := getLostashFields(fields, c.info)
@@ -198,7 +222,8 @@ func (d Driver) consumeLog(ctx context.Context, esType, esIndex string, c *conta
 			}
 			dec = protoio.NewUint32DelimitedReader(c.stream, binary.BigEndian, 1e6)
 		}
-		// BUG: some times docker run throws empty line
+		// BUG(17.09.0~ce-0~debian): docker run throws lots empty line messages
+		// TODO: profile: check for resource consumption
 		if len(strings.TrimSpace(string(buf.Line))) == 0 {
 			// TODO: add log debug level
 			continue
@@ -207,7 +232,7 @@ func (d Driver) consumeLog(ctx context.Context, esType, esIndex string, c *conta
 		// create message
 		msg.Source = buf.Source
 		msg.Partial = buf.Partial
-		msg.GrokLine, msg.Line, err = d.parseLine(grokPattern, buf.Line)
+		msg.GrokLine, msg.Line, err = d.parseLine(grokMatch, buf.Line)
 		if err != nil {
 			log.Errorf("elasticsearch: grok failed to parse line: %v", err)
 		}
@@ -237,16 +262,16 @@ func (d Driver) parseLine(pattern string, line []byte) (map[string]string, []byt
 	// TODO: profile line below and perhaps place variables outside this function
 	grokMatch, err := d.groker.Match(pattern, string(line))
 	if err != nil {
-		return nil, nil, err
+		return map[string]string{"line": string(line), "err": err.Error()}, nil, err
 	}
 	if !grokMatch {
 		// do not try parse this line, because it will return an empty map
-		return map[string]string{"failed": string(line)}, nil, fmt.Errorf("elasticsearch: grok pattern does not match line: %s", string(line))
+		return map[string]string{"line": string(line), "err": "grok pattern does not match line"}, nil, fmt.Errorf("elasticsearch: grok pattern does not match line: %s", string(line))
 	}
 
 	grokLine, err := d.groker.Parse(pattern, string(line))
 	if err != nil {
-		return nil, nil, err
+		return map[string]string{"line": string(line), "err": err.Error()}, nil, err
 	}
 
 	return grokLine, nil, nil

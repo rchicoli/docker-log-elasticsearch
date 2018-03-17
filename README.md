@@ -15,6 +15,11 @@ This application is under active development and will continue to be modified an
 
 You need to install Docker Engine >= 1.12 and Elasticsearch application. Additional information about Docker plugins [can be found here](https://docs.docker.com/engine/extend/plugins_logging/).
 
+## Incompatible docker version
+
+It was found a bug with docker version `17.09.0~ce`. Currently I've been developing this plugin using the docker version `17.05.0~ce`.
+Before going stable I will add a cross test for multiple docker versions.
+
 ### How to install
 
 The following command will download and enable the plugin.
@@ -43,6 +48,11 @@ Before creating a docker container, a healthy instance of Elasticsearch service 
 | elasticsearch-username | no | no |  |
 | elasticsearch-url   | no     | yes |
 | elasticsearch-version | 5 | no |
+| grok-named-capture | true | no |
+| grok-pattern | no | no |
+| grok-pattern-from | no | no |
+| grok-pattern-splitter |  and  | no |
+| grok-pattern-match | no | no |
 
 ###### elasticsearch-url ######
 
@@ -88,9 +98,29 @@ Before creating a docker container, a healthy instance of Elasticsearch service 
   - *version* of Elasticsearch cluster
   - *examples*: 1, 2, 5, 6
 
+###### grok-pattern ######
+  - *pattern* add customer pattern
+  - *examples*: CUSTOM_IP=(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)
+
+###### grok-pattern-from ######
+  - *pattern-from* add custom pattern from a file or folder
+  - *examples*: /srv/grok/pattern (this directory must be bound or linked inside the plugins's rootfs)
+
+###### grok-pattern-splitter ######
+  - *pattern-splitter* is used for splitting multiple patterns from grok-pattern
+  - *examples*: " AND " (with white spaces before and after the word AND)
+
+###### grok-match ######
+  - *match* the log line to parse
+  - *examples*: %{WORD:test1} %{WORD:test2}
+
+###### grok-named-capture ######
+  - *named-capture* parse each inner pattern or only named captures
+  - *examples*: 1, t, T, TRUE, true, True, 0, f, F, FALSE, false, False
+
 ### How to test ###
 
-Creating and running a container:
+1. Creating and running a container:
 
 ```bash
 $ docker run --rm -ti \
@@ -111,26 +141,158 @@ $ docker run --rm -ti \
 Search in Elasticsearch for the log message:
 
 ```bash
-    $ curl 127.0.0.1:9200/docker/log/_search\?pretty=true
+$ curl 127.0.0.1:9200/docker/log/_search\?pretty=true
 
-    {
-        "_index" : "docker",
-        "_type" : "log",
-        "_id" : "AWCywmj6Dipxk6-_e8T5",
-        "_score" : 1.0,
-        "_source" : {
-          "containerID" : "f7d986496f66",
-          "containerName" => "focused_lumiere",
-          "containerImageID" : "sha256:8d254d3d0dca3e3ee8f377e752af11e0909b51133da614af4b30e4769aff5a44",
-          "containerImageName" : "alpine",
-          "containerCreated" : "2018-01-18T21:45:29.053364087Z",
-          "source" : "stdout",
-          "timestamp" : "2018-01-18T21:45:30.294363869Z",
-          "partial" : false
-          "message" : "this is a test message\r"
-        }
-      }
+{
+  "_index" : "docker",
+  "_type" : "log",
+  "_id" : "AWCywmj6Dipxk6-_e8T5",
+  "_score" : 1.0,
+  "_source" : {
+    "containerID" : "f7d986496f66",
+    "containerName" => "focused_lumiere",
+    "containerImageID" : "sha256:8d254d3d0dca3e3ee8f377e752af11e0909b51133da614af4b30e4769aff5a44",
+    "containerImageName" : "alpine",
+    "containerCreated" : "2018-01-18T21:45:29.053364087Z",
+    "source" : "stdout",
+    "timestamp" : "2018-01-18T21:45:30.294363869Z",
+    "partial" : false,
+    "message" : "this is a test message\r"
+  }
+}
 ```
+
+2. Using grok extension for parsing the log messages:
+
+```bash
+docker run --rm -ti \
+    --log-driver rchicoli/docker-log-elasticsearch:latest \
+    --log-opt elasticsearch-url=https://127.0.0.1:9200 \
+    --log-opt grok-match='%{COMMONAPACHELOG}' \
+    --log-opt grok-named-capture=true \
+    alpine echo -n "127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] \"GET /index.php HTTP/1.1\" 404 $((RANDOM))"
+```
+
+The apache log line above will be displayed in elasticsearch as following:
+
+```bash
+"_source": {
+  "containerID": "af7b2f782963",
+  "containerName": "dazzling_knuth",
+  "containerImageName": "alpine",
+  "containerCreated": "2018-03-16T22:13:42.27376049Z",
+  "source": "stdout",
+  "timestamp": "2018-03-16T22:13:42.810856646Z",
+  "partial": true,
+  "grok": {
+    "auth": "-",
+    "bytes": "28453",
+    "clientip": "127.0.0.1",
+    "httpversion": "1.1",
+    "ident": "-",
+    "rawrequest": "",
+    "request": "/index.php",
+    "response": "404",
+    "timestamp": "23/Apr/2014:22:58:32 +0200",
+    "verb": "GET"
+  }
+}
+```
+
+In case you want to save the complete log line and its meta fields, you can set `grok-named-capture` to `false`, this will show some duplicated values though:
+
+```bash
+"grok": {
+  "BASE10NUM": "16406",
+  "COMMONAPACHELOG": "127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] \"GET /index.php HTTP/1.1\" 404 16406",
+  "EMAILADDRESS": "",
+  "EMAILLOCALPART": "",
+  "HOSTNAME": "",
+  "HOUR": "22",
+  "INT": "+0200",
+  "IP": "127.0.0.1",
+  "IPV4": "127.0.0.1",
+  "IPV6": "",
+  "MINUTE": "58",
+  "MONTH": "Apr",
+  "MONTHDAY": "23",
+  "SECOND": "32",
+  "TIME": "22:58:32",
+  "USER": "-",
+  "USERNAME": "-",
+  "YEAR": "2014",
+  "auth": "-",
+  "bytes": "16406",
+  "clientip": "127.0.0.1",
+  "httpversion": "1.1",
+  "ident": "-",
+  "rawrequest": "",
+  "request": "/index.php",
+  "response": "404",
+  "timestamp": "23/Apr/2014:22:58:32 +0200",
+  "verb": "GET"
+}
+```
+
+3. There are two different ways of adding custom grok patterns.
+
+a. by providing the grok pattern as parameter, e.g.:
+
+```bash
+docker run --rm -ti --log-opt grok-named-capture=false \
+  --log-driver rchicoli/docker-log-elasticsearch:development \
+  --log-opt elasticsearch-url=http://172.31.0.2:9200 \
+  --log-opt grok-pattern='MY_NUMBER=(?:[+-]?(?:[0-9]+)) && MY_USER=[a-zA-Z0-9._-]+ && MY_PATTERN=%{MY_NUMBER:random_number} %{MY_USER:user}' \
+  --log-opt grok-pattern-splitter=' && ' \
+  --log-opt grok-match='%{MY_PATTERN:log}' \
+  alpine echo -n "$((RANDOM)) tester"
+```
+
+Note we are using multiple custom patterns and also a different pattern splitter.
+
+```bash
+"_source": {
+  "containerID": "e11b45c911b4",
+  "containerName": "ecstatic_leakey",
+  "containerImageName": "alpine",
+  "containerCreated": "2018-03-16T22:47:39.39245724Z",
+  "source": "stdout",
+  "timestamp": "2018-03-16T22:47:39.940595233Z",
+  "partial": true,
+  "grok": {
+    "log": "2921 tester",
+    "random_number": "2921",
+    "user": "tester"
+  }
+}
+```
+
+b. by providing a directory with different grok patterns in it or just a single file, e.g.:
+
+At first, you have to place the file or directory inside the docker's rootfs. It is up to you to choose the right way to do it.
+You could link the file, mount the directory or simply copy it inside `/var/lib/docker/plugin/<plugin-id>/rootfs/`. Afterwards you can pass it as following:
+
+```bash
+docker run -ti --rm --log-driver rchicoli/docker-log-elasticsearch:development --log-opt elasticsearch-url=http://172.31.0.2:9200 \
+  --log-opt grok-pattern-from="/patterns" \
+  rchicoli/webapper
+```
+
+4. If grok is not able to parse the log line, then it will still send the unparsed message to Elasticsearch with an error description, e.g.:
+
+```bash
+"grok": {
+  "err": "grok pattern does not match line",
+  "line": "4721 tester"
+}
+```
+
+### Limitations
+
+There are some limitations so far, which will be improved at some point.
+
+  - grok parses everything to a string field, convertion type is not possible at the moment
+  - grok-pattern-from requires the file to be inside the plugin's rootfs
 
 ### Description of fields
 
