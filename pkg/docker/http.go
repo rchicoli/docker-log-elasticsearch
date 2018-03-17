@@ -9,30 +9,36 @@ import (
 	"github.com/docker/go-plugins-helpers/sdk"
 )
 
+// StartLoggingRequest ...
 type StartLoggingRequest struct {
 	File string
 	Info logger.Info
 }
 
+// StopLoggingRequest ...
 type StopLoggingRequest struct {
 	File string
 }
 
+// CapabilitiesResponse ...
 type CapabilitiesResponse struct {
 	Err string
 	Cap logger.Capability
 }
 
+// ReadLogsRequest ...
 type ReadLogsRequest struct {
 	Info   logger.Info
 	Config logger.ReadConfig
 }
 
+// LogDriver ...
 type LogDriver interface {
 	StartLogging(string, logger.Info) error
 	StopLogging(string) error
 }
 
+// Handlers ...
 func Handlers(h *sdk.Handler, d LogDriver) {
 	h.HandleFunc("/LogDriver.StartLogging", func(w http.ResponseWriter, r *http.Request) {
 		var req StartLoggingRequest

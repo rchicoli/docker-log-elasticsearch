@@ -34,6 +34,7 @@ const (
 
 var l = log.New(os.Stderr, "", 0)
 
+// Driver ...
 type Driver struct {
 	mu     sync.Mutex
 	logs   map[string]*container
@@ -49,6 +50,7 @@ type container struct {
 	info   logger.Info
 }
 
+// LogMessage ...
 type LogMessage struct {
 	logdriver.LogEntry
 	logger.Info
@@ -56,6 +58,7 @@ type LogMessage struct {
 	GrokLine map[string]string
 }
 
+// MarshalJSON ...
 func (l LogMessage) MarshalJSON() ([]byte, error) {
 	return json.Marshal(
 		struct {
@@ -112,12 +115,14 @@ func (l LogMessage) timeOmityEmpty() *time.Time {
 	return &l.ContainerCreated
 }
 
+// NewDriver ...
 func NewDriver() Driver {
 	return Driver{
 		logs: make(map[string]*container),
 	}
 }
 
+// StartLogging ...
 func (d Driver) StartLogging(file string, info logger.Info) error {
 	d.mu.Lock()
 	if _, exists := d.logs[file]; exists {
@@ -282,6 +287,7 @@ func (d Driver) parseLine(pattern, logMessage string, line []byte) (map[string]s
 
 }
 
+// StopLogging ...
 func (d Driver) StopLogging(file string) error {
 
 	// log.Infof("info: stopping log: %s\n", file)
@@ -301,6 +307,7 @@ func (d Driver) StopLogging(file string) error {
 	return nil
 }
 
+// Name ...
 func (d Driver) Name() string {
 	return name
 }
