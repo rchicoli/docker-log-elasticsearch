@@ -10,6 +10,7 @@ Goals:
  - [ ] Create an API for dumping or changing config on the fly
  - [ ] Parse partial log messages and merge them, if wished
  - [ ] Add performance tests
+ - [ ] Add metrics
 
 ## Docker Log Elasticsearch 1.0.0
 
@@ -27,5 +28,5 @@ Goals:
    - [ ] if queue is full, then write to file
    - [ ] if file buffer is full, discard messages
  - [ ] Implement Readlog capability
- - [ ] Implement grok for parsing docker logs
+ - [X] Implement grok for parsing docker logs
  - [ ] Add CONTRIBUTING file
