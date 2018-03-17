@@ -10,6 +10,7 @@ import (
 	"github.com/docker/docker/daemon/logger"
 )
 
+// LogOpt ...
 type LogOpt struct {
 	index    string
 	tzpe     string
@@ -25,6 +26,7 @@ type LogOpt struct {
 	Grok
 }
 
+// Grok ...
 type Grok struct {
 	grokPattern         string
 	grokPatternFrom     string

@@ -12,11 +12,13 @@ import (
 	"github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch"
 )
 
+// Elasticsearch ...
 type Elasticsearch struct {
 	Client       *elastic.Client
 	indexService *elastic.IndexService
 }
 
+// NewClient ...
 func NewClient(address, username, password string, timeout int, sniff bool, insecure bool) (elasticsearch.Client, error) {
 
 	url, _ := url.Parse(address)
