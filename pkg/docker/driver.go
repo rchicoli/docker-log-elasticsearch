@@ -16,9 +16,9 @@ import (
 	"github.com/docker/docker/api/types/plugins/logdriver"
 	"github.com/docker/docker/daemon/logger"
 	"github.com/tonistiigi/fifo"
-	"github.com/vjeantet/grok"
 
 	"github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch"
+	"github.com/rchicoli/docker-log-elasticsearch/pkg/extension/grok"
 
 	elasticv2 "github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch/v1"
 	elasticv3 "github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch/v2"
@@ -157,7 +157,7 @@ func (d Driver) StartLogging(file string, info logger.Info) error {
 		return fmt.Errorf("error: cannot create an elasticsearch client: %v", err)
 	}
 
-	d.groker, err = NewGrok(cfg.grokMatch, cfg.grokPattern, cfg.grokPatternFrom, cfg.grokPatternSplitter, cfg.grokNamedCapture)
+	d.groker, err = grok.NewGrok(cfg.grokMatch, cfg.grokPattern, cfg.grokPatternFrom, cfg.grokPatternSplitter, cfg.grokNamedCapture)
 	if err != nil {
 		return err
 	}
@@ -165,38 +165,6 @@ func (d Driver) StartLogging(file string, info logger.Info) error {
 	go d.consumeLog(ctx, cfg.tzpe, cfg.index, c, cfg.fields, cfg.grokMatch)
 
 	return nil
-}
-
-func NewGrok(grokMatch, grokPattern, grokPatternFrom, grokPatternSplitter string, grokNamedCapture bool) (*grok.Grok, error) {
-	if grokMatch == "" {
-		return nil, nil
-	}
-
-	groker, _ := grok.NewWithConfig(&grok.Config{NamedCapturesOnly: grokNamedCapture})
-
-	if grokPattern != "" {
-		var patternNames []string
-		grokPatterns := strings.Split(grokPattern, grokPatternSplitter)
-		for _, v := range grokPatterns {
-			patternNames = strings.Split(v, "=")
-			if len(patternNames) != 2 {
-				return groker, fmt.Errorf("error: parsing grok-pattern, missing '=' separator")
-			}
-			err := groker.AddPattern(patternNames[0], patternNames[1])
-			if err != nil {
-				return groker, fmt.Errorf("error: adding grok pattern: %v", err)
-			}
-		}
-	}
-
-	if grokPatternFrom != "" {
-		err := groker.AddPatternsFromPath(grokPatternFrom)
-		if err != nil {
-			return groker, fmt.Errorf("error: adding grok pattern from %s: %v", grokPatternFrom, err)
-		}
-	}
-
-	return groker, nil
 }
 
 func (d Driver) consumeLog(ctx context.Context, esType, esIndex string, c *container, fields, grokMatch string) {
@@ -233,7 +201,7 @@ func (d Driver) consumeLog(ctx context.Context, esType, esIndex string, c *conta
 		// create message
 		msg.Source = buf.Source
 		msg.Partial = buf.Partial
-		msg.GrokLine, msg.Line, err = d.parseLine(grokMatch, logMessage, buf.Line)
+		msg.GrokLine, msg.Line, err = d.groker.ParseLine(grokMatch, logMessage, buf.Line)
 		if err != nil {
 			l.Printf("error: [%v] parsing log message: %v\n", c.info.ID(), err)
 		}
@@ -278,35 +246,6 @@ func NewClient(version string, url, username, password string, timeout int, snif
 	default:
 		return nil, fmt.Errorf("error: elasticsearch version not supported: %v", version)
 	}
-}
-
-func (d Driver) parseLine(pattern, logMessage string, line []byte) (map[string]string, []byte, error) {
-
-	if d.groker == nil {
-		return nil, line, nil
-	}
-
-	// TODO: create a PR to grok upstream for returning a regexp
-	// doing so we avoid to compile the regexp twice
-	// TODO: profile line below and perhaps place variables outside this function
-	grokMatch, err := d.groker.Match(pattern, logMessage)
-	if err != nil {
-		return map[string]string{"line": logMessage, "err": err.Error()}, nil, err
-	}
-	if !grokMatch {
-		// do not try parse this line, because it will return an empty map
-		return map[string]string{"line": logMessage, "err": "grok pattern does not match log line"},
-			nil,
-			fmt.Errorf("error: grok pattern does not match line: %s", logMessage)
-	}
-
-	grokLine, err := d.groker.Parse(pattern, logMessage)
-	if err != nil {
-		return map[string]string{"line": logMessage, "err": err.Error()}, nil, err
-	}
-
-	return grokLine, nil, nil
-
 }
 
 // StopLogging ...
