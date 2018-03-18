@@ -20,11 +20,6 @@ import (
 	"github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch"
 	"github.com/rchicoli/docker-log-elasticsearch/pkg/extension/grok"
 
-	elasticv2 "github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch/v1"
-	elasticv3 "github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch/v2"
-	elasticv5 "github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch/v5"
-	elasticv6 "github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch/v6"
-
 	protoio "github.com/gogo/protobuf/io"
 )
 
@@ -152,7 +147,7 @@ func (d Driver) StartLogging(file string, info logger.Info) error {
 		return fmt.Errorf("error: validating log options: %v", err)
 	}
 
-	d.esClient, err = NewClient(cfg.version, cfg.url, cfg.username, cfg.password, cfg.timeout, cfg.sniff, cfg.insecure)
+	d.esClient, err = elasticsearch.NewClient(cfg.version, cfg.url, cfg.username, cfg.password, cfg.timeout, cfg.sniff, cfg.insecure)
 	if err != nil {
 		return fmt.Errorf("error: cannot create an elasticsearch client: %v", err)
 	}
@@ -213,38 +208,6 @@ func (d Driver) consumeLog(ctx context.Context, esType, esIndex string, c *conta
 		}
 
 		buf.Reset()
-	}
-}
-
-// NewClient ...
-func NewClient(version string, url, username, password string, timeout int, sniff bool, insecure bool) (elasticsearch.Client, error) {
-	switch version {
-	case "1":
-		client, err := elasticv2.NewClient(url, username, password, timeout, sniff, insecure)
-		if err != nil {
-			return nil, fmt.Errorf("error: cannot create an elasticsearch client: %v", err)
-		}
-		return client, nil
-	case "2":
-		client, err := elasticv3.NewClient(url, username, password, timeout, sniff, insecure)
-		if err != nil {
-			return nil, fmt.Errorf("error: cannot create an elasticsearch client: %v", err)
-		}
-		return client, nil
-	case "5":
-		client, err := elasticv5.NewClient(url, username, password, timeout, sniff, insecure)
-		if err != nil {
-			return nil, fmt.Errorf("error: cannot create an elasticsearch client: %v", err)
-		}
-		return client, nil
-	case "6":
-		client, err := elasticv6.NewClient(url, username, password, timeout, sniff, insecure)
-		if err != nil {
-			return nil, fmt.Errorf("error: cannot create an elasticsearch client: %v", err)
-		}
-		return client, nil
-	default:
-		return nil, fmt.Errorf("error: elasticsearch version not supported: %v", version)
 	}
 }
 

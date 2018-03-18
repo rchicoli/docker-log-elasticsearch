@@ -8,8 +8,6 @@ import (
 	"net/url"
 
 	"gopkg.in/olivere/elastic.v2"
-
-	"github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch"
 )
 
 // Elasticsearch ...
@@ -19,7 +17,7 @@ type Elasticsearch struct {
 }
 
 // NewClient ...
-func NewClient(address, username, password string, timeout int, sniff bool, insecure bool) (elasticsearch.Client, error) {
+func NewClient(address, username, password string, timeout int, sniff bool, insecure bool) (*Elasticsearch, error) {
 
 	url, _ := url.Parse(address)
 	tr := new(http.Transport)
