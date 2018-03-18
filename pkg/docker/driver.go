@@ -143,10 +143,7 @@ func (d Driver) StartLogging(file string, info logger.Info) error {
 	}
 
 	d.mu.Lock()
-	c := &container{
-		stream: f,
-		info:   info,
-	}
+	c := &container{stream: f, info: info}
 	d.logs[file] = c
 	d.mu.Unlock()
 
@@ -155,59 +152,51 @@ func (d Driver) StartLogging(file string, info logger.Info) error {
 		return fmt.Errorf("error: validating log options: %v", err)
 	}
 
-	switch cfg.version {
-	case "1":
-		d.esClient, err = elasticv2.NewClient(cfg.url, cfg.username, cfg.password, cfg.timeout, cfg.sniff, cfg.insecure)
-		if err != nil {
-			return fmt.Errorf("error: cannot create an elasticsearch client: %v", err)
-		}
-	case "2":
-		d.esClient, err = elasticv3.NewClient(cfg.url, cfg.username, cfg.password, cfg.timeout, cfg.sniff, cfg.insecure)
-		if err != nil {
-			return fmt.Errorf("error: cannot create an elasticsearch client: %v", err)
-		}
-	case "5":
-		d.esClient, err = elasticv5.NewClient(cfg.url, cfg.username, cfg.password, cfg.timeout, cfg.sniff, cfg.insecure)
-		if err != nil {
-			return fmt.Errorf("error: cannot create an elasticsearch client: %v", err)
-		}
-	case "6":
-		d.esClient, err = elasticv6.NewClient(cfg.url, cfg.username, cfg.password, cfg.timeout, cfg.sniff, cfg.insecure)
-		if err != nil {
-			return fmt.Errorf("error: cannot create an elasticsearch client: %v", err)
-		}
+	d.esClient, err = NewClient(cfg.version, cfg.url, cfg.username, cfg.password, cfg.timeout, cfg.sniff, cfg.insecure)
+	if err != nil {
+		return fmt.Errorf("error: cannot create an elasticsearch client: %v", err)
 	}
 
-	if cfg.grokMatch != "" {
-
-		d.groker, _ = grok.NewWithConfig(&grok.Config{NamedCapturesOnly: cfg.grokNamedCapture})
-
-		if cfg.grokPattern != "" {
-			var patternNames []string
-			grokPatterns := strings.Split(cfg.grokPattern, cfg.grokPatternSplitter)
-			for _, v := range grokPatterns {
-				patternNames = strings.Split(v, "=")
-				if len(patternNames) != 2 {
-					return fmt.Errorf("error: parsing grok-pattern, missing '=' separator")
-				}
-				err = d.groker.AddPattern(patternNames[0], patternNames[1])
-				if err != nil {
-					return fmt.Errorf("error: adding grok pattern: %v", err)
-				}
-			}
-		}
-
-		if cfg.grokPatternFrom != "" {
-			err = d.groker.AddPatternsFromPath(cfg.grokPatternFrom)
-			if err != nil {
-				return fmt.Errorf("error: adding grok pattern from %s: %v", cfg.grokPatternFrom, err)
-			}
-		}
-
+	d.groker, err = NewGrok(cfg.grokMatch, cfg.grokPattern, cfg.grokPatternFrom, cfg.grokPatternSplitter, cfg.grokNamedCapture)
+	if err != nil {
+		return err
 	}
 
 	go d.consumeLog(ctx, cfg.tzpe, cfg.index, c, cfg.fields, cfg.grokMatch)
+
 	return nil
+}
+
+func NewGrok(grokMatch, grokPattern, grokPatternFrom, grokPatternSplitter string, grokNamedCapture bool) (*grok.Grok, error) {
+	if grokMatch == "" {
+		return nil, nil
+	}
+
+	groker, _ := grok.NewWithConfig(&grok.Config{NamedCapturesOnly: grokNamedCapture})
+
+	if grokPattern != "" {
+		var patternNames []string
+		grokPatterns := strings.Split(grokPattern, grokPatternSplitter)
+		for _, v := range grokPatterns {
+			patternNames = strings.Split(v, "=")
+			if len(patternNames) != 2 {
+				return groker, fmt.Errorf("error: parsing grok-pattern, missing '=' separator")
+			}
+			err := groker.AddPattern(patternNames[0], patternNames[1])
+			if err != nil {
+				return groker, fmt.Errorf("error: adding grok pattern: %v", err)
+			}
+		}
+	}
+
+	if grokPatternFrom != "" {
+		err := groker.AddPatternsFromPath(grokPatternFrom)
+		if err != nil {
+			return groker, fmt.Errorf("error: adding grok pattern from %s: %v", grokPatternFrom, err)
+		}
+	}
+
+	return groker, nil
 }
 
 func (d Driver) consumeLog(ctx context.Context, esType, esIndex string, c *container, fields, grokMatch string) {
@@ -251,11 +240,43 @@ func (d Driver) consumeLog(ctx context.Context, esType, esIndex string, c *conta
 		msg.TimeNano = buf.TimeNano
 
 		if err = d.esClient.Log(ctx, esIndex, esType, msg); err != nil {
-			l.Printf("error: [%v] writting log message: %v\n", c.info.ID(), logMessage)
+			l.Printf("error: [%v] writing log message: %v\n", c.info.ID(), err)
 			continue
 		}
 
 		buf.Reset()
+	}
+}
+
+// NewClient ...
+func NewClient(version string, url, username, password string, timeout int, sniff bool, insecure bool) (elasticsearch.Client, error) {
+	switch version {
+	case "1":
+		client, err := elasticv2.NewClient(url, username, password, timeout, sniff, insecure)
+		if err != nil {
+			return nil, fmt.Errorf("error: cannot create an elasticsearch client: %v", err)
+		}
+		return client, nil
+	case "2":
+		client, err := elasticv3.NewClient(url, username, password, timeout, sniff, insecure)
+		if err != nil {
+			return nil, fmt.Errorf("error: cannot create an elasticsearch client: %v", err)
+		}
+		return client, nil
+	case "5":
+		client, err := elasticv5.NewClient(url, username, password, timeout, sniff, insecure)
+		if err != nil {
+			return nil, fmt.Errorf("error: cannot create an elasticsearch client: %v", err)
+		}
+		return client, nil
+	case "6":
+		client, err := elasticv6.NewClient(url, username, password, timeout, sniff, insecure)
+		if err != nil {
+			return nil, fmt.Errorf("error: cannot create an elasticsearch client: %v", err)
+		}
+		return client, nil
+	default:
+		return nil, fmt.Errorf("error: elasticsearch version not supported: %v", version)
 	}
 }
 
