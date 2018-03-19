@@ -13,6 +13,8 @@ import (
 	"syscall"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/docker/docker/api/types/plugins/logdriver"
 	"github.com/docker/docker/daemon/logger"
 	"github.com/tonistiigi/fifo"
@@ -157,58 +159,85 @@ func (d Driver) StartLogging(file string, info logger.Info) error {
 		return err
 	}
 
-	go d.consumeLog(ctx, cfg.tzpe, cfg.index, c, cfg.fields, cfg.grokMatch)
+	msgCh := make(chan LogMessage)
+	g, ectx := errgroup.WithContext(ctx)
+
+	g.Go(func() error {
+		dec := protoio.NewUint32DelimitedReader(c.stream, binary.BigEndian, 1e6)
+		defer dec.Close()
+
+		// custom log message fields
+		msg := getLostashFields(cfg.fields, c.info)
+
+		var buf logdriver.LogEntry
+		var err error
+		var logMessage string
+
+		for {
+			if err = dec.ReadMsg(&buf); err != nil {
+				if err == io.EOF {
+					// log.Infof("info: [%v] shutting down log logger: %v", c.info.ContainerID, err)
+					c.stream.Close()
+					return nil
+				}
+				dec = protoio.NewUint32DelimitedReader(c.stream, binary.BigEndian, 1e6)
+			}
+
+			logMessage = string(buf.Line)
+
+			// BUG(17.09.0~ce-0~debian): docker run throws lots empty line messages
+			// TODO: profile: check for resource consumption
+			if len(strings.TrimSpace(logMessage)) == 0 {
+				// TODO: add log debug level
+				continue
+			}
+
+			// create message
+			msg.Source = buf.Source
+			msg.Partial = buf.Partial
+			msg.TimeNano = buf.TimeNano
+
+			// if required we could place this function in an extra pipeline
+			msg.GrokLine, msg.Line, err = d.groker.ParseLine(cfg.grokMatch, logMessage, buf.Line)
+			if err != nil {
+				l.Printf("error: [%v] parsing log message: %v\n", c.info.ID(), err)
+			}
+
+			buf.Reset()
+
+			select {
+			case msgCh <- msg:
+			case <-ectx.Done():
+				return ectx.Err()
+			}
+		}
+	})
+
+	for i := 0; i < 10; i++ {
+		i := i
+		g.Go(func() error {
+
+			l.Printf("[%v] - %p: worker A", i, &i)
+
+			for m := range msgCh {
+
+				l.Printf("[%v]: - %p: worker B", i, &i)
+
+				if err = d.esClient.Log(ctx, cfg.index, cfg.tzpe, m); err != nil {
+					l.Printf("error: [%v] writing log message: %v\n", c.info.ID(), err)
+					continue
+				}
+
+				select {
+				case <-ectx.Done():
+					return ectx.Err()
+				}
+			}
+			return nil
+		})
+	}
 
 	return nil
-}
-
-func (d Driver) consumeLog(ctx context.Context, esType, esIndex string, c *container, fields, grokMatch string) {
-
-	dec := protoio.NewUint32DelimitedReader(c.stream, binary.BigEndian, 1e6)
-	defer dec.Close()
-
-	// custom log message fields
-	msg := getLostashFields(fields, c.info)
-
-	var buf logdriver.LogEntry
-	var err error
-	var logMessage string
-
-	for {
-		if err = dec.ReadMsg(&buf); err != nil {
-			if err == io.EOF {
-				// log.Infof("info: [%v] shutting down log logger: %v", c.info.ContainerID, err)
-				c.stream.Close()
-				return
-			}
-			dec = protoio.NewUint32DelimitedReader(c.stream, binary.BigEndian, 1e6)
-		}
-
-		logMessage = string(buf.Line)
-
-		// BUG(17.09.0~ce-0~debian): docker run throws lots empty line messages
-		// TODO: profile: check for resource consumption
-		if len(strings.TrimSpace(logMessage)) == 0 {
-			// TODO: add log debug level
-			continue
-		}
-
-		// create message
-		msg.Source = buf.Source
-		msg.Partial = buf.Partial
-		msg.GrokLine, msg.Line, err = d.groker.ParseLine(grokMatch, logMessage, buf.Line)
-		if err != nil {
-			l.Printf("error: [%v] parsing log message: %v\n", c.info.ID(), err)
-		}
-		msg.TimeNano = buf.TimeNano
-
-		if err = d.esClient.Log(ctx, esIndex, esType, msg); err != nil {
-			l.Printf("error: [%v] writing log message: %v\n", c.info.ID(), err)
-			continue
-		}
-
-		buf.Reset()
-	}
 }
 
 // StopLogging ...
