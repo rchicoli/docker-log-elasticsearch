@@ -160,18 +160,16 @@ func (d Driver) StartLogging(file string, info logger.Info) error {
 	}
 
 	msgCh := make(chan LogMessage)
+	logCh := make(chan logdriver.LogEntry)
+
 	g, ectx := errgroup.WithContext(ctx)
 
 	g.Go(func() error {
 		dec := protoio.NewUint32DelimitedReader(c.stream, binary.BigEndian, 1e6)
 		defer dec.Close()
 
-		// custom log message fields
-		msg := getLostashFields(cfg.fields, c.info)
-
 		var buf logdriver.LogEntry
 		var err error
-		var logMessage string
 
 		for {
 			if err = dec.ReadMsg(&buf); err != nil {
@@ -182,10 +180,26 @@ func (d Driver) StartLogging(file string, info logger.Info) error {
 				}
 				dec = protoio.NewUint32DelimitedReader(c.stream, binary.BigEndian, 1e6)
 			}
+			select {
+			case logCh <- buf:
+			case <-ectx.Done():
+				return ectx.Err()
+			}
+		}
+	})
 
-			logMessage = string(buf.Line)
+	g.Go(func() error {
 
-			// BUG(17.09.0~ce-0~debian): docker run throws lots empty line messages
+		var logMessage string
+
+		// custom log message fields
+		msg := getLostashFields(cfg.fields, c.info)
+
+		for m := range logCh {
+
+			logMessage = string(m.Line)
+
+			// BUG: (17.09.0~ce-0~debian) docker run command throws lots empty line messages
 			// TODO: profile: check for resource consumption
 			if len(strings.TrimSpace(logMessage)) == 0 {
 				// TODO: add log debug level
@@ -193,17 +207,17 @@ func (d Driver) StartLogging(file string, info logger.Info) error {
 			}
 
 			// create message
-			msg.Source = buf.Source
-			msg.Partial = buf.Partial
-			msg.TimeNano = buf.TimeNano
+			msg.Source = m.Source
+			msg.Partial = m.Partial
+			msg.TimeNano = m.TimeNano
 
 			// if required we could place this function in an extra pipeline
-			msg.GrokLine, msg.Line, err = d.groker.ParseLine(cfg.grokMatch, logMessage, buf.Line)
+			msg.GrokLine, msg.Line, err = d.groker.ParseLine(cfg.grokMatch, logMessage, m.Line)
 			if err != nil {
 				l.Printf("error: [%v] parsing log message: %v\n", c.info.ID(), err)
 			}
 
-			buf.Reset()
+			m.Reset()
 
 			select {
 			case msgCh <- msg:
@@ -211,19 +225,21 @@ func (d Driver) StartLogging(file string, info logger.Info) error {
 				return ectx.Err()
 			}
 		}
+
+		return nil
 	})
 
 	for i := 0; i < 10; i++ {
-		i := i
+		// i := i
 		g.Go(func() error {
 
-			l.Printf("[%v] - %p: worker A", i, &i)
+			// l.Printf("[%v] - %p: worker A", i, &i)
 
-			for m := range msgCh {
+			for a := range msgCh {
 
-				l.Printf("[%v]: - %p: worker B", i, &i)
+				// l.Printf("[%v]: - %p: worker B", i, &i)
 
-				if err = d.esClient.Log(ctx, cfg.index, cfg.tzpe, m); err != nil {
+				if err = d.esClient.Log(ctx, cfg.index, cfg.tzpe, a); err != nil {
 					l.Printf("error: [%v] writing log message: %v\n", c.info.ID(), err)
 					continue
 				}
@@ -235,6 +251,11 @@ func (d Driver) StartLogging(file string, info logger.Info) error {
 			}
 			return nil
 		})
+	}
+
+	// Check whether any goroutines failed.
+	if err := g.Wait(); err != nil {
+		panic(err)
 	}
 
 	return nil

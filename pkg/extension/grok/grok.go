@@ -55,7 +55,6 @@ func (g Grok) ParseLine(pattern, logMessage string, line []byte) (map[string]str
 
 	// TODO: create a PR to grok upstream for returning a regexp
 	// doing so we avoid to compile the regexp twice
-	// TODO: profile line below and perhaps place variables outside this function
 	grokMatch, err := g.Match(pattern, logMessage)
 	if err != nil {
 		return map[string]string{"line": logMessage, "err": err.Error()}, nil, err
