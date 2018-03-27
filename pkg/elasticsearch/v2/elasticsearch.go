@@ -56,14 +56,14 @@ func (e *Elasticsearch) Log(ctx context.Context, index, tzpe string, msg interfa
 	return nil
 }
 
-func (e *Elasticsearch) NewBulkProcessorService(ctx context.Context, workers, bulkActions, bulkSize int, flushInterval time.Duration, stats bool) error {
+func (e *Elasticsearch) NewBulkProcessorService(ctx context.Context, workers, actions, size int, flushInterval time.Duration, stats bool) error {
 
 	p, err := e.BulkProcessorService.
 		Workers(workers).
-		BulkActions(bulkActions).                   // commit if # requests >= BulkSize
-		BulkSize(5 << 20).                          // commit if size of requests >= 1 MB
-		FlushInterval(time.Second * flushInterval). // commit every given interval
-		Stats(stats).                               // collect stats
+		BulkActions(actions).         // commit if # requests >= BulkSize
+		BulkSize(size).               // commit if size of requests >= 1 MB
+		FlushInterval(flushInterval). // commit every given interval
+		Stats(stats).                 // collect stats
 		// Backoff(backoff).
 		Do()
 	if err != nil {

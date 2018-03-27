@@ -229,7 +229,7 @@ func (d Driver) StartLogging(file string, info logger.Info) error {
 
 	g.Go(func() error {
 
-		err := d.esClient.NewBulkProcessorService(ectx, 1, 10, 10, 5, false)
+		err := d.esClient.NewBulkProcessorService(ectx, cfg.Bulk.workers, cfg.Bulk.actions, cfg.Bulk.size, cfg.Bulk.flushInterval, cfg.Bulk.stats)
 		if err != nil {
 			l.Printf("error creating bulk processor: %v", err)
 		}
