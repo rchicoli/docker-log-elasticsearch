@@ -180,11 +180,13 @@ func (d Driver) StartLogging(file string, info logger.Info) error {
 				}
 				dec = protoio.NewUint32DelimitedReader(c.stream, binary.BigEndian, 1e6)
 			}
+
 			select {
 			case logCh <- buf:
 			case <-ectx.Done():
 				return ectx.Err()
 			}
+			buf.Reset()
 		}
 	})
 
@@ -205,19 +207,15 @@ func (d Driver) StartLogging(file string, info logger.Info) error {
 				// TODO: add log debug level
 				continue
 			}
-
 			// create message
 			msg.Source = m.Source
 			msg.Partial = m.Partial
 			msg.TimeNano = m.TimeNano
 
-			// if required we could place this function in an extra pipeline
 			msg.GrokLine, msg.Line, err = d.groker.ParseLine(cfg.grokMatch, logMessage, m.Line)
 			if err != nil {
 				l.Printf("error: [%v] parsing log message: %v\n", c.info.ID(), err)
 			}
-
-			m.Reset()
 
 			select {
 			case msgCh <- msg:
@@ -229,34 +227,49 @@ func (d Driver) StartLogging(file string, info logger.Info) error {
 		return nil
 	})
 
-	for i := 0; i < 10; i++ {
-		// i := i
-		g.Go(func() error {
+	g.Go(func() error {
 
-			// l.Printf("[%v] - %p: worker A", i, &i)
+		err := d.esClient.NewBulkProcessorService(ectx, 1, 10, 10, 5, false)
+		if err != nil {
+			l.Printf("error creating bulk processor: %v", err)
+		}
 
-			for a := range msgCh {
-
-				// l.Printf("[%v]: - %p: worker B", i, &i)
-
-				if err = d.esClient.Log(ctx, cfg.index, cfg.tzpe, a); err != nil {
-					l.Printf("error: [%v] writing log message: %v\n", c.info.ID(), err)
-					continue
-				}
-
-				select {
-				case <-ectx.Done():
-					return ectx.Err()
-				}
+		for {
+			select {
+			case doc := <-msgCh:
+				d.esClient.Add(cfg.index, cfg.tzpe, doc)
+			case <-ectx.Done():
+				return ectx.Err()
 			}
-			return nil
-		})
-	}
+		}
+	})
+
+	// TODO: create metrics from stats
+	// g.Go(func() error {
+	// 	stats := d.esClient.Stats()
+
+	// 	fields := log.Fields{
+	// 		"flushed":   stats.Flushed,
+	// 		"committed": stats.Committed,
+	// 		"indexed":   stats.Indexed,
+	// 		"created":   stats.Created,
+	// 		"updated":   stats.Updated,
+	// 		"succeeded": stats.Succeeded,
+	// 		"failed":    stats.Failed,
+	// 	}
+
+	// 	for i, w := range stats.Workers {
+	// 		fmt.Printf("Worker %d: Number of requests queued: %d\n", i, w.Queued)
+	// 		fmt.Printf("           Last response time       : %v\n", w.LastDuration)
+	// 		fields[fmt.Sprintf("w%d.queued", i)] = w.Queued
+	// 		fields[fmt.Sprintf("w%d.lastduration", i)] = w.LastDuration
+	// 	}
+	// })
 
 	// Check whether any goroutines failed.
-	if err := g.Wait(); err != nil {
-		panic(err)
-	}
+	// if err := g.Wait(); err != nil {
+	// 	panic(err)
+	// }
 
 	return nil
 }
@@ -275,6 +288,7 @@ func (d Driver) StopLogging(file string) error {
 	d.mu.Unlock()
 
 	if d.esClient != nil {
+		d.esClient.Close()
 		d.esClient.Stop()
 	}
 
