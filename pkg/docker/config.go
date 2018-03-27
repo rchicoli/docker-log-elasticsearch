@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/docker/docker/daemon/logger"
 )
@@ -23,7 +24,18 @@ type LogOpt struct {
 	sniff    bool
 	insecure bool
 
+	Bulk
+
 	Grok
+}
+
+// Bulk configures the Bulk Processor Service
+type Bulk struct {
+	workers       int
+	actions       int
+	size          int
+	flushInterval time.Duration
+	stats         bool
 }
 
 // Grok ...
@@ -45,6 +57,14 @@ func defaultLogOpt() *LogOpt {
 		version:  "5",
 		sniff:    true,
 		insecure: false,
+
+		Bulk: Bulk{
+			workers:       1,
+			actions:       100,
+			size:          5 << 20,
+			flushInterval: 5 * time.Second,
+			stats:         false,
+		},
 
 		Grok: Grok{
 			grokPatternSplitter: " and ",
@@ -139,6 +159,38 @@ func (c *LogOpt) validateLogOpt(cfg map[string]string) error {
 				return fmt.Errorf("error: parsing elasticsearch-timeout: %q", err)
 			}
 			c.timeout = timeout
+
+		case "elasticsearch-bulk-workers":
+			workers, err := strconv.Atoi(v)
+			if err != nil {
+				return fmt.Errorf("error: parsing elasticsearch-bulk-workers: %q", err)
+			}
+			c.Bulk.workers = workers
+		case "elasticsearch-bulk-actions":
+			actions, err := strconv.Atoi(v)
+			if err != nil {
+				return fmt.Errorf("error: parsing elasticsearch-bulk-actions: %q", err)
+			}
+			c.Bulk.actions = actions
+		case "elasticsearch-bulk-size":
+			size, err := strconv.Atoi(v)
+			if err != nil {
+				return fmt.Errorf("error: parsing elasticsearch-bulk-size: %q", err)
+			}
+			c.Bulk.size = size
+		case "elasticsearch-bulk-flush-interval":
+			flushInterval, err := time.ParseDuration(v)
+			if err != nil {
+				return fmt.Errorf("error: parsing elasticsearch-bulk-flush-interval: %q", err)
+			}
+			c.Bulk.flushInterval = flushInterval
+		case "elasticsearch-bulk-stats":
+			stats, err := strconv.ParseBool(v)
+			if err != nil {
+				return fmt.Errorf("error: parsing elasticsearch-bulk-stats: %q", err)
+			}
+			c.Bulk.stats = stats
+
 		case "grok-pattern":
 			c.grokPattern = v
 		case "grok-pattern-from":
@@ -153,7 +205,8 @@ func (c *LogOpt) validateLogOpt(cfg map[string]string) error {
 				return fmt.Errorf("error: parsing grok-named-capture: %q", err)
 			}
 			c.grokNamedCapture = s
-		// case "tag":
+
+			// case "tag":
 		// case "labels":
 		// case "env":
 		default:

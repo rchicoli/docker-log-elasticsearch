@@ -1,4 +1,4 @@
-package v3
+package v2
 
 import (
 	"context"
@@ -6,15 +6,19 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 
 	"gopkg.in/olivere/elastic.v3"
 )
 
+// Elasticsearch ...
 type Elasticsearch struct {
-	Client       *elastic.Client
-	indexService *elastic.IndexService
+	*elastic.Client
+	*elastic.BulkProcessor
+	*elastic.BulkProcessorService
 }
 
+// NewClient ...
 func NewClient(address, username, password string, timeout int, sniff bool, insecure bool) (*Elasticsearch, error) {
 
 	url, _ := url.Parse(address)
@@ -39,17 +43,48 @@ func NewClient(address, username, password string, timeout int, sniff bool, inse
 		return nil, fmt.Errorf("elasticsearch: cannot connect to the endpoint: %s\n%v", url, err)
 	}
 	return &Elasticsearch{
-		Client:       c,
-		indexService: c.Index(),
+		Client:               c,
+		BulkProcessorService: c.BulkProcessor(),
 	}, nil
 }
 
 // Log sends log messages to elasticsearch
 func (e *Elasticsearch) Log(ctx context.Context, index, tzpe string, msg interface{}) error {
-	if _, err := e.indexService.Index(index).Type(tzpe).BodyJson(msg).Do(); err != nil {
+	if _, err := e.Client.Index().Index(index).Type(tzpe).BodyJson(msg).Do(); err != nil {
 		return err
 	}
 	return nil
+}
+
+func (e *Elasticsearch) NewBulkProcessorService(ctx context.Context, workers, actions, size int, flushInterval time.Duration, stats bool) error {
+
+	p, err := e.BulkProcessorService.
+		Workers(workers).
+		BulkActions(actions).         // commit if # requests >= BulkSize
+		BulkSize(size).               // commit if size of requests >= 1 MB
+		FlushInterval(flushInterval). // commit every given interval
+		Stats(stats).                 // collect stats
+		// Backoff(backoff).
+		Do()
+	if err != nil {
+		return err
+	}
+
+	e.BulkProcessor = p
+
+	return nil
+}
+
+func (e *Elasticsearch) Add(index, tzpe string, msg interface{}) error {
+
+	r := elastic.NewBulkIndexRequest().Index(index).Type(tzpe).Doc(msg)
+	e.BulkProcessor.Add(r)
+
+	return nil
+}
+
+func (e *Elasticsearch) Close() error {
+	return e.BulkProcessor.Close()
 }
 
 // Stop stops the background processes that the client is running,

@@ -1,5 +1,21 @@
 # Docker Log Elasticsearch
 
+[![GoDoc][1]][2] [![License: Apache 2.0][3]][4] [![Release][5]][6] [![Travis Status][7]][8] [![Coveralls Coverage][9]][10] [![Go Report Card][11]][12]
+
+[1]: https://godoc.org/github.com/rchicoli/docker-log-elasticsearch?status.svg
+[2]: https://godoc.org/github.com/rchicoli/docker-log-elasticsearch
+[3]: https://img.shields.io/badge/License-Apache%202.0-blue.svg
+[4]: LICENSE.md
+[5]: https://img.shields.io/github/release/rchicoli/docker-log-elasticsearch.svg
+[6]: https://github.com/rchicoli/docker-log-elasticsearch/releases/latest
+[7]: https://travis-ci.org/rchicoli/docker-log-elasticsearch.svg?branch=master
+[8]: https://travis-ci.org/rchicoli/docker-log-elasticsearch
+[9]: https://coveralls.io/repos/rchicoli/docker-log-elasticsearch/badge.svg?branch=master&service=github
+[10]: https://coveralls.io/github/rchicoli/docker-log-elasticsearch?branch=master
+[11]: https://goreportcard.com/badge/github.com/rchicoli/docker-log-elasticsearch
+[12]: https://goreportcard.com/report/github.com/rchicoli/docker-log-elasticsearch
+
+
 `docker-log-elasticsearch` forwards container logs to Elasticsearch service.
 
 This application is under active development and will continue to be modified and improved over time. The current release is an *alpha*." (see [Roadmap](ROADMAP.md)).
@@ -48,6 +64,10 @@ Before creating a docker container, a healthy instance of Elasticsearch service 
 | elasticsearch-username | no | no |  |
 | elasticsearch-url   | no     | yes |
 | elasticsearch-version | 5 | no |
+| elasticsearch-bulk-actions | 100 | no |
+| elasticsearch-bulk-size | 5242880 | no |
+| elasticsearch-bulk-flush-interval | 5s | no |
+| elasticsearch-bulk-workers | 1 | no |
 | grok-named-capture | true | no |
 | grok-pattern | no | no |
 | grok-pattern-from | no | no |
@@ -97,6 +117,22 @@ Before creating a docker container, a healthy instance of Elasticsearch service 
 ###### elasticsearch-version ######
   - *version* of Elasticsearch cluster
   - *examples*: 1, 2, 5, 6
+
+###### elasticsearch-bulk-actions ######
+  - *bulk-actions* specifies when to flush based on the number of actions currently added
+  - *examples*: 1000
+
+###### elasticsearch-bulk-workers ######
+  - *bulk-workers* is the number of concurrent workers allowed to be executed
+  - *examples*: 2
+
+###### elasticsearch-bulk-size ######
+  - *bulk-size* specifies when to flush based on the size (in bytes) of the actions currently added. Defaults to 5 MB and can be set to -1 to be disabled.
+  - *examples*: 1024, -1
+
+###### elasticsearch-bulk-flush-interval ######
+  - *bulk-flush-interval* specifies when to flush at the end of the given interval
+  - *examples*: 300ms, 1s, 2h45m
 
 ###### grok-pattern ######
   - *pattern* add customer pattern

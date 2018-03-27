@@ -13,6 +13,8 @@ import (
 	"syscall"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/docker/docker/api/types/plugins/logdriver"
 	"github.com/docker/docker/daemon/logger"
 	"github.com/tonistiigi/fifo"
@@ -157,58 +159,119 @@ func (d Driver) StartLogging(file string, info logger.Info) error {
 		return err
 	}
 
-	go d.consumeLog(ctx, cfg.tzpe, cfg.index, c, cfg.fields, cfg.grokMatch)
+	msgCh := make(chan LogMessage)
+	logCh := make(chan logdriver.LogEntry)
+
+	g, ectx := errgroup.WithContext(ctx)
+
+	g.Go(func() error {
+		dec := protoio.NewUint32DelimitedReader(c.stream, binary.BigEndian, 1e6)
+		defer dec.Close()
+
+		var buf logdriver.LogEntry
+		var err error
+
+		for {
+			if err = dec.ReadMsg(&buf); err != nil {
+				if err == io.EOF {
+					// log.Infof("info: [%v] shutting down log logger: %v", c.info.ContainerID, err)
+					c.stream.Close()
+					return nil
+				}
+				dec = protoio.NewUint32DelimitedReader(c.stream, binary.BigEndian, 1e6)
+			}
+
+			select {
+			case logCh <- buf:
+			case <-ectx.Done():
+				return ectx.Err()
+			}
+			buf.Reset()
+		}
+	})
+
+	g.Go(func() error {
+
+		var logMessage string
+
+		// custom log message fields
+		msg := getLostashFields(cfg.fields, c.info)
+
+		for m := range logCh {
+
+			logMessage = string(m.Line)
+
+			// BUG: (17.09.0~ce-0~debian) docker run command throws lots empty line messages
+			// TODO: profile: check for resource consumption
+			if len(strings.TrimSpace(logMessage)) == 0 {
+				// TODO: add log debug level
+				continue
+			}
+			// create message
+			msg.Source = m.Source
+			msg.Partial = m.Partial
+			msg.TimeNano = m.TimeNano
+
+			msg.GrokLine, msg.Line, err = d.groker.ParseLine(cfg.grokMatch, logMessage, m.Line)
+			if err != nil {
+				l.Printf("error: [%v] parsing log message: %v\n", c.info.ID(), err)
+			}
+
+			select {
+			case msgCh <- msg:
+			case <-ectx.Done():
+				return ectx.Err()
+			}
+		}
+
+		return nil
+	})
+
+	g.Go(func() error {
+
+		err := d.esClient.NewBulkProcessorService(ectx, cfg.Bulk.workers, cfg.Bulk.actions, cfg.Bulk.size, cfg.Bulk.flushInterval, cfg.Bulk.stats)
+		if err != nil {
+			l.Printf("error creating bulk processor: %v", err)
+		}
+
+		for {
+			select {
+			case doc := <-msgCh:
+				d.esClient.Add(cfg.index, cfg.tzpe, doc)
+			case <-ectx.Done():
+				return ectx.Err()
+			}
+		}
+	})
+
+	// TODO: create metrics from stats
+	// g.Go(func() error {
+	// 	stats := d.esClient.Stats()
+
+	// 	fields := log.Fields{
+	// 		"flushed":   stats.Flushed,
+	// 		"committed": stats.Committed,
+	// 		"indexed":   stats.Indexed,
+	// 		"created":   stats.Created,
+	// 		"updated":   stats.Updated,
+	// 		"succeeded": stats.Succeeded,
+	// 		"failed":    stats.Failed,
+	// 	}
+
+	// 	for i, w := range stats.Workers {
+	// 		fmt.Printf("Worker %d: Number of requests queued: %d\n", i, w.Queued)
+	// 		fmt.Printf("           Last response time       : %v\n", w.LastDuration)
+	// 		fields[fmt.Sprintf("w%d.queued", i)] = w.Queued
+	// 		fields[fmt.Sprintf("w%d.lastduration", i)] = w.LastDuration
+	// 	}
+	// })
+
+	// Check whether any goroutines failed.
+	// if err := g.Wait(); err != nil {
+	// 	panic(err)
+	// }
 
 	return nil
-}
-
-func (d Driver) consumeLog(ctx context.Context, esType, esIndex string, c *container, fields, grokMatch string) {
-
-	dec := protoio.NewUint32DelimitedReader(c.stream, binary.BigEndian, 1e6)
-	defer dec.Close()
-
-	// custom log message fields
-	msg := getLostashFields(fields, c.info)
-
-	var buf logdriver.LogEntry
-	var err error
-	var logMessage string
-
-	for {
-		if err = dec.ReadMsg(&buf); err != nil {
-			if err == io.EOF {
-				// log.Infof("info: [%v] shutting down log logger: %v", c.info.ContainerID, err)
-				c.stream.Close()
-				return
-			}
-			dec = protoio.NewUint32DelimitedReader(c.stream, binary.BigEndian, 1e6)
-		}
-
-		logMessage = string(buf.Line)
-
-		// BUG(17.09.0~ce-0~debian): docker run throws lots empty line messages
-		// TODO: profile: check for resource consumption
-		if len(strings.TrimSpace(logMessage)) == 0 {
-			// TODO: add log debug level
-			continue
-		}
-
-		// create message
-		msg.Source = buf.Source
-		msg.Partial = buf.Partial
-		msg.GrokLine, msg.Line, err = d.groker.ParseLine(grokMatch, logMessage, buf.Line)
-		if err != nil {
-			l.Printf("error: [%v] parsing log message: %v\n", c.info.ID(), err)
-		}
-		msg.TimeNano = buf.TimeNano
-
-		if err = d.esClient.Log(ctx, esIndex, esType, msg); err != nil {
-			l.Printf("error: [%v] writing log message: %v\n", c.info.ID(), err)
-			continue
-		}
-
-		buf.Reset()
-	}
 }
 
 // StopLogging ...
@@ -225,6 +288,7 @@ func (d Driver) StopLogging(file string) error {
 	d.mu.Unlock()
 
 	if d.esClient != nil {
+		d.esClient.Close()
 		d.esClient.Stop()
 	}
 
