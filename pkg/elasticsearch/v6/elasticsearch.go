@@ -1,19 +1,22 @@
-package v5
+package v6
 
 import (
-	"context"
 	"crypto/tls"
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/olivere/elastic"
+	"golang.org/x/net/context"
 )
 
 // Elasticsearch ...
 type Elasticsearch struct {
-	Client       *elastic.Client
-	indexService *elastic.IndexService
+	*elastic.Client
+	// *elastic.BulkService
+	*elastic.BulkProcessor
+	*elastic.BulkProcessorService
 }
 
 // NewClient ...
@@ -40,18 +43,53 @@ func NewClient(address, username, password string, timeout int, sniff bool, inse
 	if err != nil {
 		return nil, fmt.Errorf("elasticsearch: cannot connect to the endpoint: %s\n%v", url, err)
 	}
+
 	return &Elasticsearch{
-		Client:       c,
-		indexService: c.Index(),
+		Client: c,
+		// IndexService:      c.Index(),
+		// BulkService:       c.Bulk(),
+		BulkProcessorService: c.BulkProcessor(),
 	}, nil
 }
 
 // Log sends log messages to elasticsearch
 func (e *Elasticsearch) Log(ctx context.Context, index, tzpe string, msg interface{}) error {
-	if _, err := e.indexService.Index(index).Type(tzpe).BodyJson(msg).Do(ctx); err != nil {
+	if _, err := e.Client.Index().Index(index).Type(tzpe).BodyJson(msg).Do(ctx); err != nil {
+
 		return err
 	}
 	return nil
+}
+
+func (e *Elasticsearch) NewBulkProcessorService(ctx context.Context, workers, bulkActions, bulkSize int, flushInterval time.Duration, stats bool) error {
+
+	p, err := e.BulkProcessorService.
+		Workers(workers).
+		BulkActions(bulkActions).                   // commit if # requests >= BulkSize
+		BulkSize(5 << 20).                          // commit if size of requests >= 1 MB
+		FlushInterval(time.Second * flushInterval). // commit every given interval
+		Stats(stats).                               // collect stats
+		// Backoff(backoff).
+		Do(ctx)
+	if err != nil {
+		return err
+	}
+
+	e.BulkProcessor = p
+
+	return nil
+}
+
+func (e *Elasticsearch) Add(index, tzpe string, msg interface{}) error {
+
+	r := elastic.NewBulkIndexRequest().Index(index).Type(tzpe).Doc(msg)
+	e.BulkProcessor.Add(r)
+
+	return nil
+}
+
+func (e *Elasticsearch) Close() error {
+	return e.BulkProcessor.Close()
 }
 
 // Stop stops the background processes that the client is running,
