@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	elasticv1 "github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch/v2"
+	elasticv1 "github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch/v1"
 	elasticv2 "github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch/v2"
 	elasticv5 "github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch/v5"
 	elasticv6 "github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch/v6"
