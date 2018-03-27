@@ -23,10 +23,11 @@ Goals:
  - [ ] Add the capability of multilines for Java Exceptions
  - [X] Add HTTPS Support and Skip Certificate Verify
  - [ ] Buffer logs into a file, if elasticsearch crashes. Add buffer size as well.
- - [ ] Implement bulk inserts
- - [ ] Implement queue size and batch size
    - [ ] if queue is full, then write to file
    - [ ] if file buffer is full, discard messages
+ - [X] Implement bulk inserts
+ - [X] Implement queue size and batch size
+   - [X] if number of requests or batch size have been reached, send messages to elasticsearch
  - [ ] Implement Readlog capability
  - [X] Implement grok for parsing docker logs
  - [ ] Add CONTRIBUTING file

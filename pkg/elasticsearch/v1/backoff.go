@@ -1,4 +1,4 @@
-package v2
+package v1
 
 import (
 	"errors"
@@ -26,11 +26,6 @@ func (r *MyRetrier) Retry(retry int, req *http.Request, resp *http.Response, err
 	// Fail hard on a specific error
 	if err == syscall.ECONNREFUSED {
 		return 0, false, errors.New("Elasticsearch or network down")
-	}
-
-	// Stop after 5 retries
-	if retry >= 5 {
-		return 0, false, nil
 	}
 
 	// Let the backoff strategy decide how long to wait and whether to stop

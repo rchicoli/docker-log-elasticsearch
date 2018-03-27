@@ -13,17 +13,14 @@ import (
 	"syscall"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/docker/docker/api/types/plugins/logdriver"
 	"github.com/docker/docker/daemon/logger"
 	"github.com/tonistiigi/fifo"
-	"github.com/vjeantet/grok"
 
 	"github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch"
-
-	elasticv2 "github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch/v1"
-	elasticv3 "github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch/v2"
-	elasticv5 "github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch/v5"
-	elasticv6 "github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch/v6"
+	"github.com/rchicoli/docker-log-elasticsearch/pkg/extension/grok"
 
 	protoio "github.com/gogo/protobuf/io"
 )
@@ -143,10 +140,7 @@ func (d Driver) StartLogging(file string, info logger.Info) error {
 	}
 
 	d.mu.Lock()
-	c := &container{
-		stream: f,
-		info:   info,
-	}
+	c := &container{stream: f, info: info}
 	d.logs[file] = c
 	d.mu.Unlock()
 
@@ -155,137 +149,129 @@ func (d Driver) StartLogging(file string, info logger.Info) error {
 		return fmt.Errorf("error: validating log options: %v", err)
 	}
 
-	switch cfg.version {
-	case "1":
-		d.esClient, err = elasticv2.NewClient(cfg.url, cfg.username, cfg.password, cfg.timeout, cfg.sniff, cfg.insecure)
-		if err != nil {
-			return fmt.Errorf("error: cannot create an elasticsearch client: %v", err)
-		}
-	case "2":
-		d.esClient, err = elasticv3.NewClient(cfg.url, cfg.username, cfg.password, cfg.timeout, cfg.sniff, cfg.insecure)
-		if err != nil {
-			return fmt.Errorf("error: cannot create an elasticsearch client: %v", err)
-		}
-	case "5":
-		d.esClient, err = elasticv5.NewClient(cfg.url, cfg.username, cfg.password, cfg.timeout, cfg.sniff, cfg.insecure)
-		if err != nil {
-			return fmt.Errorf("error: cannot create an elasticsearch client: %v", err)
-		}
-	case "6":
-		d.esClient, err = elasticv6.NewClient(cfg.url, cfg.username, cfg.password, cfg.timeout, cfg.sniff, cfg.insecure)
-		if err != nil {
-			return fmt.Errorf("error: cannot create an elasticsearch client: %v", err)
-		}
+	d.esClient, err = elasticsearch.NewClient(cfg.version, cfg.url, cfg.username, cfg.password, cfg.timeout, cfg.sniff, cfg.insecure)
+	if err != nil {
+		return fmt.Errorf("error: cannot create an elasticsearch client: %v", err)
 	}
 
-	if cfg.grokMatch != "" {
+	d.groker, err = grok.NewGrok(cfg.grokMatch, cfg.grokPattern, cfg.grokPatternFrom, cfg.grokPatternSplitter, cfg.grokNamedCapture)
+	if err != nil {
+		return err
+	}
 
-		d.groker, _ = grok.NewWithConfig(&grok.Config{NamedCapturesOnly: cfg.grokNamedCapture})
+	msgCh := make(chan LogMessage)
+	logCh := make(chan logdriver.LogEntry)
 
-		if cfg.grokPattern != "" {
-			var patternNames []string
-			grokPatterns := strings.Split(cfg.grokPattern, cfg.grokPatternSplitter)
-			for _, v := range grokPatterns {
-				patternNames = strings.Split(v, "=")
-				if len(patternNames) != 2 {
-					return fmt.Errorf("error: parsing grok-pattern, missing '=' separator")
+	g, ectx := errgroup.WithContext(ctx)
+
+	g.Go(func() error {
+		dec := protoio.NewUint32DelimitedReader(c.stream, binary.BigEndian, 1e6)
+		defer dec.Close()
+
+		var buf logdriver.LogEntry
+		var err error
+
+		for {
+			if err = dec.ReadMsg(&buf); err != nil {
+				if err == io.EOF {
+					// log.Infof("info: [%v] shutting down log logger: %v", c.info.ContainerID, err)
+					c.stream.Close()
+					return nil
 				}
-				err = d.groker.AddPattern(patternNames[0], patternNames[1])
-				if err != nil {
-					return fmt.Errorf("error: adding grok pattern: %v", err)
-				}
+				dec = protoio.NewUint32DelimitedReader(c.stream, binary.BigEndian, 1e6)
 			}
-		}
 
-		if cfg.grokPatternFrom != "" {
-			err = d.groker.AddPatternsFromPath(cfg.grokPatternFrom)
+			select {
+			case logCh <- buf:
+			case <-ectx.Done():
+				return ectx.Err()
+			}
+			buf.Reset()
+		}
+	})
+
+	g.Go(func() error {
+
+		var logMessage string
+
+		// custom log message fields
+		msg := getLostashFields(cfg.fields, c.info)
+
+		for m := range logCh {
+
+			logMessage = string(m.Line)
+
+			// BUG: (17.09.0~ce-0~debian) docker run command throws lots empty line messages
+			// TODO: profile: check for resource consumption
+			if len(strings.TrimSpace(logMessage)) == 0 {
+				// TODO: add log debug level
+				continue
+			}
+			// create message
+			msg.Source = m.Source
+			msg.Partial = m.Partial
+			msg.TimeNano = m.TimeNano
+
+			msg.GrokLine, msg.Line, err = d.groker.ParseLine(cfg.grokMatch, logMessage, m.Line)
 			if err != nil {
-				return fmt.Errorf("error: adding grok pattern from %s: %v", cfg.grokPatternFrom, err)
+				l.Printf("error: [%v] parsing log message: %v\n", c.info.ID(), err)
+			}
+
+			select {
+			case msgCh <- msg:
+			case <-ectx.Done():
+				return ectx.Err()
 			}
 		}
 
-	}
+		return nil
+	})
 
-	go d.consumeLog(ctx, cfg.tzpe, cfg.index, c, cfg.fields, cfg.grokMatch)
-	return nil
-}
+	g.Go(func() error {
 
-func (d Driver) consumeLog(ctx context.Context, esType, esIndex string, c *container, fields, grokMatch string) {
-
-	dec := protoio.NewUint32DelimitedReader(c.stream, binary.BigEndian, 1e6)
-	defer dec.Close()
-
-	// custom log message fields
-	msg := getLostashFields(fields, c.info)
-
-	var buf logdriver.LogEntry
-	var err error
-	var logMessage string
-
-	for {
-		if err = dec.ReadMsg(&buf); err != nil {
-			if err == io.EOF {
-				// log.Infof("info: [%v] shutting down log logger: %v", c.info.ContainerID, err)
-				c.stream.Close()
-				return
-			}
-			dec = protoio.NewUint32DelimitedReader(c.stream, binary.BigEndian, 1e6)
-		}
-
-		logMessage = string(buf.Line)
-
-		// BUG(17.09.0~ce-0~debian): docker run throws lots empty line messages
-		// TODO: profile: check for resource consumption
-		if len(strings.TrimSpace(logMessage)) == 0 {
-			// TODO: add log debug level
-			continue
-		}
-
-		// create message
-		msg.Source = buf.Source
-		msg.Partial = buf.Partial
-		msg.GrokLine, msg.Line, err = d.parseLine(grokMatch, logMessage, buf.Line)
+		err := d.esClient.NewBulkProcessorService(ectx, cfg.Bulk.workers, cfg.Bulk.actions, cfg.Bulk.size, cfg.Bulk.flushInterval, cfg.Bulk.stats)
 		if err != nil {
-			l.Printf("error: [%v] parsing log message: %v\n", c.info.ID(), err)
-		}
-		msg.TimeNano = buf.TimeNano
-
-		if err = d.esClient.Log(ctx, esIndex, esType, msg); err != nil {
-			l.Printf("error: [%v] writting log message: %v\n", c.info.ID(), logMessage)
-			continue
+			l.Printf("error creating bulk processor: %v", err)
 		}
 
-		buf.Reset()
-	}
-}
+		for {
+			select {
+			case doc := <-msgCh:
+				d.esClient.Add(cfg.index, cfg.tzpe, doc)
+			case <-ectx.Done():
+				return ectx.Err()
+			}
+		}
+	})
 
-func (d Driver) parseLine(pattern, logMessage string, line []byte) (map[string]string, []byte, error) {
+	// TODO: create metrics from stats
+	// g.Go(func() error {
+	// 	stats := d.esClient.Stats()
 
-	if d.groker == nil {
-		return nil, line, nil
-	}
+	// 	fields := log.Fields{
+	// 		"flushed":   stats.Flushed,
+	// 		"committed": stats.Committed,
+	// 		"indexed":   stats.Indexed,
+	// 		"created":   stats.Created,
+	// 		"updated":   stats.Updated,
+	// 		"succeeded": stats.Succeeded,
+	// 		"failed":    stats.Failed,
+	// 	}
 
-	// TODO: create a PR to grok upstream for returning a regexp
-	// doing so we avoid to compile the regexp twice
-	// TODO: profile line below and perhaps place variables outside this function
-	grokMatch, err := d.groker.Match(pattern, logMessage)
-	if err != nil {
-		return map[string]string{"line": logMessage, "err": err.Error()}, nil, err
-	}
-	if !grokMatch {
-		// do not try parse this line, because it will return an empty map
-		return map[string]string{"line": logMessage, "err": "grok pattern does not match log line"},
-			nil,
-			fmt.Errorf("error: grok pattern does not match line: %s", logMessage)
-	}
+	// 	for i, w := range stats.Workers {
+	// 		fmt.Printf("Worker %d: Number of requests queued: %d\n", i, w.Queued)
+	// 		fmt.Printf("           Last response time       : %v\n", w.LastDuration)
+	// 		fields[fmt.Sprintf("w%d.queued", i)] = w.Queued
+	// 		fields[fmt.Sprintf("w%d.lastduration", i)] = w.LastDuration
+	// 	}
+	// })
 
-	grokLine, err := d.groker.Parse(pattern, logMessage)
-	if err != nil {
-		return map[string]string{"line": logMessage, "err": err.Error()}, nil, err
-	}
+	// Check whether any goroutines failed.
+	// if err := g.Wait(); err != nil {
+	// 	panic(err)
+	// }
 
-	return grokLine, nil, nil
-
+	return nil
 }
 
 // StopLogging ...
@@ -302,6 +288,7 @@ func (d Driver) StopLogging(file string) error {
 	d.mu.Unlock()
 
 	if d.esClient != nil {
+		d.esClient.Close()
 		d.esClient.Stop()
 	}
 
