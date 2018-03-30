@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"encoding/json"
@@ -8,6 +9,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"regexp"
 	"strings"
 	"sync"
 	"syscall"
@@ -28,6 +30,10 @@ import (
 const (
 	name = "elasticsearchlog"
 )
+
+var javaExceptionPattern = regexp.MustCompile("(^.+Exception: .+)|(^\\s+at .+)|(^\\s+... \\d+ more)|(^\\s*Caused by:.+)")
+
+// var clojureExceptionPattern = regexp.MustCompile("^.+#error {|^\\s+:cause .+|^\\s+:via$|:type |:message |:at |^\\s+:trace$|^\\s+\\[?\\[.+\\]\\]?}?$")
 
 var l = log.New(os.Stderr, "", 0)
 
@@ -160,6 +166,7 @@ func (d Driver) StartLogging(file string, info logger.Info) error {
 	}
 
 	msgCh := make(chan LogMessage)
+	lineCh := make(chan logdriver.LogEntry)
 	logCh := make(chan logdriver.LogEntry)
 
 	g, ectx := errgroup.WithContext(ctx)
@@ -192,12 +199,49 @@ func (d Driver) StartLogging(file string, info logger.Info) error {
 
 	g.Go(func() error {
 
+		var test logdriver.LogEntry
+		multiline := make([]byte, 0)
+
+		for m := range logCh {
+
+			// BUG: (17.09.0~ce-0~debian) docker run command throws lots empty line messages
+			// TODO: profile: check for resource consumption
+			if len(bytes.TrimSpace(m.Line)) == 0 {
+				// TODO: add log debug level
+				continue
+			}
+
+			matched := javaExceptionPattern.Match(m.Line)
+			if matched {
+				l.Printf("java EXCEPTION: %v", string(m.Line))
+				multiline = append(multiline, m.Line...)
+				test = m
+				test.Line = multiline
+				continue
+			} else {
+
+				select {
+				case lineCh <- test:
+				case lineCh <- m:
+				case <-ectx.Done():
+					return ectx.Err()
+				}
+
+			}
+
+		}
+
+		return nil
+	})
+
+	g.Go(func() error {
+
 		var logMessage string
 
 		// custom log message fields
 		msg := getLostashFields(cfg.fields, c.info)
 
-		for m := range logCh {
+		for m := range lineCh {
 
 			logMessage = string(m.Line)
 
