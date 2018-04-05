@@ -45,8 +45,9 @@ function _elasticsearchHealth() {
   if [[ "$color" =~ (green|yellow) ]]; then
     echo "$(date) elasticsearch cluster is up"
   else
-    echo "$(date) timeout: elasticsearch cluster is not up"
-    exit 2
+    echo "$(date) timeout: elasticsearch service is not healthy"
+    # continue to see what happen
+    # exit 2
   fi
 }
 
