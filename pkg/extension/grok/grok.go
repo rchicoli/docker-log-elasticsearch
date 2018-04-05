@@ -47,7 +47,7 @@ func NewGrok(grokMatch, grokPattern, grokPatternFrom, grokPatternSplitter string
 }
 
 // ParseLine ...
-func (g Grok) ParseLine(pattern, logMessage string, line []byte) (map[string]string, []byte, error) {
+func (g *Grok) ParseLine(pattern, logMessage string, line []byte) (map[string]string, []byte, error) {
 
 	if g.Grok == nil {
 		return nil, line, nil
