@@ -12,12 +12,11 @@ import (
 	"syscall"
 	"time"
 
-	"golang.org/x/sync/errgroup"
-
 	"github.com/docker/docker/api/types/plugins/logdriver"
 	"github.com/docker/docker/daemon/logger"
 	"github.com/tonistiigi/fifo"
 
+	"github.com/rchicoli/docker-log-elasticsearch/internal/pkg/errgroup"
 	"github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch"
 	"github.com/rchicoli/docker-log-elasticsearch/pkg/extension/grok"
 
@@ -307,19 +306,12 @@ func (d *Driver) StopLogging(file string) error {
 		}
 	}
 
-	if d.esClient != nil {
-		// l.Printf("INFO client: %v", d.esClient)
-		if err := d.esClient.Close(); err != nil {
-			l.Printf("error: closing client connection: %v", err)
-		}
-		d.esClient.Stop()
-	}
-
 	if d.pipeline.group != nil {
 		// l.Printf("INFO with pipeline: %v", d.pipeline)
 
 		// close(d.pipeline.inputCh)
 		// close(d.pipeline.outputCh)
+		d.pipeline.group.Stop()
 		// d.pipeline.stopCh <- struct{}{}
 
 		// TODO: close channels gracefully
@@ -330,6 +322,15 @@ func (d *Driver) StopLogging(file string) error {
 		// 	l.Printf("error with pipeline: %v", err)
 		// }
 	}
+
+	if d.esClient != nil {
+		// l.Printf("INFO client: %v", d.esClient)
+		if err := d.esClient.Close(); err != nil {
+			l.Printf("error: closing client connection: %v", err)
+		}
+		d.esClient.Stop()
+	}
+
 	// l.Printf("INFO done stop logging")
 
 	return nil
