@@ -69,7 +69,7 @@ function _get() {
   _getProtocol
   local message="$1"
   # sleep for the flush interval + 5s
-  sleep 10
+  sleep 15
   curl -G -s -k --connect-timeout 5 -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" \
     ${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search\?pretty=true\&size=1 \
     --data-urlencode "q=${message}"
