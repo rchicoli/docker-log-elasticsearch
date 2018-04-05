@@ -59,7 +59,7 @@ matrix:
     - stage: release
       # env: MAJOR_RELEASE=true
       # it would be nice to map github labels instead
-      env: RELEASE_TAG=0.3.0
+      # env: RELEASE_TAG=0.3.0
       if: type IN (push)
       script:
         - ./scripts/git-release.sh
