@@ -32,17 +32,10 @@ var l = log.New(os.Stderr, "", 0)
 
 // Driver ...
 type Driver struct {
-	mu     *sync.Mutex
-	logs   map[string]*container
-	logger logger.Logger
-
-	esClient elasticsearch.Client
-
-	groker *grok.Grok
-
+	mu        *sync.Mutex
 	container *container
-
-	pipeline pipeline
+	pipeline  pipeline
+	esClient  elasticsearch.Client
 }
 
 type pipeline struct {
@@ -126,8 +119,7 @@ func (l LogMessage) timeOmityEmpty() *time.Time {
 // NewDriver ...
 func NewDriver() Driver {
 	return Driver{
-		logs: make(map[string]*container),
-		mu:   new(sync.Mutex),
+		mu: new(sync.Mutex),
 	}
 }
 
@@ -160,6 +152,7 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 
 	d.pipeline.group, d.pipeline.ctx = errgroup.WithContext(ctx)
 	d.pipeline.inputCh = make(chan logdriver.LogEntry)
+	d.pipeline.outputCh = make(chan LogMessage)
 	// d.pipeline.stopCh = make(chan struct{})
 
 	d.pipeline.group.Go(func() error {
@@ -198,12 +191,10 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 		// custom log message fields
 		msg := getLostashFields(cfg.fields, c.info)
 
-		d.groker, err = grok.NewGrok(cfg.grokMatch, cfg.grokPattern, cfg.grokPatternFrom, cfg.grokPatternSplitter, cfg.grokNamedCapture)
+		groker, err := grok.NewGrok(cfg.grokMatch, cfg.grokPattern, cfg.grokPatternFrom, cfg.grokPatternSplitter, cfg.grokNamedCapture)
 		if err != nil {
 			return err
 		}
-
-		d.pipeline.outputCh = make(chan LogMessage)
 
 		for m := range d.pipeline.inputCh {
 
@@ -221,16 +212,20 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 
 			// TODO: create a PR to grok upstream for parsing bytes
 			// so that we avoid having to convert the message to string
-			msg.GrokLine, msg.Line, err = d.groker.ParseLine(cfg.grokMatch, logMessage, m.Line)
+			msg.GrokLine, msg.Line, err = groker.ParseLine(cfg.grokMatch, logMessage, m.Line)
 			if err != nil {
 				l.Printf("error: [%v] parsing log message: %v\n", c.info.ID(), err)
 			}
+
+			// l.Printf("INFO: grokline: %v\n", msg.GrokLine)
+			// l.Printf("INFO: line: %v\n", string(msg.Line))
 
 			select {
 			case d.pipeline.outputCh <- msg:
 			case <-d.pipeline.ctx.Done():
 				return d.pipeline.ctx.Err()
 			}
+
 		}
 
 		return nil
@@ -240,17 +235,34 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 
 		err := d.esClient.NewBulkProcessorService(d.pipeline.ctx, cfg.Bulk.workers, cfg.Bulk.actions, cfg.Bulk.size, cfg.Bulk.flushInterval, cfg.Bulk.stats)
 		if err != nil {
-			l.Printf("error creating bulk processor: %v", err)
+			l.Printf("error creating bulk processor: %v\n", err)
 		}
 
-		for {
+		// l.Printf("receving from output\n")
+
+		for doc := range d.pipeline.outputCh {
+
+			// l.Printf("sending doc: %#v\n", doc.GrokLine)
+			d.esClient.Add(cfg.index, cfg.tzpe, doc)
+
 			select {
-			case doc := <-d.pipeline.outputCh:
-				d.esClient.Add(cfg.index, cfg.tzpe, doc)
 			case <-d.pipeline.ctx.Done():
 				return d.pipeline.ctx.Err()
+			default:
 			}
 		}
+		// for {
+		// 	select {
+		// 	case doc := <-d.pipeline.outputCh:
+		// 		l.Printf("sending doc: %#v\n", doc.GrokLine)
+		// 		d.esClient.Add(cfg.index, cfg.tzpe, doc)
+
+		// 	case <-d.pipeline.ctx.Done():
+		// 		return d.pipeline.ctx.Err()
+		// 	}
+		// }
+
+		return nil
 	})
 
 	// TODO: create metrics from stats
@@ -283,6 +295,10 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 func (d *Driver) StopLogging(file string) error {
 
 	// log.Infof("info: stopping log: %s\n", file)
+
+	// TODO: count how many docs are in the queue before shutting down
+	// alternative: sleep flush interval time
+	time.Sleep(10 * time.Second)
 
 	if d.container != nil {
 		// l.Printf("INFO container: %v", d.container)
