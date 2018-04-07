@@ -30,7 +30,7 @@ function teardown(){
 #    --log-opt elasticsearch-insecure='true' \
 #    alpine echo -n "$message"
 #
-#  [[ "$status" -eq 0 ]] || _debug "$output"
+#  [[ "$status" -eq 0 ]]
 #
 #}
 
@@ -61,6 +61,6 @@ function teardown(){
     --log-opt elasticsearch-sniff='false' \
     alpine echo -n "$message"
 
-  [[ "$status" -eq 0 ]] || _debug "$output"
+  [[ "$status" -eq 0 ]]
 
 }

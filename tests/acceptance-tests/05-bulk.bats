@@ -22,10 +22,10 @@ function teardown(){
     --log-opt elasticsearch-bulk-flush-interval=1s \
     --log-opt elasticsearch-bulk-stats=false \
     alpine echo -n "$message"
-  [[ "$status" -eq 0 ]] || _debug "$output"
+  [[ "$status" -eq 0 ]]
 
   run _get "message:\"$message\""
-  [[ "$status" -eq 0 ]] || _debug "$output"
-  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.message')" == "$message" ]] || _debug "$output"
+  [[ "$status" -eq 0 ]]
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.message')" == "$message" ]]
 
 }

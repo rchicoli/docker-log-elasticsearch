@@ -16,6 +16,7 @@ export CLIENT_VERSION="${CLIENT_VERSION:-5}"
 DOCKER_COMPOSE_DIR="${BASE_DIR}/docker"
 SCRIPTS_DIR="${BASE_DIR}/scripts"
 CONFIG_DIR="${BASE_DIR}/config"
+TESTS_DIR="${BASE_DIR}/tests"
 
 DOCKER_COMPOSE_FILE="${DOCKER_COMPOSE_DIR}/docker-compose.yml"
 
@@ -63,7 +64,7 @@ function _dockerRun(){
 
 function _post() {
   local message="$1"
-  curl -s -XPOST -H "Content-Type: application/json" --data "{\"message\":\"$message\"}" "http://${WEBAPPER_IP}:${WEBAPPER_PORT}/log"
+  curl -XPOST -H "Content-Type: application/json" --data "{\"message\":\"$message\"}" "http://${WEBAPPER_IP}:${WEBAPPER_PORT}/log"
 }
 
 function _get() {
@@ -76,16 +77,31 @@ function _get() {
     --data-urlencode "q=${message}"
 }
 
+function _search() {
+  _getProtocol
+  # sleep for the flush interval + 5s
+  sleep 10
+  curl -G -s -k --connect-timeout 5 -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" \
+    ${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search\?pretty=true\&size=100
+}
+
 # make wrapper
 function _make() {
   make -f "$MAKEFILE" "$@"
 }
 
 function _debug() {
-  echo -n -e "\n$(date)\nDebug:\n" "${@}" "\n\n"
+
+  echo "$(date) OUTPUT:"
+  echo -n -e "${@}" "\n\n"
+
   docker ps -a
-  echo "searching for all documents: "
-  curl -G -s -k --connect-timeout 5 -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" ${ELASTICSEARCH_URL}/_search\?pretty=true\&size=100
   docker logs elasticsearch
+
+  echo "searching for all documents: "
+  _getProtocol
+  curl -k --connect-timeout 5 -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" ${ELASTICSEARCH_URL}/_search\?pretty=true\&size=100
+
   return 1
+
 }

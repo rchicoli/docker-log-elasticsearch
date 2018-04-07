@@ -23,8 +23,10 @@ before_install:
 script:
   # - echo
   - sudo make || exit 1
-  - sudo make integration_tests || exit 1
-  - sudo make acceptance_tests || exit 1
+  # - sudo make integration_tests || exit 1
+  - sudo env BATS_TESTFILE=01-integration.bats make suite_tests || exit 1
+  - sudo env BATS_TESTFILE=02-acceptance.bats make suite_tests || exit 1
+  # - sudo make acceptance_tests || exit 1
 
 stages:
   # - name: cache

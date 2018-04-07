@@ -14,12 +14,12 @@ function teardown(){
 
   message="1 - $((RANDOM)) $BATS_TEST_DESCRIPTION"
   run _post "$message"
-  [[ "$status" -eq 0 ]] || _debug "$output"
+  [[ "$status" -eq 0 ]]
 
   run _get "message:\"$message\""
-  [[ "$status" -eq 0 ]] || _debug "$output"
-  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.message')" == "$message" ]] || _debug "$output"
-  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.containerName')" == "webapper" ]] || _debug "$output"
+  [[ "$status" -eq 0 ]]
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.message')" == "$message" ]]
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.containerName')" == "webapper" ]]
 
   name="${BATS_TEST_FILENAME##*/}.${BATS_TEST_NUMBER}.$((RANDOM))"
   message="2 - $((RANDOM)) $BATS_TEST_DESCRIPTION"
@@ -31,12 +31,12 @@ function teardown(){
     --log-opt elasticsearch-bulk-stats=false \
     --log-opt elasticsearch-fields='config,containerID,containerName,containerArgs,containerImageID,containerImageName,containerCreated,containerEnv,containerLabels,daemonName' \
     alpine echo -n "$message"
-  [[ "$status" -eq 0 ]] || _debug "$output"
+  [[ "$status" -eq 0 ]]
 
   run _get "message:\"$message\""
-  [[ "$status" -eq 0 ]] || _debug "$output"
-  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.message')" == "$message" ]] || _debug "$output"
-  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.containerName')" == "$name" ]] || _debug "$output"
+  [[ "$status" -eq 0 ]]
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.message')" == "$message" ]]
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.containerName')" == "$name" ]]
 
   name="${BATS_TEST_FILENAME##*/}.${BATS_TEST_NUMBER}.$((RANDOM))"
   message="$((RANDOM)) $name"
@@ -50,24 +50,27 @@ function teardown(){
     --log-opt grok-pattern-splitter=' && ' \
     --log-opt grok-match='%{MY_PATTERN:line}' \
   alpine echo -n "$message"
-  [[ "$status" -eq 0 ]] || _debug "$output"
+  [[ "$status" -eq 0 ]]
 
   run _get "grok.line:\"$message\""
-  [[ "$status" -eq 0 ]] || _debug "$output"
-  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok.line')" == "$message" ]] || _debug "$output"
-  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.containerName')" == "$name" ]] || _debug "$output"
+  [[ "$status" -eq 0 ]]
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok.line')" == "$message" ]]
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.containerName')" == "$name" ]]
 
   run docker restart webapper
-  [[ "$status" -eq 0 ]] || _debug "$output"
+  [[ "$status" -eq 0 ]]
 
   message="4 - $((RANDOM)) $BATS_TEST_DESCRIPTION"
   run _post "$message"
-  [[ "$status" -eq 0 ]] || _debug "$output"
+  [[ "$status" -eq 0 ]]
 
   run _get "message:\"$message\""
-  [[ "$status" -eq 0 ]] || _debug "$output"
-  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.message')" == "$message" ]] || _debug "$output"
-  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.containerName')" == "webapper" ]] || _debug "$output"
+  [[ "$status" -eq 0 ]]
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.message')" == "$message" ]]
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.containerName')" == "webapper" ]]
 
+  run _search
+  [[ "$status" -eq 0 ]]
+  [[ "$(echo ${output} | jq -r '.hits.total')" -eq 4 ]]
 
 }

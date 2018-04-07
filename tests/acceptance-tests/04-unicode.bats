@@ -16,10 +16,10 @@ function teardown(){
   message="$((RANDOM)) ${BATS_TEST_DESCRIPTION}: héllö-yöü ❤ ☀ ☆ ☂ ☻ ♞ ☯ ☭ ☢ €"
 
   run _dockerRun --rm --name "$name" alpine echo -n "$message"
-  [[ "$status" -eq 0 ]] || _debug "$output"
+  [[ "$status" -eq 0 ]]
 
   run _get "message:\"$message\""
-  [[ "$status" -eq 0 ]] || _debug "$output"
-  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.message')" == "$message" ]] || _debug "$output"
+  [[ "$status" -eq 0 ]]
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.message')" == "$message" ]]
 
 }

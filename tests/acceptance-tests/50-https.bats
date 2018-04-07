@@ -30,11 +30,11 @@ function teardown(){
 #    --log-opt elasticsearch-password=${ELASTICSEARCH_PASSWORD:-changeme} \
 #    --log-opt elasticsearch-insecure='true' \
 #    alpine echo -n "$message"
-#  [[ "$status" -eq 0 ]] || _debug "$output"
+#  [[ "$status" -eq 0 ]]
 #
 #  run _get "message:\"$message\""
-#  [[ "$status" -eq 0 ]] || _debug "$output"
-#  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.message')" == "$message" ]] || _debug "$output"
+#  [[ "$status" -eq 0 ]]
+#  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.message')" == "$message" ]]
 #
 #}
 
@@ -44,7 +44,7 @@ function teardown(){
   if [[ ${CLIENT_VERSION} -eq 6 ]]; then
     ${SCRIPTS_DIR}/wait-for-it.sh elasticsearch 9200 echo wait before setting up a password
     run export ELASTICSEARCH_PASSWORD="`docker exec -ti elasticsearch bash -c './bin/x-pack/setup-passwords auto --batch' | awk '/PASSWORD elastic/ {print $4}' | tr -d '[:space:]'`"
-    [[ "$status" -eq 0 ]] || _debug "$output"
+    [[ "$status" -eq 0 ]]
   fi
 
   sleep 10
@@ -61,10 +61,10 @@ function teardown(){
     --log-opt elasticsearch-password=${ELASTICSEARCH_PASSWORD:-changeme} \
     --log-opt elasticsearch-insecure='true' \
     alpine echo -n "$message"
-  [[ "$status" -eq 0 ]] || _debug "$output"
+  [[ "$status" -eq 0 ]]
 
   run _get "message:\"$message\""
-  [[ "$status" -eq 0 ]] || _debug "$output"
-  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.message')" == "$message" ]] || _debug "$output"
+  [[ "$status" -eq 0 ]]
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.message')" == "$message" ]]
 
 }
