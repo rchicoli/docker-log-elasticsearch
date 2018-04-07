@@ -164,13 +164,13 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 	c.pipeline.inputCh = make(chan logdriver.LogEntry)
 	c.pipeline.outputCh = make(chan LogMessage)
 
-	l.Printf("INFO starting: %#v\n", c.info.ContainerID)
+	l.Printf("INFO starting logger: [%v]\n", c.info.ContainerID)
 
 	c.pipeline.group.Go(func() error {
 
 		dec := protoio.NewUint32DelimitedReader(c.stream, binary.BigEndian, 1e6)
 		defer func() {
-			fmt.Printf("info: [%v] closing dec.\n", c.info.ContainerID)
+			fmt.Printf("info: [%v] closing dec\n", c.info.ContainerID)
 			dec.Close()
 			// close(c.pipeline.inputCh)
 			// close(c.pipeline.outputCh)
@@ -183,7 +183,7 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 		for {
 			if err = dec.ReadMsg(&buf); err != nil {
 				if err == io.EOF {
-					fmt.Printf("info: [%v] shutting down log logger: %v\n", c.info.ContainerID, err)
+					fmt.Printf("info: [%v] shutting down logger: %v\n", c.info.ContainerID, err)
 					c.stream.Close()
 					return nil
 				}
@@ -329,25 +329,25 @@ func (d *Driver) StopLogging(file string) error {
 		d.mu.Unlock()
 		return fmt.Errorf("error: logger not found for %v", file)
 	}
+	delete(d.logs, file)
 
 	if c.stream != nil {
 		l.Printf("info: [%v] closing container stream\n", c.info.ID())
 		c.stream.Close()
 	}
 
-	// TODO: count how many docs are in the queue before shutting down
-	// alternative: sleep flush interval time
-	time.Sleep(10 * time.Second)
-
 	if c.esClient != nil {
+
+		if err := c.esClient.Flush(); err != nil {
+			l.Printf("error: flushing queue: %v", err)
+		}
+
 		// l.Printf("INFO client: %v\n", c.esClient)
 		if err := c.esClient.Close(); err != nil {
 			l.Printf("error: closing client connection: %v", err)
 		}
 		c.esClient.Stop()
 	}
-
-	delete(d.logs, file)
 
 	if c.pipeline.group != nil {
 		// l.Printf("INFO [%v] closing pipeline: %v\n", c.info.ContainerID, c.pipeline)
