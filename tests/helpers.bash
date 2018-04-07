@@ -80,7 +80,7 @@ function _get() {
 function _search() {
   _getProtocol
   # sleep for the flush interval + 5s
-  sleep 10
+  sleep 6
   curl -G -s -k --connect-timeout 5 -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" \
     ${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search\?pretty=true\&size=100
 }
