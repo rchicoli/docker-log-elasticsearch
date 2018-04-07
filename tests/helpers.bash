@@ -62,8 +62,8 @@ function _dockerRun(){
 }
 
 function _post() {
-  local id="$1"
-  curl -s -XPOST -H "Content-Type: application/json" --data "{\"message\":\"$id\"}" "http://${WEBAPPER_IP}:${WEBAPPER_PORT}/log"
+  local message="$1"
+  curl -s -XPOST -H "Content-Type: application/json" --data "{\"message\":\"$message\"}" "http://${WEBAPPER_IP}:${WEBAPPER_PORT}/log"
 }
 
 function _get() {
