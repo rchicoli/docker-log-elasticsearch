@@ -57,6 +57,9 @@ function teardown(){
   [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok.line')" == "$message" ]] || _debug "$output"
   [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.containerName')" == "$name" ]] || _debug "$output"
 
+  run docker restart webapper
+  [[ "$status" -eq 0 ]] || _debug "$output"
+
   message="4 - $((RANDOM)) $BATS_TEST_DESCRIPTION"
   run _post "$message"
   [[ "$status" -eq 0 ]] || _debug "$output"
