@@ -47,8 +47,8 @@ type Grok struct {
 	grokNamedCapture    bool
 }
 
-func defaultLogOpt() *LogOpt {
-	return &LogOpt{
+func defaultLogOpt() LogOpt {
+	return LogOpt{
 		// TODO: update index name to docker-YYYY.MM.dd
 		index:    "docker",
 		tzpe:     "log",
@@ -217,7 +217,7 @@ func (c *LogOpt) validateLogOpt(cfg map[string]string) error {
 	return nil
 }
 
-func getLostashFields(fields string, info logger.Info) LogMessage {
+func getLogOptFields(fields string, info logger.Info) LogMessage {
 	var l LogMessage
 	for _, v := range strings.Split(fields, ",") {
 		switch v {

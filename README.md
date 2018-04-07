@@ -127,7 +127,7 @@ Before creating a docker container, a healthy instance of Elasticsearch service 
   - *examples*: 2
 
 ###### elasticsearch-bulk-size ######
-  - *bulk-size* specifies when to flush based on the size (in bytes) of the actions currently added. Defaults to 5 MB and can be set to -1 to be disabled.
+  - *bulk-size* specifies when to flush based on the size (in bytes) of the actions currently added. Set to -1 to disable it.
   - *examples*: 1024, -1
 
 ###### elasticsearch-bulk-flush-interval ######
@@ -171,6 +171,11 @@ $ docker run --rm -ti \
     --log-opt elasticsearch-timeout=10 \
     --log-opt elasticsearch-version=5 \
     --log-opt elasticsearch-fields=containerID,containerName,containerImageID,containerImageName,containerCreated \
+    --log-opt elasticsearch-bulk-workers=1 \
+    --log-opt elasticsearch-bulk-actions=1000 \
+    --log-opt elasticsearch-bulk-size=1024 \
+    --log-opt elasticsearch-bulk-flush-interval=1s \
+    --log-opt elasticsearch-bulk-stats=false \
         alpine echo this is a test logging message
 ```
 

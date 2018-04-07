@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"encoding/json"
@@ -8,7 +9,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -33,18 +33,23 @@ var l = log.New(os.Stderr, "", 0)
 
 // Driver ...
 type Driver struct {
-	mu     *sync.Mutex
-	logs   map[string]*container
-	logger logger.Logger
+	mu   *sync.Mutex
+	logs map[string]*container
+}
 
-	esClient elasticsearch.Client
-
-	groker *grok.Grok
+type pipeline struct {
+	group    *errgroup.Group
+	ctx      context.Context
+	outputCh chan LogMessage
+	inputCh  chan logdriver.LogEntry
+	stopCh   chan struct{}
 }
 
 type container struct {
-	stream io.ReadCloser
-	info   logger.Info
+	stream   io.ReadCloser
+	info     logger.Info
+	esClient elasticsearch.Client
+	pipeline pipeline
 }
 
 // LogMessage ...
@@ -113,26 +118,27 @@ func (l LogMessage) timeOmityEmpty() *time.Time {
 }
 
 // NewDriver ...
-func NewDriver() Driver {
-	return Driver{
+func NewDriver() *Driver {
+	return &Driver{
 		logs: make(map[string]*container),
 		mu:   new(sync.Mutex),
 	}
 }
 
 // StartLogging ...
-func (d Driver) StartLogging(file string, info logger.Info) error {
+func (d *Driver) StartLogging(file string, info logger.Info) error {
+
+	// log.Printf("info: starting log: %s\n", file)
+
+	// container's configuration is stored in memory
 	d.mu.Lock()
 	if _, exists := d.logs[file]; exists {
 		d.mu.Unlock()
-		return fmt.Errorf("error: logger for %q already exists", file)
-
+		return fmt.Errorf("error: [%v] a logger for this container already exists", info.ContainerID)
 	}
 	d.mu.Unlock()
 
 	ctx := context.Background()
-
-	// log.Printf("info: starting log: %s\n", file)
 
 	f, err := fifo.OpenFifo(ctx, file, syscall.O_RDONLY, 0700)
 	if err != nil {
@@ -144,29 +150,32 @@ func (d Driver) StartLogging(file string, info logger.Info) error {
 	d.logs[file] = c
 	d.mu.Unlock()
 
-	cfg := defaultLogOpt()
-	if err := cfg.validateLogOpt(info.Config); err != nil {
+	config := defaultLogOpt()
+	if err := config.validateLogOpt(c.info.Config); err != nil {
 		return fmt.Errorf("error: validating log options: %v", err)
 	}
 
-	d.esClient, err = elasticsearch.NewClient(cfg.version, cfg.url, cfg.username, cfg.password, cfg.timeout, cfg.sniff, cfg.insecure)
+	c.esClient, err = elasticsearch.NewClient(config.version, config.url, config.username, config.password, config.timeout, config.sniff, config.insecure)
 	if err != nil {
 		return fmt.Errorf("error: cannot create an elasticsearch client: %v", err)
 	}
 
-	d.groker, err = grok.NewGrok(cfg.grokMatch, cfg.grokPattern, cfg.grokPatternFrom, cfg.grokPatternSplitter, cfg.grokNamedCapture)
-	if err != nil {
-		return err
-	}
+	c.pipeline.group, c.pipeline.ctx = errgroup.WithContext(ctx)
+	c.pipeline.inputCh = make(chan logdriver.LogEntry)
+	c.pipeline.outputCh = make(chan LogMessage)
 
-	msgCh := make(chan LogMessage)
-	logCh := make(chan logdriver.LogEntry)
+	l.Printf("INFO starting: %#v\n", c.info.ContainerID)
 
-	g, ectx := errgroup.WithContext(ctx)
+	c.pipeline.group.Go(func() error {
 
-	g.Go(func() error {
 		dec := protoio.NewUint32DelimitedReader(c.stream, binary.BigEndian, 1e6)
-		defer dec.Close()
+		defer func() {
+			fmt.Printf("info: [%v] closing dec.\n", c.info.ContainerID)
+			dec.Close()
+			// close(c.pipeline.inputCh)
+			// close(c.pipeline.outputCh)
+			// c.pipeline.ctx.Done()
+		}()
 
 		var buf logdriver.LogEntry
 		var err error
@@ -174,78 +183,117 @@ func (d Driver) StartLogging(file string, info logger.Info) error {
 		for {
 			if err = dec.ReadMsg(&buf); err != nil {
 				if err == io.EOF {
-					// log.Infof("info: [%v] shutting down log logger: %v", c.info.ContainerID, err)
+					fmt.Printf("info: [%v] shutting down log logger: %v\n", c.info.ContainerID, err)
 					c.stream.Close()
 					return nil
 				}
+				if err != nil {
+					l.Printf("error panicing: %v\n", err)
+					return err
+				}
+
 				dec = protoio.NewUint32DelimitedReader(c.stream, binary.BigEndian, 1e6)
 			}
 
+			// l.Printf("INFO pipe1 client: %#v\n", c.esClient)
+			// l.Printf("INFO pipe1 line: %#v\n", string(buf.Line))
+
+			// BUG: (17.09.0~ce-0~debian) docker run command throws lots empty line messages
+			if len(bytes.TrimSpace(buf.Line)) == 0 {
+				l.Printf("error trimming")
+				// TODO: add log debug level
+				continue
+			}
+
 			select {
-			case logCh <- buf:
-			case <-ectx.Done():
-				return ectx.Err()
+			case c.pipeline.inputCh <- buf:
+			case <-c.pipeline.ctx.Done():
+				l.Printf("ERROR pipe1: %#v\n", c.pipeline.ctx.Err())
+				return c.pipeline.ctx.Err()
 			}
 			buf.Reset()
 		}
 	})
 
-	g.Go(func() error {
+	c.pipeline.group.Go(func() error {
+
+		groker, err := grok.NewGrok(config.grokMatch, config.grokPattern, config.grokPatternFrom, config.grokPatternSplitter, config.grokNamedCapture)
+		if err != nil {
+			return err
+		}
 
 		var logMessage string
-
 		// custom log message fields
-		msg := getLostashFields(cfg.fields, c.info)
+		msg := getLogOptFields(config.fields, c.info)
 
-		for m := range logCh {
+		for m := range c.pipeline.inputCh {
 
 			logMessage = string(m.Line)
 
-			// BUG: (17.09.0~ce-0~debian) docker run command throws lots empty line messages
-			// TODO: profile: check for resource consumption
-			if len(strings.TrimSpace(logMessage)) == 0 {
-				// TODO: add log debug level
-				continue
-			}
 			// create message
 			msg.Source = m.Source
 			msg.Partial = m.Partial
 			msg.TimeNano = m.TimeNano
 
-			msg.GrokLine, msg.Line, err = d.groker.ParseLine(cfg.grokMatch, logMessage, m.Line)
+			// l.Printf("INFO pipe2: %#v\n", string(m.Line))
+
+			// TODO: create a PR to grok upstream for parsing bytes
+			// so that we avoid having to convert the message to string
+			msg.GrokLine, msg.Line, err = groker.ParseLine(config.grokMatch, logMessage, m.Line)
 			if err != nil {
 				l.Printf("error: [%v] parsing log message: %v\n", c.info.ID(), err)
 			}
 
 			select {
-			case msgCh <- msg:
-			case <-ectx.Done():
-				return ectx.Err()
+			case c.pipeline.outputCh <- msg:
+			case <-c.pipeline.ctx.Done():
+				l.Printf("ERROR pipe2: %#v\n", c.pipeline.ctx.Err())
+				return c.pipeline.ctx.Err()
+			}
+
+		}
+
+		return nil
+	})
+
+	c.pipeline.group.Go(func() error {
+
+		err := c.esClient.NewBulkProcessorService(c.pipeline.ctx, config.Bulk.workers, config.Bulk.actions, config.Bulk.size, config.Bulk.flushInterval, config.Bulk.stats)
+		if err != nil {
+			l.Printf("error creating bulk processor: %v\n", err)
+		}
+
+		// for {
+		// 	// l.Printf("INFO pipe3 starts")
+		// 	select {
+		// 	case doc := <-c.pipeline.outputCh:
+		// 		// l.Printf("INFO pipe3: %#v\n", string(doc.Line))
+		// 		// l.Printf("sending doc: %#v\n", doc.GrokLine)
+		// 		c.esClient.Add(config.index, config.tzpe, doc)
+
+		// 	case <-c.pipeline.ctx.Done():
+		// 		// l.Printf("ERROR pipe3: %#v\n", c.pipeline.ctx.Err())
+		// 		return c.pipeline.ctx.Err()
+		// 	}
+		// }
+
+		for doc := range c.pipeline.outputCh {
+			// l.Printf("INFO pipe3: %#v\n", string(doc.Line))
+			// l.Printf("sending doc: %#v\n", doc.GrokLine)
+			c.esClient.Add(config.index, config.tzpe, doc)
+			select {
+			case <-c.pipeline.ctx.Done():
+				l.Printf("ERROR pipe3: %#v\n", c.pipeline.ctx.Err())
+				return c.pipeline.ctx.Err()
+			default:
 			}
 		}
 
 		return nil
 	})
 
-	g.Go(func() error {
-
-		err := d.esClient.NewBulkProcessorService(ectx, cfg.Bulk.workers, cfg.Bulk.actions, cfg.Bulk.size, cfg.Bulk.flushInterval, cfg.Bulk.stats)
-		if err != nil {
-			l.Printf("error creating bulk processor: %v", err)
-		}
-
-		for {
-			select {
-			case doc := <-msgCh:
-				d.esClient.Add(cfg.index, cfg.tzpe, doc)
-			case <-ectx.Done():
-				return ectx.Err()
-			}
-		}
-	})
-
 	// TODO: create metrics from stats
-	// g.Go(func() error {
+	// d.pipeline.group.Go(func() error {
 	// 	stats := d.esClient.Stats()
 
 	// 	fields := log.Fields{
@@ -266,31 +314,56 @@ func (d Driver) StartLogging(file string, info logger.Info) error {
 	// 	}
 	// })
 
-	// Check whether any goroutines failed.
-	// if err := g.Wait(); err != nil {
-	// 	panic(err)
-	// }
-
 	return nil
 }
 
 // StopLogging ...
-func (d Driver) StopLogging(file string) error {
+// TODO: change api interface
+func (d *Driver) StopLogging(file string) error {
 
 	// log.Infof("info: stopping log: %s\n", file)
 
 	d.mu.Lock()
-	c, ok := d.logs[file]
-	if ok {
+	c, exists := d.logs[file]
+	if !exists {
+		d.mu.Unlock()
+		return fmt.Errorf("error: logger not found for %v", file)
+	}
+
+	if c.stream != nil {
+		l.Printf("info: [%v] closing container stream\n", c.info.ID())
 		c.stream.Close()
-		delete(d.logs, file)
+	}
+
+	// TODO: count how many docs are in the queue before shutting down
+	// alternative: sleep flush interval time
+	time.Sleep(10 * time.Second)
+
+	if c.esClient != nil {
+		// l.Printf("INFO client: %v\n", c.esClient)
+		if err := c.esClient.Close(); err != nil {
+			l.Printf("error: closing client connection: %v", err)
+		}
+		c.esClient.Stop()
+	}
+
+	delete(d.logs, file)
+
+	if c.pipeline.group != nil {
+		// l.Printf("INFO [%v] closing pipeline: %v\n", c.info.ContainerID, c.pipeline)
+
+		close(c.pipeline.inputCh)
+		close(c.pipeline.outputCh)
+		// d.pipeline.group.Stop()
+
+		// Check whether any goroutines failed.
+		if err := c.pipeline.group.Wait(); err != nil {
+			l.Printf("error with pipeline: %v", err)
+		}
 	}
 	d.mu.Unlock()
 
-	if d.esClient != nil {
-		d.esClient.Close()
-		d.esClient.Stop()
-	}
+	// l.Printf("INFO done stop logging")
 
 	return nil
 }

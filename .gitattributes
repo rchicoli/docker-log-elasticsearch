@@ -1,0 +1,5 @@
+*.go linguist-language=Go
+tests/* linguist-vendored
+docker/* linguist-vendored
+config/* linguist-vendored
+scripts/* linguist-vendored
