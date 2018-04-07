@@ -13,11 +13,12 @@ import (
 	"syscall"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/docker/docker/api/types/plugins/logdriver"
 	"github.com/docker/docker/daemon/logger"
 	"github.com/tonistiigi/fifo"
 
-	"github.com/rchicoli/docker-log-elasticsearch/internal/pkg/errgroup"
 	"github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch"
 	"github.com/rchicoli/docker-log-elasticsearch/pkg/extension/grok"
 
@@ -263,20 +264,31 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 			l.Printf("error creating bulk processor: %v\n", err)
 		}
 
-		for {
-			// l.Printf("INFO pipe3 starts")
-			select {
-			case doc := <-d.logs[file].pipeline.outputCh:
-				// l.Printf("INFO pipe3: %#v\n", string(doc.Line))
-				// l.Printf("sending doc: %#v\n", doc.GrokLine)
-				d.logs[file].esClient.Add(d.logs[file].config.index, d.logs[file].config.tzpe, doc)
+		// for {
+		// 	// l.Printf("INFO pipe3 starts")
+		// 	select {
+		// 	case doc := <-d.logs[file].pipeline.outputCh:
+		// 		// l.Printf("INFO pipe3: %#v\n", string(doc.Line))
+		// 		// l.Printf("sending doc: %#v\n", doc.GrokLine)
+		// 		d.logs[file].esClient.Add(d.logs[file].config.index, d.logs[file].config.tzpe, doc)
 
+		// 	case <-d.logs[file].pipeline.ctx.Done():
+		// 		// l.Printf("ERROR pipe3: %#v\n", d.logs[file].pipeline.ctx.Err())
+		// 		return d.logs[file].pipeline.ctx.Err()
+		// 	}
+		// }
+
+		for doc := range d.logs[file].pipeline.outputCh {
+			// l.Printf("sending doc: %#v\n", doc.GrokLine)
+			d.logs[file].esClient.Add(d.logs[file].config.index, d.logs[file].config.tzpe, doc)
+			select {
 			case <-d.logs[file].pipeline.ctx.Done():
-				// l.Printf("ERROR pipe3: %#v\n", d.logs[file].pipeline.ctx.Err())
 				return d.logs[file].pipeline.ctx.Err()
+			default:
 			}
 		}
 
+		return nil
 	})
 
 	// TODO: create metrics from stats
@@ -339,7 +351,7 @@ func (d *Driver) StopLogging(file string) error {
 	delete(d.logs, file)
 
 	if c.pipeline.group != nil {
-		// l.Printf("INFO [%v] closing pipeline: %v", c.info.ContainerID, c.pipeline)
+		l.Printf("INFO [%v] closing pipeline: %v", c.info.ContainerID, c.pipeline)
 
 		close(c.pipeline.inputCh)
 		close(c.pipeline.outputCh)
