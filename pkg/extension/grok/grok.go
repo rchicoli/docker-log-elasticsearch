@@ -13,13 +13,13 @@ type Grok struct {
 }
 
 // NewGrok ...
-func NewGrok(grokMatch, grokPattern, grokPatternFrom, grokPatternSplitter string, grokNamedCapture bool) (*Grok, error) {
+func NewGrok(grokMatch, grokPattern, grokPatternFrom, grokPatternSplitter string, grokNamedCapture bool) (Grok, error) {
 	if grokMatch == "" {
-		return &Grok{}, nil
+		return Grok{}, nil
 	}
 
 	groker, _ := grok.NewWithConfig(&grok.Config{NamedCapturesOnly: grokNamedCapture})
-	g := &Grok{groker}
+	g := Grok{groker}
 
 	if grokPattern != "" {
 		var patternNames []string

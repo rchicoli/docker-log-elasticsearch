@@ -50,8 +50,6 @@ type container struct {
 	info     logger.Info
 	esClient elasticsearch.Client
 	pipeline pipeline
-	config   *LogOpt
-	groker   *grok.Grok
 }
 
 // LogMessage ...
@@ -152,12 +150,12 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 	d.logs[file] = c
 	d.mu.Unlock()
 
-	c.config = defaultLogOpt()
-	if err := c.config.validateLogOpt(c.info.Config); err != nil {
+	config := defaultLogOpt()
+	if err := config.validateLogOpt(c.info.Config); err != nil {
 		return fmt.Errorf("error: validating log options: %v", err)
 	}
 
-	c.esClient, err = elasticsearch.NewClient(c.config.version, c.config.url, c.config.username, c.config.password, c.config.timeout, c.config.sniff, c.config.insecure)
+	c.esClient, err = elasticsearch.NewClient(config.version, config.url, config.username, config.password, config.timeout, config.sniff, config.insecure)
 	if err != nil {
 		return fmt.Errorf("error: cannot create an elasticsearch client: %v", err)
 	}
@@ -202,7 +200,6 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 
 			// BUG: (17.09.0~ce-0~debian) docker run command throws lots empty line messages
 			if len(bytes.TrimSpace(buf.Line)) == 0 {
-
 				l.Printf("error trimming")
 				// TODO: add log debug level
 				continue
@@ -213,7 +210,6 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 			case <-c.pipeline.ctx.Done():
 				l.Printf("ERROR pipe1: %#v\n", c.pipeline.ctx.Err())
 				return c.pipeline.ctx.Err()
-				// default:
 			}
 			buf.Reset()
 		}
@@ -221,15 +217,14 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 
 	c.pipeline.group.Go(func() error {
 
-		var logMessage string
-
-		// custom log message fields
-		msg := getLostashFields(c.config.fields, c.info)
-
-		c.groker, err = grok.NewGrok(c.config.grokMatch, c.config.grokPattern, c.config.grokPatternFrom, c.config.grokPatternSplitter, c.config.grokNamedCapture)
+		groker, err := grok.NewGrok(config.grokMatch, config.grokPattern, config.grokPatternFrom, config.grokPatternSplitter, config.grokNamedCapture)
 		if err != nil {
 			return err
 		}
+
+		var logMessage string
+		// custom log message fields
+		msg := getLogOptFields(config.fields, c.info)
 
 		for m := range c.pipeline.inputCh {
 
@@ -244,7 +239,7 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 
 			// TODO: create a PR to grok upstream for parsing bytes
 			// so that we avoid having to convert the message to string
-			msg.GrokLine, msg.Line, err = c.groker.ParseLine(c.config.grokMatch, logMessage, m.Line)
+			msg.GrokLine, msg.Line, err = groker.ParseLine(config.grokMatch, logMessage, m.Line)
 			if err != nil {
 				l.Printf("error: [%v] parsing log message: %v\n", c.info.ID(), err)
 			}
@@ -263,7 +258,7 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 
 	c.pipeline.group.Go(func() error {
 
-		err := c.esClient.NewBulkProcessorService(c.pipeline.ctx, c.config.Bulk.workers, c.config.Bulk.actions, c.config.Bulk.size, c.config.Bulk.flushInterval, c.config.Bulk.stats)
+		err := c.esClient.NewBulkProcessorService(c.pipeline.ctx, config.Bulk.workers, config.Bulk.actions, config.Bulk.size, config.Bulk.flushInterval, config.Bulk.stats)
 		if err != nil {
 			l.Printf("error creating bulk processor: %v\n", err)
 		}
@@ -274,7 +269,7 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 		// 	case doc := <-c.pipeline.outputCh:
 		// 		// l.Printf("INFO pipe3: %#v\n", string(doc.Line))
 		// 		// l.Printf("sending doc: %#v\n", doc.GrokLine)
-		// 		c.esClient.Add(c.config.index, c.config.tzpe, doc)
+		// 		c.esClient.Add(config.index, config.tzpe, doc)
 
 		// 	case <-c.pipeline.ctx.Done():
 		// 		// l.Printf("ERROR pipe3: %#v\n", c.pipeline.ctx.Err())
@@ -285,7 +280,7 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 		for doc := range c.pipeline.outputCh {
 			// l.Printf("INFO pipe3: %#v\n", string(doc.Line))
 			// l.Printf("sending doc: %#v\n", doc.GrokLine)
-			c.esClient.Add(c.config.index, c.config.tzpe, doc)
+			c.esClient.Add(config.index, config.tzpe, doc)
 			select {
 			case <-c.pipeline.ctx.Done():
 				l.Printf("ERROR pipe3: %#v\n", c.pipeline.ctx.Err())
