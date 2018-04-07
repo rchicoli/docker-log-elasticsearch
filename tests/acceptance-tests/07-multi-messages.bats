@@ -39,20 +39,22 @@ function teardown(){
   [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.containerName')" == "$name" ]] || _debug "$output"
 
   name="${BATS_TEST_FILENAME##*/}.${BATS_TEST_NUMBER}.$((RANDOM))"
-  message="3 - $((RANDOM)) $BATS_TEST_DESCRIPTION"
+  message="$((RANDOM)) $name"
   run _dockerRun --rm --name $name \
     --log-opt elasticsearch-bulk-workers=2 \
     --log-opt elasticsearch-bulk-actions=2 \
     --log-opt elasticsearch-bulk-size="-1" \
     --log-opt elasticsearch-bulk-flush-interval=1s \
     --log-opt elasticsearch-bulk-stats=false \
---log-opt grok-pattern='MY_NUMBER=(?:[+-]?(?:[0-9]+)) && MY_USER=[a-zA-Z0-9._-]+ && MY_PATTERN=%{MY_NUMBER:random_number} %{MY_USER:user}' --log-opt grok-pattern-splitter=' && ' --log-opt grok-match='%{MY_PATTERN:log}' \
+    --log-opt grok-pattern='MY_NUMBER=(?:[+-]?(?:[0-9]+)) && MY_USER=[a-zA-Z0-9._-]+ && MY_PATTERN=%{MY_NUMBER:random_number} %{MY_USER:user}' \
+    --log-opt grok-pattern-splitter=' && ' \
+    --log-opt grok-match='%{MY_PATTERN:line}' \
   alpine echo -n "$message"
   [[ "$status" -eq 0 ]] || _debug "$output"
 
-  run _get "message:\"$message\""
+  run _get "grok.line:\"$message\""
   [[ "$status" -eq 0 ]] || _debug "$output"
-  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.message')" == "$message" ]] || _debug "$output"
+  [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.grok.line')" == "$message" ]] || _debug "$output"
   [[ "$(echo ${output} | jq -r '.hits.hits[0]._source.containerName')" == "$name" ]] || _debug "$output"
 
   message="4 - $((RANDOM)) $BATS_TEST_DESCRIPTION"
