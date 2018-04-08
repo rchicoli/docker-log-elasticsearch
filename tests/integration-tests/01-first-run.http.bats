@@ -33,7 +33,7 @@ function teardown(){
 
 }
 
-@test "[${BATS_TEST_FILENAME##*/}] integration-tests (v${CLIENT_VERSION}): check the elasticsearch-version option for different elasticsearch versions" {
+@test "[${BATS_TEST_FILENAME##*/}] integration-tests (v${CLIENT_VERSION}): $BATS_TEST_NUMBER - check the elasticsearch-version option for different elasticsearch versions" {
 
   name="${BATS_TEST_FILENAME##*/}.${BATS_TEST_NUMBER}"
   message="$((RANDOM)) $BATS_TEST_DESCRIPTION"

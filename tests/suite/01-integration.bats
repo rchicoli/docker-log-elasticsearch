@@ -11,7 +11,7 @@ load ../helpers
     [[ "$status" -eq 0 ]] || _debug "$output"
 
     export SKIP="false"
-    _make delete_environment
+    _make delete_environment &>/dev/null
 
   done
 
