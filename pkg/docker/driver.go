@@ -130,6 +130,7 @@ func NewDriver() *Driver {
 func (d *Driver) StartLogging(file string, info logger.Info) error {
 
 	// log.Printf("info: starting log: %s\n", file)
+	// full path: /run/docker/logging/4f8fdcf6793a3a72296e4aedf4f94f5bb5269b3f52eb17061bfe0fd75c66776a
 	filename := path.Base(file)
 
 	// container's configuration is stored in memory
@@ -176,7 +177,7 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 		defer func() {
 			fmt.Printf("info: [%v] closing docker reader\n", c.info.ContainerID)
 			dec.Close()
-			close(c.pipeline.inputCh)
+			// close(c.pipeline.inputCh)
 		}()
 
 		var buf logdriver.LogEntry
@@ -204,7 +205,7 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 			}
 
 			// l.Printf("INFO pipe1 client: %#v\n", c.esClient)
-			// l.Printf("INFO pipe1 line: %#v\n", string(buf.Line))
+			l.Printf("info: pipe1 line: %v\n", string(buf.Line))
 
 			// I guess this problem has been fixed with the break function above
 			// test it again
@@ -248,7 +249,7 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 			msg.Partial = m.Partial
 			msg.TimeNano = m.TimeNano
 
-			// l.Printf("INFO pipe2: %#v\n", string(m.Line))
+			l.Printf("info: pipe2 line: %v\n", string(m.Line))
 
 			// TODO: create a PR to grok upstream for parsing bytes
 			// so that we avoid having to convert the message to string
@@ -276,10 +277,22 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 			l.Printf("error creating bulk processor: %v\n", err)
 		}
 
+		defer func() {
+			if err := c.esClient.Flush(); err != nil {
+				l.Printf("error: flushing queue: %v", err)
+			}
+
+			l.Printf("info: closing client: %v", c.esClient)
+			if err := c.esClient.Close(); err != nil {
+				l.Printf("error: closing client connection: %v\n", err)
+			}
+			c.esClient.Stop()
+		}()
+
 		// this was helpful to test if the pipeline has been closed successfully
 		// newTicker := time.NewTicker(1 * time.Second)
 		for doc := range c.pipeline.outputCh {
-			// l.Printf("info: pipe3: %#v\n", string(doc.Line))
+			l.Printf("info: pipe3 line: %v\n", string(doc.Line))
 			// l.Printf("info: pipe3: %#v\n", doc.GrokLine)
 			c.esClient.Add(config.index, config.tzpe, doc)
 			select {
@@ -320,10 +333,11 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 }
 
 // StopLogging ...
-// TODO: change api interface
 func (d *Driver) StopLogging(file string) error {
 
 	d.mu.Lock()
+	// full path: /var/lib/docker/plugins/1ce514430f4da85be15e02ce6956e506246190ea790753a58f7821892b4639ef/
+	//                rootfs/run/docker/logging/4f8fdcf6793a3a72296e4aedf4f94f5bb5269b3f52eb17061bfe0fd75c66776a
 	filename := path.Base(file)
 	c, exists := d.logs[filename]
 	if !exists {
@@ -340,8 +354,14 @@ func (d *Driver) StopLogging(file string) error {
 		c.stream.Close()
 	}
 
+	// TODO: count how many documents are in the queue
+	// before closing client
+	// time.Sleep(6 * time.Second)
+
 	if c.pipeline.group != nil {
 		l.Printf("info: [%v] closing pipeline: %v\n", c.info.ContainerID, c.pipeline)
+
+		close(c.pipeline.inputCh)
 
 		// Check whether any goroutines failed.
 		if err := c.pipeline.group.Wait(); err != nil {
@@ -349,18 +369,18 @@ func (d *Driver) StopLogging(file string) error {
 		}
 	}
 
-	if c.esClient != nil {
+	// if c.esClient != nil {
 
-		if err := c.esClient.Flush(); err != nil {
-			l.Printf("error: flushing queue: %v", err)
-		}
+	// 	if err := c.esClient.Flush(); err != nil {
+	// 		l.Printf("error: flushing queue: %v", err)
+	// 	}
 
-		l.Printf("info: closing client: %v", c.esClient)
-		if err := c.esClient.Close(); err != nil {
-			l.Printf("error: closing client connection: %v\n", err)
-		}
-		c.esClient.Stop()
-	}
+	// 	l.Printf("info: closing client: %v", c.esClient)
+	// 	if err := c.esClient.Close(); err != nil {
+	// 		l.Printf("error: closing client connection: %v\n", err)
+	// 	}
+	// 	c.esClient.Stop()
+	// }
 
 	// l.Printf("info: done stopping logger for containerID=[%v] and socket=[%v]\n", c.info.ContainerID, filename)
 
