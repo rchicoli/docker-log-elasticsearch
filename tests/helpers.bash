@@ -11,6 +11,7 @@ WEBAPPER_PORT="8080"
 
 # this is required for the makefile
 export BASE_DIR="$BATS_TEST_DIRNAME/../.."
+export BASE_DIR="/home/rafael_chicoli/Golib/src/github.com/rchicoli/docker-log-elasticsearch"
 export CLIENT_VERSION="${CLIENT_VERSION:-5}"
 
 DOCKER_COMPOSE_DIR="${BASE_DIR}/docker"
@@ -72,7 +73,7 @@ function _get() {
   local message="$1"
   # sleep for the flush interval + 5s
   sleep 15
-  curl -G -s -k --connect-timeout 5 -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" \
+  curl -G -k --connect-timeout 5 -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" \
     ${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search\?pretty=true\&size=1 \
     --data-urlencode "q=${message}"
 }
