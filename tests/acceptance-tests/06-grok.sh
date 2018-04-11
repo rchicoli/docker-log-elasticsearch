@@ -29,7 +29,7 @@ function test_grok_parser(){
     --log-opt elasticsearch-bulk-flush-interval=1s \
     alpine echo -n "$message"
 
-  sleep 2
+  sleep "${SLEEP_TIME}"
 
   basht_run curl -s -G --connect-timeout 5 \
     "${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search?pretty=true&size=1" \
@@ -64,7 +64,7 @@ function test_failed_parsed_lines_are_logged(){
     --log-opt elasticsearch-bulk-flush-interval=1s \
     --log-opt grok-match='wrong %{WORD:test1} %{WORD:test2}' alpine echo -n "$message"
 
-  sleep 2
+  sleep "${SLEEP_TIME}"
 
   basht_run curl -s -G --connect-timeout 5 \
     "${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search?pretty=true&size=1" \
@@ -94,7 +94,7 @@ function test_custom_grok_pattern(){
     --log-opt elasticsearch-bulk-flush-interval=1s \
     alpine echo -n "$message"
 
-  sleep 2
+  sleep "${SLEEP_TIME}"
   basht_run curl -s -G --connect-timeout 5 \
     "${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search?pretty=true&size=1" \
     --data-urlencode "q=grok:'$message'"
@@ -125,7 +125,7 @@ function test_grok_splitter(){
     --log-opt elasticsearch-bulk-flush-interval=1s \
     alpine echo -n "$message"
 
-  sleep 2
+  sleep "${SLEEP_TIME}"
 
   basht_run curl -s -G --connect-timeout 5 \
     "${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search?pretty=true&size=1" \
@@ -157,7 +157,7 @@ function test_grok_named_capture(){
     --log-opt elasticsearch-bulk-flush-interval=1s \
      alpine echo -n "$message"
 
-  sleep 2
+  sleep "${SLEEP_TIME}"
   basht_run curl -s -G --connect-timeout 5 \
     "${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search?pretty=true&size=1" \
     --data-urlencode "q=grok:'$message'"
@@ -191,7 +191,7 @@ function test_grok_pattern_from_file(){
     --log-opt elasticsearch-bulk-flush-interval=1s \
      alpine echo -n "$message"
 
-  sleep 2
+  sleep "${SLEEP_TIME}"
   basht_run curl -s -G --connect-timeout 5 \
     "${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search?pretty=true&size=1" \
     --data-urlencode "q=grok:'$message'"
@@ -222,7 +222,7 @@ function test_grok_pattern_from_directory(){
     --log-opt elasticsearch-bulk-flush-interval=1s \
      alpine echo -n "$message"
 
-  sleep 2
+  sleep "${SLEEP_TIME}"
 
   basht_run curl -s -G --connect-timeout 5 \
     "${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search?pretty=true&size=1" \

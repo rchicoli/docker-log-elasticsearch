@@ -27,7 +27,7 @@ function test_only_static_fields(){
     --log-opt elasticsearch-fields='none' \
     alpine echo -n "$message"
 
-  sleep 1
+  sleep "${SLEEP_TIME}"
 
   basht_run curl -s -G --connect-timeout 5 \
     "${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search?pretty=true&size=1" \
@@ -56,7 +56,7 @@ function test_all_fields_except_container_labels(){
     --log-opt elasticsearch-fields='config,containerID,containerName,containerArgs,containerImageID,containerImageName,containerCreated,containerEnv,daemonName' \
     alpine echo -n "$message"
 
-  sleep 1
+  sleep "${SLEEP_TIME}"
 
   basht_run curl -s -G --connect-timeout 5 \
     "${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search?pretty=true&size=1" \
@@ -99,7 +99,7 @@ function test_all_available_fields(){
     --label environment=testing \
     alpine echo -n "$message"
 
-  sleep 1
+  sleep "${SLEEP_TIME}"
 
   basht_run curl -s -G --connect-timeout 5 \
     "${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search?pretty=true&size=1" \

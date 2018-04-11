@@ -20,7 +20,7 @@ function test_multiple_containers_with_different_configurations(){
   message="1 - $((RANDOM)) $description"
   basht_run curl -XPOST -H "Content-Type: application/json" --data "{\"message\":\"$message\"}" "http://${WEBAPPER_IP}:${WEBAPPER_PORT}/log"
 
-  sleep 6
+  sleep "${SLEEP_TIME}"
 
   basht_run curl -s -G --connect-timeout 5 \
     "${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search?pretty=true&size=1" \
@@ -40,7 +40,7 @@ function test_multiple_containers_with_different_configurations(){
     --log-opt elasticsearch-fields='config,containerID,containerName,containerArgs,containerImageID,containerImageName,containerCreated,containerEnv,containerLabels,daemonName' \
     alpine echo -n "$message"
 
-  sleep 1
+  sleep "${SLEEP_TIME}"
 
   basht_run curl -s -G --connect-timeout 5 \
     "${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search?pretty=true&size=1" \
@@ -62,7 +62,7 @@ function test_multiple_containers_with_different_configurations(){
     --log-opt grok-match='%{MY_PATTERN:line}' \
   alpine echo -n "$message"
 
-  sleep 1
+  sleep "${SLEEP_TIME}"
 
   basht_run curl -s -G --connect-timeout 5 \
     "${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search?pretty=true&size=1" \
@@ -76,7 +76,7 @@ function test_multiple_containers_with_different_configurations(){
   message="4 - $((RANDOM)) $description"
   basht_run curl -XPOST -H "Content-Type: application/json" --data "{\"message\":\"$message\"}" "http://${WEBAPPER_IP}:${WEBAPPER_PORT}/log"
 
-  sleep 6
+  sleep "${SLEEP_TIME}"
 
   basht_run curl -s -G --connect-timeout 5 \
     "${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search?pretty=true&size=1" \

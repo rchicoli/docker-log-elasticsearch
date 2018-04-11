@@ -36,6 +36,8 @@ ELASTICSEARCH_PASSWORD="${ELASTICSEARCH_PASSWORD:-changeme}"
 
 MAKEFILE="${BASE_DIR}/Makefile"
 
+SLEEP_TIME=${SLEEP_TIME:-1}
+
 function _elasticsearchHealth() {
   color="$(
     wget --no-check-certificate -q --tries 20 --waitretry=1 --retry-connrefused --timeout 5 \

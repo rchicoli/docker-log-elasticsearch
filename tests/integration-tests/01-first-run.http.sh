@@ -27,6 +27,8 @@ function test_container_with_default_logging(){
     --log-opt elasticsearch-url="${ELASTICSEARCH_URL}" \
     --name "$name" alpine echo -n "$message"
 
+  sleep "${SLEEP_TIME}"
+
   basht_run docker inspect "$name"
   basht_assert "echo '${output}' | jq -r '.[0].HostConfig.LogConfig.Config' | jq -r 'keys[]'" == "elasticsearch-url"
   basht_assert "echo '${output}' | jq -r '.[0].HostConfig.LogConfig.Config[]' | wc -l"        == 1
@@ -50,7 +52,7 @@ function test_elasticsearch_version_options(){
     --name "$name" \
     alpine echo -n "$message"
 
-  sleep 1
+  sleep "${SLEEP_TIME}"
 
   basht_run docker inspect "$name"
   basht_assert "echo '${output}' | jq -r '.[0].HostConfig.LogConfig.Config[]' | wc -l" == 2

@@ -25,7 +25,7 @@ function test_default_fields(){
     --name "$name" \
     alpine echo -n "$message"
 
-  sleep 1
+  sleep "${SLEEP_TIME}"
 
   basht_run curl -s -G --connect-timeout 5 \
     "${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search?pretty=true&size=1" \
@@ -56,7 +56,7 @@ function test_default_fields_are_filled_out(){
     --name "$name" \
     alpine echo -n "$message"
 
-  sleep 1
+  sleep "${SLEEP_TIME}"
 
   basht_run curl -s -G --connect-timeout 5 \
     "${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search?pretty=true&size=1" \
