@@ -215,9 +215,9 @@ function main(){
   # _arg_print_help=yes die "do not know what to do"
 
   for func_file in $(ls -1 "$_loop_func"); do
-    source "${_arg_test_dir}/$func_file"
+    source "./${_arg_test_dir}/$func_file"
     export BASHT_TEST_FILENAME="$func_file"
-    for func in $(sed -nr 's/^function (.*)\(\)\{/\1/p' < "${_arg_test_dir}/$func_file" | grep -Ev "setUp|tearDown"); do
+    for func in $(sed -nr 's/^function (.*)\(\)\{/\1/p' < "./${_arg_test_dir}/$func_file" | grep -Ev "setUp|tearDown"); do
 
       setUp
       magenta "$func is running..."
