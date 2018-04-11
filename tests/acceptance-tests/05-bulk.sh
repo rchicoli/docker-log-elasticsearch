@@ -12,26 +12,24 @@ function tearDown(){
   _make undeploy_elasticsearch 1>/dev/null
 }
 
-function test_different_index_and_type(){
+function test_bulk(){
 
-  description="[${BASHT_TEST_FILENAME##*/}] acceptance-tests (v${CLIENT_VERSION}): $BASHT_TEST_NUMBER - it is possible to log to a different elasticsearch index and type"
+  description="[${BASHT_TEST_FILENAME##*/}] acceptance-tests (v${CLIENT_VERSION}): $BASHT_TEST_NUMBER - bulk"
   echo "$description"
-
-  basht_run make -f "$MAKEFILE" deploy_elasticsearch
-
-  export ELASTICSEARCH_INDEX="docker-compose"
-  export ELASTICSEARCH_TYPE="ci"
 
   name="${BASHT_TEST_FILENAME##*/}.${BASHT_TEST_NUMBER}"
   message="$((RANDOM)) $description"
 
-  basht_run docker run --rm -ti \
+    basht_run docker run --rm -ti \
     --log-driver rchicoli/docker-log-elasticsearch:development \
     --log-opt elasticsearch-url="${ELASTICSEARCH_URL}" \
     --log-opt elasticsearch-version="${CLIENT_VERSION}" \
-    --name "$name" \
-    --log-opt elasticsearch-index='docker-compose' \
-    --log-opt elasticsearch-type='ci' \
+    --name $name \
+    --log-opt elasticsearch-bulk-workers=2 \
+    --log-opt elasticsearch-bulk-actions=2 \
+    --log-opt elasticsearch-bulk-size="-1" \
+    --log-opt elasticsearch-bulk-flush-interval=1s \
+    --log-opt elasticsearch-bulk-stats=false \
     alpine echo -n "$message"
 
   sleep 1
@@ -40,9 +38,6 @@ function test_different_index_and_type(){
     "${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search?pretty=true&size=1" \
     --data-urlencode "q=message:\"$message\""
 
-  basht_assert "echo '${output}' | jq -r '.hits.hits[0]._source.message'" equals "$message"
-  basht_assert "echo '${output}' | jq -r '.hits.hits[0]._source.partial'" equals "true"
-
-  make -f "$MAKEFILE" undeploy_elasticsearch
+  basht_assert "echo '${output}' | jq -r '.hits.hits[0]._source.message'" == "$message"
 
 }

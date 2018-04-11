@@ -45,7 +45,7 @@ no_color () { timestamp="$(date +"[%Y-%m-%d %H:%M:%S]")"; echo -e "$timestamp ${
 
 BASHT_DEBUG=${BASHT_DEBUG:-":"}
 
-BASHT_TEST_NUMBER=1
+export BASHT_TEST_NUMBER=1
 BASHT_SUBTEST_NUMBER=1
 BASHT_SUBMATCH_NUMBER=
 
@@ -55,65 +55,83 @@ BASHT_EXIT_CODE=0
 
 function basht_run(){
 
-	if output=$("$@" 2>&1); status=$?; then
-        $BASHT_DEBUG magenta "$BASHT_TEST_NUMBER.$((BASHT_SUBTEST_NUMBER++)) - Command($status): ${green}Passed"
-        $BASHT_DEBUG green "$*"
-        # $BASHT_DEBUG yellow "Passed: OK"
-        $BASHT_DEBUG yellow "$output$"
-        return $status
-    else
-        magenta "$BASHT_TEST_NUMBER.$((BASHT_SUBTEST_NUMBER++)) - Command($status): ${red}Failed"
-        red "$*"
-        yellow "$output"
-        BASHT_EXIT_CODE=1
-        # return $status
-    fi
+	output=$("$@" 2>&1); status=$?
+
+  if [[ "$status" -eq 0 ]]; then
+
+    test "$BASHT_DEBUG" = ":" && green "$BASHT_TEST_NUMBER.$BASHT_SUBTEST_NUMBER - Command($status): ${green}Passed"
+    $BASHT_DEBUG magenta "$BASHT_TEST_NUMBER.$((BASHT_SUBTEST_NUMBER++)) - Command($status): ${green}Passed"
+    $BASHT_DEBUG green "$*"
+    # $BASHT_DEBUG yellow "Passed: OK"
+    $BASHT_DEBUG yellow "$output$"
+    return $status
+
+  else
+    magenta "$BASHT_TEST_NUMBER.$((BASHT_SUBTEST_NUMBER++)) - Command($status): ${red}Failed"
+    red "$*"
+    yellow "$output"
+    BASHT_EXIT_CODE=1
+
+    # if fail fast, then exit $status
+    # return $status
+  fi
 
 }
 
 function basht_assert(){
 
 	# if output=$(echo "$output" | bash -c "$1" 2>&1); status=$?; then
-    local output
-    local status
-    output=$(bash -c "$1"); status="$?"
-	if [[ "$output" == "$3" ]]; then
-        $BASHT_DEBUG magenta "$BASHT_TEST_NUMBER.$BASHT_SUBTEST_NUMBER.$((BASHT_SUBMATCH_NUMBER++)) - Sub-Command($status): ${green}Passed"
-        $BASHT_DEBUG blue "${1}"
-        return $status
-    else
-        magenta "$BASHT_TEST_NUMBER.$BASHT_SUBTEST_NUMBER.$((BASHT_SUBMATCH_NUMBER++)) - Sub-Command($status): ${red}Failed"
-        red "$*"
-        yellow "\"${output}\" does not match \"${3}\""
-        BASHT_EXIT_CODE=1
-        # if exit fast, then exit $status
-        # return $status
+  local output
+  local status
+  output=$(bash -c "$1"); status="$?"
+
+  if [[ "$2" == "equals" ]] || [[ "$2" == "==" ]]; then
+    if [[ "$output" == "$3" ]]; then
+      $BASHT_DEBUG magenta "$BASHT_TEST_NUMBER.$BASHT_SUBTEST_NUMBER.$((BASHT_SUBMATCH_NUMBER++)) - Sub-Command($status): ${green}Passed"
+      $BASHT_DEBUG blue "${1}"
+      return $status
     fi
+  elif [[ "$2" == "regexp" ]] || [[ "$2" == "=~" ]]; then
+    if [[ "$output" =~ $3 ]]; then
+      $BASHT_DEBUG magenta "$BASHT_TEST_NUMBER.$BASHT_SUBTEST_NUMBER.$((BASHT_SUBMATCH_NUMBER++)) - Sub-Command($status): ${green}Passed"
+      $BASHT_DEBUG blue "${1}"
+      return $status
+    fi
+  fi
+
+  magenta "$BASHT_TEST_NUMBER.$BASHT_SUBTEST_NUMBER.$((BASHT_SUBMATCH_NUMBER++)) - Sub-Command($status): ${red}Failed"
+  red "$*"
+  yellow "\"${output}\" does not match \"${3}\""
+  BASHT_EXIT_CODE=1
+  # if fail fast, then exit $status
+  # return $status
 
 }
 
 function check_status(){
-    if [[ "$status" -eq "$1" ]]; then
-       : green "Exit-Status"
-    fi
+  if [[ "$status" -eq "$1" ]]; then
+    : green "Exit-Status"
+  fi
 }
 
 # die exits the script
 function die(){
   local _ret=$2
   test -n "$_ret" || _ret=1
-  test "$_PRINT_HELP" = yes && print_help >&2
+  test "$_arg_print_help" = yes && print_help >&2
   echo "$1" >&2
   exit ${_ret}
 }
 
 #-------------------------- CLI --------------------------------
 
-
 # defaults variables declaration
 
-_arg_verbose=""
+_arg_print_help="no"
+# _arg_verbose="no"
 _arg_version="0.0.1"
+_arg_test_file=""
+_arg_test_dir=""
 # _arg_logfile="/dev/stdout"
 
 # print_help outputs the help command
@@ -137,6 +155,11 @@ do
   case "$_key" in
 
     # required parameters
+    -w|--test-dir)
+      test $# -lt 2 && die "Missing value for argument '$_key'." 1
+      _arg_test_dir="$2"
+      shift
+      ;;
     -w|--test-file)
       test $# -lt 2 && die "Missing value for argument '$_key'." 1
       _arg_test_file="$2"
@@ -154,12 +177,11 @@ do
       exit 0
       ;;
     --no-verbose|--verbose)
-      # _arg_verbose=""
       BASHT_DEBUG=
-      test "${1:0:5}" = "--no-" && _arg_verbose=""
+      test "${1:0:5}" = "--no-" && BASHT_DEBUG=:
       ;;
     -h|--help)
-      print_help && _arg_verbose="off"
+      print_help
       exit 0
       ;;
 
@@ -179,14 +201,32 @@ function main(){
     eval "${_positional_names[ii]}=\${_positionals[ii]}" || die "Error during argument parsing" 1
   done
 
-  test "${_arg_test_file}" = "" && _PRINT_HELP=yes die "missing --test-file"
-  # _PRINT_HELP=yes die "do not know what to do"
+  if [[ "${_arg_test_file}" == "" ]] && [[ "${_arg_test_dir}" == "" ]]; then
+     _arg_print_help=yes die "missing --test-file or --test-dir"
+  fi
+  if [[ "${_arg_test_file}" != "" ]]; then
+    _loop_func="$_arg_test_file"
+  fi
+  if [[ "${_arg_test_dir}" != "" ]]; then
+    _loop_func="$_arg_test_dir"
+  fi
 
-  source "$_arg_test_file"
-  for func in $(sed -nr 's/^function (.*)\(\)\{/\1/p' < "$_arg_test_file"); do
-    magenta "$func is running..."
-    "$func"
-    # echo $BASHT_EXIT_CODE
+  # _arg_print_help=yes die "do not know what to do"
+
+  for func_file in $(ls -1 "$_loop_func"); do
+    source "${_arg_test_dir}/$func_file"
+    export BASHT_TEST_FILENAME="$func_file"
+    for func in $(sed -nr 's/^function (.*)\(\)\{/\1/p' < "${_arg_test_dir}/$func_file" | grep -Ev "setUp|tearDown"); do
+
+      setUp
+      magenta "$func is running..."
+      "$func"
+      tearDown
+      # if fail fast, then exit $BASHT_EXIT_CODE
+      ((BASHT_TEST_NUMBER++))
+      BASHT_SUBTEST_NUMBER=1
+
+    done
   done
 
   return $BASHT_EXIT_CODE
