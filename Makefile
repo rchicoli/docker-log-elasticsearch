@@ -139,9 +139,6 @@ acceptance_tests:
 integration_tests:
 	bats $(TESTS_DIR)/integration-tests/$(BATS_TESTFILE)
 
-suite_tests:
-	bats $(TESTS_DIR)/suite/$(BATS_TESTFILE)
-
 create_environment: deploy_elasticsearch deploy_webapper
 
 delete_environment: undeploy_elasticsearch undeploy_webapper

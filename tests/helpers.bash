@@ -10,8 +10,7 @@ WEBAPPER_IP="172.31.0.3"
 WEBAPPER_PORT="8080"
 
 # this is required for the makefile
-export BASE_DIR="$BATS_TEST_DIRNAME/../.."
-export BASE_DIR="/home/rafael_chicoli/Golib/src/github.com/rchicoli/docker-log-elasticsearch"
+export BASE_DIR="$BASHT_TEST_DIRNAME/.."
 export CLIENT_VERSION="${CLIENT_VERSION:-5}"
 
 DOCKER_COMPOSE_DIR="${BASE_DIR}/docker"

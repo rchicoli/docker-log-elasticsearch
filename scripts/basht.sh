@@ -45,6 +45,7 @@ no_color () { timestamp="$(date +"[%Y-%m-%d %H:%M:%S]")"; echo -e "$timestamp ${
 
 BASHT_DEBUG=${BASHT_DEBUG:-":"}
 
+export BASHT_TEST_DIRNAME=$(dirname "$0")
 export BASHT_TEST_NUMBER=1
 BASHT_SUBTEST_NUMBER=1
 BASHT_SUBMATCH_NUMBER=
