@@ -334,6 +334,9 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 // StopLogging ...
 func (d *Driver) StopLogging(file string) error {
 
+	// this is required for some environment like travis
+	// otherwise the start and stop function are executed
+	// too fast, even before messages are sent to the pipeline
 	time.Sleep(1 * time.Second)
 
 	d.mu.Lock()
@@ -366,16 +369,7 @@ func (d *Driver) StopLogging(file string) error {
 	}
 
 	// if c.esClient != nil {
-
-	// 	if err := c.esClient.Flush(); err != nil {
-	// 		l.Printf("error: flushing queue: %v", err)
-	// 	}
-
-	// 	l.Printf("info: closing client: %v", c.esClient)
-	// 	if err := c.esClient.Close(); err != nil {
-	// 		l.Printf("error: closing client connection: %v\n", err)
-	// 	}
-	// 	c.esClient.Stop()
+	//	close client connection on last pipeline
 	// }
 
 	// l.Printf("info: done stopping logger for containerID=[%v] and socket=[%v]\n", c.info.ContainerID, filename)
