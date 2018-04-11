@@ -177,7 +177,7 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 		defer func() {
 			fmt.Printf("info: [%v] closing docker reader\n", c.info.ContainerID)
 			dec.Close()
-			// close(c.pipeline.inputCh)
+			close(c.pipeline.inputCh)
 		}()
 
 		var buf logdriver.LogEntry
@@ -187,7 +187,6 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 			if err = dec.ReadMsg(&buf); err != nil {
 				if err == io.EOF {
 					fmt.Printf("info: [%v] shutting down logger: %v\n", c.info.ContainerID, err)
-					// c.stream.Close()
 					return nil
 				}
 				if err != nil {
@@ -335,12 +334,12 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 // StopLogging ...
 func (d *Driver) StopLogging(file string) error {
 
-	time.Sleep(5 * time.Second)
+	time.Sleep(1 * time.Second)
 
 	d.mu.Lock()
+	filename := path.Base(file)
 	// full path: /var/lib/docker/plugins/1ce514430f4da85be15e02ce6956e506246190ea790753a58f7821892b4639ef/
 	//                rootfs/run/docker/logging/4f8fdcf6793a3a72296e4aedf4f94f5bb5269b3f52eb17061bfe0fd75c66776a
-	filename := path.Base(file)
 	c, exists := d.logs[filename]
 	if !exists {
 		d.mu.Unlock()
@@ -356,14 +355,9 @@ func (d *Driver) StopLogging(file string) error {
 		c.stream.Close()
 	}
 
-	// TODO: count how many documents are in the queue
-	// before closing client
-	// time.Sleep(6 * time.Second)
-
 	if c.pipeline.group != nil {
 		l.Printf("info: [%v] closing pipeline: %v\n", c.info.ContainerID, c.pipeline)
-
-		close(c.pipeline.inputCh)
+		// close(c.pipeline.inputCh)
 
 		// Check whether any goroutines failed.
 		if err := c.pipeline.group.Wait(); err != nil {

@@ -10,7 +10,7 @@ function setUp(){
 
 function tearDown(){
   _debug
-  _make undeploy_elasticsearch 1>/dev/null
+  basht_run make -f "$MAKEFILE" undeploy_elasticsearch
 }
 
 function test_different_index_and_type(){
@@ -44,6 +44,6 @@ function test_different_index_and_type(){
   basht_assert "echo '${output}' | jq -r '.hits.hits[0]._source.message'" equals "$message"
   basht_assert "echo '${output}' | jq -r '.hits.hits[0]._source.partial'" equals "true"
 
-  make -f "$MAKEFILE" undeploy_elasticsearch
+  
 
 }

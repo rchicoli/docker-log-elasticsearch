@@ -95,7 +95,6 @@ function _make() {
 function _debug() {
 
   echo "$(date) OUTPUT:"
-  # echo -n -e "${@}" "\n\n"
 
   uptime
   free -m --human
@@ -105,10 +104,8 @@ function _debug() {
 
   tail -n50 /var/log/upstart/docker.log || echo "log does not exist"
 
-  echo "searching for all documents: "
+  echo "searching for all documents"
   curl -k --connect-timeout 5 -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" \
     ${ELASTICSEARCH_URL}/_search\?pretty=true\&size=100
-
-  # return 1
 
 }
