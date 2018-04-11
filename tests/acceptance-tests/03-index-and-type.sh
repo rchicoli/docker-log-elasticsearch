@@ -9,6 +9,7 @@ function setUp(){
 }
 
 function tearDown(){
+  _debug
   _make undeploy_elasticsearch 1>/dev/null
 }
 

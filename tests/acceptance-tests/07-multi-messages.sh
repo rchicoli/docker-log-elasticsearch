@@ -9,6 +9,7 @@ function setUp(){
 }
 
 function tearDown(){
+  _debug
   _make delete_environment 1>/dev/null
 }
 

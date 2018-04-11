@@ -9,7 +9,8 @@ function setUp(){
 }
 
 function tearDown(){
-  [[ ${CLIENT_VERSION} -eq 1 ]] && return 0
+  #[[ ${CLIENT_VERSION} -eq 1 ]] && return 0
+  _debug
   _make undeploy_nginx
   _make undeploy_elasticsearch
    docker system prune -f
@@ -59,7 +60,7 @@ function test_https_protocol_via_proxy(){
   name="${BASHT_TEST_FILENAME##*/}.${BASHT_TEST_NUMBER}"
   message="$((RANDOM)) $description"
 
-  ${SCRIPTS_DIR}/wait-for-it.sh nginx 443 echo wait until proxy is ready
+  basht_run ${SCRIPTS_DIR}/wait-for-it.sh nginx 443 echo wait until proxy is ready
 
   export ELASTICSEARCH_URL="https://172.31.0.4:443"
   basht_run docker run --rm -ti \
