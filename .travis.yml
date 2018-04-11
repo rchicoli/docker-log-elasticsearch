@@ -27,8 +27,8 @@ script:
   # - sudo make acceptance_tests || exit 1
   # - sudo env BATS_TESTFILE=01-integration.bats make suite_tests || exit 1
   # - sudo env BATS_TESTFILE=02-acceptance.bats make suite_tests || exit 1
-  - sudo env SLEEP_TIME=30 ./scripts/basht.sh --test-dir tests/integration-tests
-  - sudo env SLEEP_TIME=30 ./scripts/basht.sh --test-dir tests/acceptance-tests
+  - sudo env SLEEP_TIME=10 ./scripts/basht.sh --test-dir tests/integration-tests
+  - sudo env SLEEP_TIME=10 ./scripts/basht.sh --test-dir tests/acceptance-tests
 
 stages:
   # - name: cache

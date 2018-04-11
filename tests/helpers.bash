@@ -103,8 +103,7 @@ function _debug() {
   docker ps -a
   docker logs elasticsearch
 
-  tail -n100 /var/log/upstart/docker.log || echo "log does not exist"
-  tail -n100 /var/log/daemon.log || echo "log does not exist"
+  tail -n50 /var/log/upstart/docker.log || echo "log does not exist"
 
   echo "searching for all documents: "
   curl -k --connect-timeout 5 -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" \
