@@ -10,12 +10,13 @@ WEBAPPER_IP="172.31.0.3"
 WEBAPPER_PORT="8080"
 
 # this is required for the makefile
-export BASE_DIR="$BATS_TEST_DIRNAME/../.."
+export BASE_DIR="$BASHT_TEST_DIRNAME/.."
 export CLIENT_VERSION="${CLIENT_VERSION:-5}"
 
 DOCKER_COMPOSE_DIR="${BASE_DIR}/docker"
 SCRIPTS_DIR="${BASE_DIR}/scripts"
 CONFIG_DIR="${BASE_DIR}/config"
+TESTS_DIR="${BASE_DIR}/tests"
 
 DOCKER_COMPOSE_FILE="${DOCKER_COMPOSE_DIR}/docker-compose.yml"
 
@@ -34,6 +35,8 @@ ELASTICSEARCH_USERNAME="${ELASTICSEARCH_USERNAME:-elastic}"
 ELASTICSEARCH_PASSWORD="${ELASTICSEARCH_PASSWORD:-changeme}"
 
 MAKEFILE="${BASE_DIR}/Makefile"
+
+SLEEP_TIME=${SLEEP_TIME:-1}
 
 function _elasticsearchHealth() {
   color="$(
@@ -63,17 +66,25 @@ function _dockerRun(){
 
 function _post() {
   local message="$1"
-  curl -s -XPOST -H "Content-Type: application/json" --data "{\"message\":\"$message\"}" "http://${WEBAPPER_IP}:${WEBAPPER_PORT}/log"
+  curl -XPOST -H "Content-Type: application/json" --data "{\"message\":\"$message\"}" "http://${WEBAPPER_IP}:${WEBAPPER_PORT}/log"
 }
 
 function _get() {
   _getProtocol
   local message="$1"
   # sleep for the flush interval + 5s
-  sleep 15
+  sleep 1
   curl -G -s -k --connect-timeout 5 -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" \
     ${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search\?pretty=true\&size=1 \
     --data-urlencode "q=${message}"
+}
+
+function _search() {
+  _getProtocol
+  # sleep for the flush interval + 5s
+  sleep 1
+  curl -G -s -k --connect-timeout 5 -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" \
+    ${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search\?pretty=true\&size=100
 }
 
 # make wrapper
@@ -82,10 +93,19 @@ function _make() {
 }
 
 function _debug() {
-  echo -n -e "\n$(date)\nDebug:\n" "${@}" "\n\n"
+
+  echo "$(date) OUTPUT:"
+
+  uptime
+  free -m --human
+  iostat -x
   docker ps -a
-  echo "searching for all documents: "
-  curl -G -s -k --connect-timeout 5 -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" ${ELASTICSEARCH_URL}/_search\?pretty=true\&size=100
   docker logs elasticsearch
-  return 1
+
+  tail -n50 /var/log/upstart/docker.log || echo "log does not exist"
+
+  echo "searching for all documents"
+  curl -k --connect-timeout 5 -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" \
+    ${ELASTICSEARCH_URL}/_search\?pretty=true\&size=100
+
 }

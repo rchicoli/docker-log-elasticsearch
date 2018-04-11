@@ -26,6 +26,8 @@ type Client interface {
 	// Stop the bulk processor and do some cleanup
 	Close() error
 	// Stats()
+
+	Flush() error
 }
 
 // NewClient ...

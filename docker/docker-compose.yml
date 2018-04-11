@@ -54,6 +54,7 @@ services:
       driver: 'rchicoli/docker-log-elasticsearch:development'
       options:
         elasticsearch-url: 'http://172.31.0.2:9200'
+        elasticsearch-bulk-flush-interval: '1s'
 
   nginx:
     image: nginx:alpine

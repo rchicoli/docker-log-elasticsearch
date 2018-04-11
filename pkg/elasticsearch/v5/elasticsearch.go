@@ -87,6 +87,10 @@ func (e *Elasticsearch) Close() error {
 	return e.BulkProcessor.Close()
 }
 
+func (e *Elasticsearch) Flush() error {
+	return e.BulkProcessor.Flush()
+}
+
 // Stop stops the background processes that the client is running,
 // i.e. sniffing the cluster periodically and running health checks
 // on the nodes.
