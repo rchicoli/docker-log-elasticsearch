@@ -85,7 +85,19 @@ Before creating a docker container, a healthy instance of Elasticsearch service 
 
 ######  elasticsearch-index ######
   - *index* to write log messages to
-  - *examples*: docker, logging
+  - *examples*: docker, logging-%F, docker-%Y.%m.%d
+
+```bash
+# FORMAT controls the output.  Interpreted sequences are:
+%b     locale's abbreviated month name (Jan)
+%B     locale's full month name (January)
+%d     day of month (01)
+%F     full date; same as %Y.%m.%d
+%j     day of year (001..366)
+%m     month (01..12)
+%y     last two digits of year (00..99)
+%Y     year (2018)
+```
 
 ###### elasticsearch-username ######
   - *username* to authenticate to a secure Elasticsearch cluster
