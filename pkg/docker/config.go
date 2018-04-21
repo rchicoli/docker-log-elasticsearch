@@ -49,8 +49,8 @@ type Grok struct {
 
 func defaultLogOpt() LogOpt {
 	return LogOpt{
-		// TODO: update index name to docker-YYYY.MM.dd
-		index:    "docker",
+		index: "docker",
+		// index:    "docker-%F",
 		tzpe:     "log",
 		timeout:  1,
 		fields:   "containerID,containerName,containerImageName,containerCreated",
