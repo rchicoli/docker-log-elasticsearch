@@ -12,6 +12,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/robfig/cron"
+
 	"golang.org/x/sync/errgroup"
 
 	"github.com/Sirupsen/logrus"
@@ -44,10 +46,12 @@ type pipeline struct {
 }
 
 type container struct {
-	stream   io.ReadCloser
-	info     logger.Info
-	esClient elasticsearch.Client
-	pipeline pipeline
+	stream    io.ReadCloser
+	info      logger.Info
+	esClient  elasticsearch.Client
+	pipeline  pipeline
+	cron      *cron.Cron
+	indexName string
 }
 
 // LogMessage ...
@@ -166,7 +170,15 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 	c.pipeline.group, c.pipeline.ctx = errgroup.WithContext(ctx)
 	c.pipeline.inputCh = make(chan logdriver.LogEntry)
 	c.pipeline.outputCh = make(chan LogMessage)
-	// c.pipeline.stopCh = make(chan struct{})
+
+	c.cron = cron.New()
+	c.indexName = indexRegex(time.Now(), config.index)
+	c.cron.AddFunc("@daily", func() {
+		d.mu.Lock()
+		c.indexName = indexRegex(time.Now(), config.index)
+		d.mu.Unlock()
+	})
+	c.cron.Start()
 
 	c.pipeline.group.Go(func() error {
 
@@ -200,9 +212,7 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 
 			// logrus.WithField("containerID", c.info.ContainerID).WithField("line", string(buf.Line)).Debugf("pipe1")
 
-			// I guess this problem has been fixed with the break function above
-			// test it again
-			// BUG: (17.09.0~ce-0~debian) docker run command throws lots empty line messages
+			// in case docker run command throws lots empty line messages
 			if len(bytes.TrimSpace(buf.Line)) == 0 {
 				logrus.WithField("containerID", c.info.ContainerID).WithField("line", string(buf.Line)).Debugf("trim")
 				continue
@@ -289,7 +299,8 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 		for doc := range c.pipeline.outputCh {
 			// logrus.WithField("containerID", c.info.ContainerID).WithField("line", string(doc.Line)).WithField("grok", doc.GrokLine).Debugf("pipe3")
 
-			c.esClient.Add(config.index, config.tzpe, doc)
+			c.esClient.Add(c.indexName, config.tzpe, doc)
+
 			select {
 			case <-c.pipeline.ctx.Done():
 				logrus.WithField("containerID", c.info.ContainerID).WithError(c.pipeline.ctx.Err()).Error("context closing pipe 3")
@@ -361,6 +372,10 @@ func (d *Driver) StopLogging(file string) error {
 		if err := c.pipeline.group.Wait(); err != nil {
 			logrus.WithField("containerID", c.info.ContainerID).WithError(err).Error("pipeline wait group")
 		}
+	}
+
+	if c.cron != nil {
+		c.cron.Stop()
 	}
 
 	// if c.esClient != nil {
