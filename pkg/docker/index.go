@@ -3,6 +3,7 @@ package docker
 import (
 	"fmt"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/Sirupsen/logrus"
@@ -32,11 +33,12 @@ func indexRegex(now time.Time, indexRegex string) string {
 		/*yearCentury           */ `%Y`: fmt.Sprintf("%d", now.Year()),
 		/*yearZeroPadded        */ `%y`: fmt.Sprintf("%d", now.Year())[2:],
 		/*dayOfYearZeroPadded   */ `%j`: fmt.Sprintf("%d", now.YearDay()),
-		/*testSecond            */ `%z`: fmt.Sprintf("%02d", now.Second()),
+		// /*testSecond         */ `%z`: fmt.Sprintf("%02d", now.Second()),
 	}
 
 	var indexName = percent.ReplaceAllStringFunc(indexRegex, func(s string) string {
-		return strftimeToRegex[s]
+		// org.elasticsearch.indices.InvalidIndexNameException: ... must be lowercase
+		return strings.ToLower(strftimeToRegex[s])
 	})
 	logrus.WithField("indexname", indexName).Debug("index name generated from regex")
 
