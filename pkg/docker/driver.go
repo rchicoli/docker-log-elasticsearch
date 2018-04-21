@@ -174,7 +174,9 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 	c.cron = cron.New()
 	c.indexName = indexRegex(time.Now(), config.index)
 	c.cron.AddFunc("@daily", func() {
+		d.mu.Lock()
 		c.indexName = indexRegex(time.Now(), config.index)
+		d.mu.Unlock()
 	})
 	c.cron.Start()
 
