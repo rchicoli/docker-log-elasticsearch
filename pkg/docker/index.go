@@ -18,7 +18,6 @@ func indexRegex(now time.Time, indexRegex string) string {
 	// %b     locale's abbreviated month name (Jan)
 	// %B     locale's full month name (January)
 	// %d     day of month (01)
-	// %D     date; same as %m/%d/%y
 	// %F     full date; same as %Y.%m.%d
 	// %j     day of year (001..366)
 	// %m     month (01..12)
@@ -28,7 +27,6 @@ func indexRegex(now time.Time, indexRegex string) string {
 		/*dayZeroPadded         */ `%d`: fmt.Sprintf("%02d", now.Day()),
 		/*monthShort            */ `%b`: now.Month().String()[:3],
 		/*monthFull             */ `%B`: now.Month().String(),
-		/*monthFull             */ `%D`: fmt.Sprintf("%02d/%02d/%s", int(now.Month()), now.Day(), fmt.Sprintf("%d", now.Year())[2:]),
 		/*monthFull             */ `%F`: fmt.Sprintf("%d.%02d.%02d", now.Year(), int(now.Month()), now.Day()),
 		/*monthZeroPadded       */ `%m`: fmt.Sprintf("%02d", int(now.Month())),
 		/*yearCentury           */ `%Y`: fmt.Sprintf("%d", now.Year()),
