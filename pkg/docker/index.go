@@ -14,6 +14,13 @@ import (
 // to replace with a defined regular expression
 var percent = regexp.MustCompile("%.")
 
+func indexFlag(indexRegex string) bool {
+	if strings.Contains(indexRegex, "%") {
+		return true
+	}
+	return false
+}
+
 func indexRegex(now time.Time, indexRegex string) string {
 
 	// %b     locale's abbreviated month name (Jan)

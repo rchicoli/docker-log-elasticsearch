@@ -171,14 +171,18 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 	c.pipeline.inputCh = make(chan logdriver.LogEntry)
 	c.pipeline.outputCh = make(chan LogMessage)
 
-	c.cron = cron.New()
-	c.indexName = indexRegex(time.Now(), config.index)
-	c.cron.AddFunc("@daily", func() {
-		d.mu.Lock()
+	if indexFlag(config.index) {
 		c.indexName = indexRegex(time.Now(), config.index)
-		d.mu.Unlock()
-	})
-	c.cron.Start()
+		c.cron = cron.New()
+		c.cron.AddFunc("@daily", func() {
+			d.mu.Lock()
+			c.indexName = indexRegex(time.Now(), config.index)
+			d.mu.Unlock()
+		})
+		c.cron.Start()
+	} else {
+		c.indexName = config.index
+	}
 
 	c.pipeline.group.Go(func() error {
 
