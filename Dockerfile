@@ -4,7 +4,6 @@ ARG GOOS=linux
 ARG GOARCH=amd64
 ARG GOARM=
 
-
 WORKDIR  /go/src/github.com/rchicoli/docker-log-elasticsearch
 COPY . .
 
