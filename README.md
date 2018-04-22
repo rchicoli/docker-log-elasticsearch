@@ -43,10 +43,10 @@ docker plugin install rchicoli/docker-log-elasticsearch:latest --alias elasticse
 
 The plugin must be disabled in order to change the [plugin settings](https://docs.docker.com/engine/reference/commandline/plugin_set/)
 
-| Environment | Description |
-| ----- | ----------- |
-| LOG_LEVEL | log level to output for plugin logs (debug, info, warn, error) |
-| TZ        | time zone to generate new indexes at midnight |
+| Environment | Description | Default Value |
+| ----- | ----------- | -------------- |
+| LOG_LEVEL | log level to output for plugin logs (debug, info, warn, error) | info |
+| TZ        | time zone to generate new indexes at midnight | Europe/Berlin |
 
 ### How to use
 
@@ -59,7 +59,7 @@ Before creating a docker container, a healthy instance of Elasticsearch service 
 | Key | Default Value | Required |
 | --- | ------------- | -------- |
 | elasticsearch-fields | containerID,containerName,containerImageName,containerCreated | no |
-| elasticsearch-index | docker | no  |
+| elasticsearch-index | docker-%Y.%m.%d | no  |
 | elasticsearch-insecure | false | no |
 | elasticsearch-password | no | no |  |
 | elasticsearch-sniff | yes | no | |
