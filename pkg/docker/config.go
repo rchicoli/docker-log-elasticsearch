@@ -49,8 +49,7 @@ type Grok struct {
 
 func defaultLogOpt() LogOpt {
 	return LogOpt{
-		index: "docker",
-		// index:    "docker-%F",
+		index:    "docker-%Y.%m.%d",
 		tzpe:     "log",
 		timeout:  1,
 		fields:   "containerID,containerName,containerImageName,containerCreated",

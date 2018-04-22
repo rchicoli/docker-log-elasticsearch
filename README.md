@@ -31,11 +31,6 @@ This application is under active development and will continue to be modified an
 
 You need to install Docker Engine >= 1.12 and Elasticsearch application. Additional information about Docker plugins [can be found here](https://docs.docker.com/engine/extend/plugins_logging/).
 
-## Incompatible docker version
-
-It was found a bug with docker version `17.09.0~ce`. Currently I've been developing this plugin using the docker version `17.05.0~ce`.
-Before going stable I will add a cross test for multiple docker versions.
-
 ### How to install
 
 The following command will download and enable the plugin.
@@ -43,6 +38,15 @@ The following command will download and enable the plugin.
 ```bash
 docker plugin install rchicoli/docker-log-elasticsearch:latest --alias elasticsearch
 ```
+
+### How to configure
+
+The plugin must be disabled in order to change the [plugin settings](https://docs.docker.com/engine/reference/commandline/plugin_set/)
+
+| Environment | Description | Default Value |
+| ----- | ----------- | -------------- |
+| LOG_LEVEL | log level to output for plugin logs (debug, info, warn, error) | info |
+| TZ        | time zone to generate new indexes at midnight | Europe/Berlin |
 
 ### How to use
 
@@ -55,7 +59,7 @@ Before creating a docker container, a healthy instance of Elasticsearch service 
 | Key | Default Value | Required |
 | --- | ------------- | -------- |
 | elasticsearch-fields | containerID,containerName,containerImageName,containerCreated | no |
-| elasticsearch-index | docker | no  |
+| elasticsearch-index | docker-%Y.%m.%d | no  |
 | elasticsearch-insecure | false | no |
 | elasticsearch-password | no | no |  |
 | elasticsearch-sniff | yes | no | |
@@ -87,17 +91,18 @@ Before creating a docker container, a healthy instance of Elasticsearch service 
   - *index* to write log messages to
   - *examples*: docker, logging-%F, docker-%Y.%m.%d
 
-```bash
-# FORMAT controls the output.  Interpreted sequences are:
-%b     locale's abbreviated month name (Jan)
-%B     locale's full month name (January)
-%d     day of month (01)
-%F     full date; same as %Y.%m.%d
-%j     day of year (001..366)
-%m     month (01..12)
-%y     last two digits of year (00..99)
-%Y     year (2018)
-```
+Interpreted sequences are:
+
+| Regex | Description |
+| ----- | ----------- |
+| %b    | locale's abbreviated month name (Jan) |
+| %B    | locale's full month name (January) |
+| %d    | day of month (01) |
+| %F    | full date; same as %Y.%m.%d |
+| %j    | day of year (001..366) |
+| %m    | month (01..12) |
+| %y    | last two digits of year (00..99) |
+| %Y    | year (2018) |
 
 ###### elasticsearch-username ######
   - *username* to authenticate to a secure Elasticsearch cluster
@@ -344,8 +349,8 @@ docker run -ti --rm --log-driver rchicoli/docker-log-elasticsearch:development -
 
 There are some limitations so far, which will be improved at some point.
 
-  - grok parses everything to a string field, convertion type is not possible at the moment
-  - grok-pattern-from requires the file to be inside the plugin's rootfs
+  - grok parses everything to a string field, convertion type is only possible if a template has been added to elasticsearch
+  - grok-pattern-from requires the file to be inside the plugin's rootfs. Alternative is the plugin's mount source.
 
 ### Description of fields
 
