@@ -15,6 +15,10 @@ RUN CGO_ENABLED=0 go build -v -a -installsuffix cgo -o /usr/bin/docker-log-elast
 FROM alpine:3.7
 
 # RUN apk --no-cache add ca-certificates
+RUN apk --no-cache add tzdata
+# TZ required to set the localtime
+# TZ can be set with docker plugin command
+
 COPY --from=builder /usr/bin/docker-log-elasticsearch /usr/bin/
 WORKDIR /usr/bin
 ENTRYPOINT [ "/usr/bin/docker-log-elasticsearch" ]
