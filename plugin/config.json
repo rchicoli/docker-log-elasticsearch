@@ -18,6 +18,14 @@
             "Settable": [
                 "value"
             ]
+        },
+        {
+            "Name": "TZ",
+            "Description": "Set time zone to generate new indexes at midnight",
+            "Value": "Europe/Berlin",
+            "Settable": [
+                "value"
+            ]
         }
     ],
     "Network": {
