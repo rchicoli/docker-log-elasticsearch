@@ -10,15 +10,14 @@ COPY . .
 RUN apk add --no-cache git
 
 RUN go get -d -v ./...
-RUN go test -v ./...
+RUN go test -cover -v ./...
 RUN CGO_ENABLED=0 go build -v -a -installsuffix cgo -o /usr/bin/docker-log-elasticsearch
 
 FROM alpine:3.7
 
-# RUN apk --no-cache add ca-certificates
-RUN apk --no-cache add tzdata
 # TZ required to set the localtime
 # TZ can be set with docker plugin command
+RUN apk --no-cache add tzdata
 
 COPY --from=builder /usr/bin/docker-log-elasticsearch /usr/bin/
 WORKDIR /usr/bin
