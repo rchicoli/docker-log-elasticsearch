@@ -22,7 +22,7 @@
         {
             "Name": "TZ",
             "Description": "Set time zone to generate new indexes at midnight",
-            "Value": "Europe/Berlin",
+            "Value": "",
             "Settable": [
                 "value"
             ]
