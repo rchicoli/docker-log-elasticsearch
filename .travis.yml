@@ -21,7 +21,7 @@ before_install:
 #     - ${TRAVIS_BUILD_DIR}/vendor/gopkg.in
 
 script:
-  # - echo
+  - go test -v ./... || exit 1
   - sudo make || exit 1
   # - sudo make integration_tests || exit 1
   # - sudo make acceptance_tests || exit 1
