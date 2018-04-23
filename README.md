@@ -46,7 +46,7 @@ The plugin must be disabled in order to change the [plugin settings](https://doc
 | Environment | Description | Default Value |
 | ----- | ----------- | -------------- |
 | LOG_LEVEL | log level to output for plugin logs (debug, info, warn, error) | info |
-| TZ        | time zone to generate new indexes at midnight | Europe/Berlin |
+| TZ        | time zone to generate new indexes at midnight | none |
 
 ### How to use
 

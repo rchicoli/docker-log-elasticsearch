@@ -14,16 +14,22 @@ SHELL               := /bin/bash
 SYSCTL              := $(shell which sysctl)
 DOCKER_COMPOSE      := $(shell which docker-compose)
 
-.PHONY: all clean rootfs plugin install enable
+.PHONY: all
 
-all: clean build rootfs plugin enable clean
+all: clean docker_build plugin_create plugin_enable clean
+
+local: clean build plugin_create plugin_enable clean
 
 clean:
 	@echo ""
 	test -d $(ROOTFS_DIR) && rm -rf $(ROOTFS_DIR) || true
-	# docker rmi $(DOCKER_IMAGE):$(APP_VERSION)
 
 build:
+	@echo ""
+	CGO_ENABLED=0 go build -v -a -installsuffix cgo -o docker-log-elasticsearch
+	docker build -t $(PLUGIN_NAME):rootfs -f $(BASE_DIR)/Dockerfile.local $(BASE_DIR)
+
+docker_build:
 	@echo ""
 	docker build -t $(PLUGIN_NAME):rootfs $(BASE_DIR)
 
@@ -36,26 +42,25 @@ rootfs:
 	docker export tmprootfs | tar -x -C ${BASE_DIR}/plugin/rootfs
 	docker rm -vf tmprootfs
 
-plugin:
+plugin_create: rootfs
 	@echo ""
 	docker plugin rm -f $(PLUGIN_NAME):$(PLUGIN_TAG) || true
-	docker plugin rm -f $(PLUGIN_NAME):latest || true
 
 	@echo
 	docker plugin create $(PLUGIN_NAME):$(PLUGIN_TAG) ${BASE_DIR}/plugin
-	docker plugin create $(PLUGIN_NAME):latest ${BASE_DIR}/plugin
 
-install:
+plugin_install:
 	docker plugin install $(PLUGIN_NAME):$(PLUGIN_TAG) --alias elasticsearch
 
-enable:
+plugin_enable:
 	@echo ""
 	docker plugin enable $(PLUGIN_NAME):$(PLUGIN_TAG)
 
-push:
+plugin_push:
 	@echo ""
 	docker plugin push $(PLUGIN_NAME):$(PLUGIN_TAG)
-	docker plugin push $(PLUGIN_NAME):latest
+
+push: plugin_push
 
 client_version:
 ifeq ($(CLIENT_VERSION),6)
@@ -79,6 +84,10 @@ endif
 else ifeq ($(CLIENT_VERSION),1)
     ELASTIC_VERSION=$(DOCKER_DIR)/elastic-v1.yml
 endif
+
+#####################
+#    ENVIRONMENT    #
+#####################
 
 docker_compose:
 ifeq (, $(DOCKER_COMPOSE))
@@ -133,11 +142,24 @@ undeploy_nginx: docker_compose skip
 	# create a container for logging to elasticsearch
 	$(SKIP) docker-compose -f "$(DOCKER_COMPOSE_FILE)" rm -s -f nginx
 
+#####################
+#      TESTS        #
+#####################
+
+go_tests:
+	go test -cover -race -v ./...
+
 acceptance_tests:
-	bats $(TESTS_DIR)/acceptance-tests/$(BATS_TESTFILE)
+	$(SCRIPTS_DIR)/basht.sh --test-dir $(TESTS_DIR)/acceptance-tests
+
+acceptance_test_file:
+	$(SCRIPTS_DIR)/basht.sh --test-file $(TESTS_DIR)/acceptance-tests/$(BASHT_TESTFILE)
 
 integration_tests:
-	bats $(TESTS_DIR)/integration-tests/$(BATS_TESTFILE)
+	$(SCRIPTS_DIR)/basht.sh --test-dir $(TESTS_DIR)/integration-tests
+
+integration_test_file:
+	$(SCRIPTS_DIR)/basht.sh --test-file $(TESTS_DIR)/integration-tests/$(BASHT_TESTFILE)
 
 create_environment: deploy_elasticsearch deploy_webapper
 
