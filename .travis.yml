@@ -60,7 +60,7 @@ matrix:
       if: type IN (pull_request)
 
     - stage: release
-      # env: MAJOR_RELEASE=true
+      env: MAJOR_RELEASE=true
       # it would be nice to map github labels instead
       # env: RELEASE_TAG=0.3.0
       if: type IN (push)
