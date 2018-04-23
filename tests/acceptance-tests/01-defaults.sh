@@ -70,7 +70,7 @@ function test_default_fields_are_filled_out(){
   basht_assert "echo '${output}' | jq -r '.hits.hits[0]._source.message'"            == "$message"
   basht_assert "echo '${output}' | jq -r '.hits.hits[0]._source.source'"             == "stdout"
   basht_assert "echo '${output}' | jq -r '.hits.hits[0]._source.partial'"            == "true"
-  basht_assert "echo '${output}' | jq -r '.hits.hits[0]._source.timestamp'"          =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]+(\+02:00|Z)$
+  basht_assert "echo '${output}' | jq -r '.hits.hits[0]._source.timestamp'"          =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]+Z$
   basht_assert "echo '${output}' | jq -r '.hits.hits[0]._source[]' | wc -l"          == 8
 
 }

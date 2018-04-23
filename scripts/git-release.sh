@@ -25,9 +25,11 @@ fi
 
 export PLUGIN_TAG="$NEW_TAG"
 make
+PLUGIN_TAG=latest make plugin_create
 
 docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD" &>/dev/null
 make push
+PLUGIN_TAG=latest make push
 
 # git log --oneline "${LAST_TAG}..HEAD"
 
