@@ -32,13 +32,13 @@ func indexRegex(now time.Time, indexRegex string) string {
 	// %y     last two digits of year (00..99)
 	// %Y     year (2018)
 	var strftimeToRegex = map[string]string{
-		/*dayZeroPadded         */ `%d`: fmt.Sprintf("%02d", now.Day()),
-		/*monthShort            */ `%b`: now.Month().String()[:3],
-		/*monthFull             */ `%B`: now.Month().String(),
-		/*monthFull             */ `%F`: fmt.Sprintf("%d.%02d.%02d", now.Year(), int(now.Month()), now.Day()),
-		/*monthZeroPadded       */ `%m`: fmt.Sprintf("%02d", int(now.Month())),
-		/*yearCentury           */ `%Y`: fmt.Sprintf("%d", now.Year()),
-		/*yearZeroPadded        */ `%y`: fmt.Sprintf("%d", now.Year())[2:],
+		/*dayZeroPadded         */ `%d`: now.Format("02"),
+		/*monthShort            */ `%b`: now.Format("Jan"),
+		/*monthFull             */ `%B`: now.Format("January"),
+		/*monthFull             */ `%F`: now.Format("2006.01.02"),
+		/*monthZeroPadded       */ `%m`: now.Format("01"),
+		/*yearCentury           */ `%Y`: now.Format("2006"),
+		/*yearZeroPadded        */ `%y`: now.Format("06"),
 		/*dayOfYearZeroPadded   */ `%j`: fmt.Sprintf("%d", now.YearDay()),
 		// /*testSecond         */ `%z`: fmt.Sprintf("%02d", now.Second()),
 	}

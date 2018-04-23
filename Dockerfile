@@ -10,6 +10,7 @@ COPY . .
 RUN apk add --no-cache git
 
 RUN go get -d -v ./...
+RUN go test -v ./...
 RUN CGO_ENABLED=0 go build -v -a -installsuffix cgo -o /usr/bin/docker-log-elasticsearch
 
 FROM alpine:3.7
