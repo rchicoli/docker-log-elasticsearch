@@ -27,7 +27,6 @@ func main() {
 		logrus.SetLevel(level)
 		logrus.SetFormatter(&logrus.TextFormatter{
 			DisableTimestamp: true,
-			QuoteEmptyFields: false,
 		})
 	} else {
 		fmt.Fprintln(os.Stderr, "invalid log level: ", levelVal)
