@@ -14,8 +14,6 @@ SHELL               := /bin/bash
 SYSCTL              := $(shell which sysctl)
 DOCKER_COMPOSE      := $(shell which docker-compose)
 
-GOPATH				?= $(HOME)/Golib
-
 .PHONY: all
 
 all: clean docker_build plugin_create plugin_enable clean
