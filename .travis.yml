@@ -22,18 +22,14 @@ before_install:
 
 script:
   - sudo make || exit 1
-  # - sudo make integration_tests || exit 1
-  # - sudo make acceptance_tests || exit 1
-  # - sudo env BATS_TESTFILE=01-integration.bats make suite_tests || exit 1
-  # - sudo env BATS_TESTFILE=02-acceptance.bats make suite_tests || exit 1
-  - sudo env SLEEP_TIME=10 ./scripts/basht.sh --test-dir tests/integration-tests
-  - sudo env SLEEP_TIME=10 ./scripts/basht.sh --test-dir tests/acceptance-tests
+  - sudo env SLEEP_TIME=10 make integration_tests || exit 1
+  - sudo env SLEEP_TIME=10 make acceptance_tests || exit 1
 
 stages:
   # - name: cache
   #   if: branch = development
   - name: build
-    if: branch = development
+    if: branch != master
   - name: release
     if: branch = master
 
@@ -62,7 +58,7 @@ matrix:
     - stage: release
       # env: MAJOR_RELEASE=true
       # it would be nice to map github labels instead
-      env: RELEASE_TAG=0.4.0
+      # env: RELEASE_TAG=0.4.0
       if: type IN (push)
       script:
         - ./scripts/git-release.sh
