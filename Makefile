@@ -18,7 +18,7 @@ DOCKER_COMPOSE      := $(shell which docker-compose)
 
 all: clean docker_build plugin_create plugin_enable clean
 
-local: clean build go_tests plugin_create plugin_enable clean
+local: clean build unit_tests plugin_create plugin_enable clean
 
 clean:
 	@echo ""
@@ -146,7 +146,7 @@ undeploy_nginx: docker_compose skip
 #      TESTS        #
 #####################
 
-go_tests:
+unit_tests:
 	go test -cover -race -v ./...
 
 acceptance_tests:
