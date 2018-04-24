@@ -18,7 +18,7 @@ DOCKER_COMPOSE      := $(shell which docker-compose)
 
 all: clean docker_build plugin_create plugin_enable clean
 
-local: clean build plugin_create plugin_enable clean
+local: clean build go_tests plugin_create plugin_enable clean
 
 clean:
 	@echo ""
