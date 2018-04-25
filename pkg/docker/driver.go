@@ -7,7 +7,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"path"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -202,10 +204,15 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 					logrus.WithField("containerID", c.info.ContainerID).WithField("line", string(buf.Line)).Debugf("shutting down reader eof")
 					return nil
 				}
+				// the connection has been closed
+				// stop looping and close the input channel
+				// read /proc/self/fd/6: file already closed
+				if strings.Contains(err.Error(), os.ErrClosed.Error()) {
+					logrus.WithField("id", c.info.ContainerID).WithError(err).Debug("shutting down fifo: closed by the writer")
+					break
+				}
 				if err != nil {
-					// the connection has been closed
-					// stop looping and closing the input channel
-					// read /proc/self/fd/6: file already closed
+					logrus.WithField("id", c.info.ContainerID).WithError(err).Error("shutting down fifo")
 					break
 					// do not return, otherwise group.Go closes the pipeline
 					// return err
