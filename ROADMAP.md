@@ -11,6 +11,7 @@ Goals:
  - [ ] Parse partial log messages and merge them, if wished
  - [ ] Add performance tests
  - [ ] Add metrics
+ - [ ] Implement Readlog capability
 
 ## Docker Log Elasticsearch 1.0.0
 
@@ -18,7 +19,7 @@ Goals:
 
  - [ ] Write unit tests
  - [X] Create a Continuous Integration of this project in order to avoid lots of manual interventions.
- - [ ] Captch labels and environments
+ - [X] Captch labels and environments
  - [X] Add an extra user option, e.g. `--log-opt elasticsearch-fields=containerName,containerID,containerLogLine` so for a free pick of docker info log
  - [ ] Add the capability of multilines for Java Exceptions
  - [X] Add HTTPS Support and Skip Certificate Verify
@@ -28,6 +29,5 @@ Goals:
  - [X] Implement bulk inserts
  - [X] Implement queue size and batch size
    - [X] if number of requests or batch size have been reached, send messages to elasticsearch
- - [ ] Implement Readlog capability
  - [X] Implement grok for parsing docker logs
  - [ ] Add CONTRIBUTING file
