@@ -15,13 +15,13 @@ import (
 	"time"
 
 	"github.com/robfig/cron"
+	"github.com/tonistiigi/fifo"
 
 	"golang.org/x/sync/errgroup"
 
 	"github.com/docker/docker/api/types/plugins/logdriver"
 	"github.com/docker/docker/daemon/logger"
 	log "github.com/sirupsen/logrus"
-	"github.com/tonistiigi/fifo"
 
 	"github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch"
 	"github.com/rchicoli/docker-log-elasticsearch/pkg/extension/grok"
@@ -37,6 +37,7 @@ const (
 type Driver struct {
 	mu   *sync.Mutex
 	logs map[string]*container
+	ctx  context.Context
 }
 
 type container struct {
@@ -129,34 +130,61 @@ func NewDriver() *Driver {
 	}
 }
 
+// newContainer returns a pointer to a container
+func (d *Driver) newContainer(file string) (*container, error) {
+
+	filename := path.Base(file)
+	log.WithField("fifo", file).Debug("created fifo file")
+
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if _, exists := d.logs[filename]; exists {
+		return nil, fmt.Errorf("error: a logger for this container already exists: %s", filename)
+	}
+
+	d.ctx = context.Background()
+
+	f, err := fifo.OpenFifo(d.ctx, file, syscall.O_RDONLY, 0700)
+	if err != nil {
+		return nil, fmt.Errorf("could not open fifo: %q", err)
+	}
+
+	d.mu.Lock()
+	c := &container{stream: f}
+	d.logs[filename] = c
+	d.mu.Unlock()
+
+	return c, nil
+}
+
+// getContainer retrieves a container's configuration from memory
+func (d *Driver) getContainer(file string) (*container, error) {
+
+	filename := path.Base(file)
+
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	c, exists := d.logs[filename]
+	if !exists {
+		return nil, fmt.Errorf("error: logger not found for socket ID: %v", file)
+	}
+
+	return c, nil
+}
+
 // StartLogging implements the docker plugin interface
 func (d *Driver) StartLogging(file string, info logger.Info) error {
 
 	filename := path.Base(file)
-	log.WithField("fifo", file).Debug("created socket file for the logging")
 
-	// container's configuration is stored in memory
-	d.mu.Lock()
-	if _, exists := d.logs[filename]; exists {
-		d.mu.Unlock()
-		return fmt.Errorf("error: a logger for this container already exists: %s", filename)
-	}
-	d.mu.Unlock()
-
-	ctx := context.Background()
-
-	f, err := fifo.OpenFifo(ctx, file, syscall.O_RDONLY, 0700)
+	c, err := d.newContainer(file)
 	if err != nil {
-		return fmt.Errorf("error: opening logger fifo: %q", info.ContainerID)
+		return err
 	}
+	c.info = info
 
-	d.mu.Lock()
-	c := &container{stream: f, info: info}
-	d.logs[filename] = c
-	d.mu.Unlock()
-
-	c.logger = log.WithField("containerID", c.info.ContainerID)
-	c.logger.WithField("socket", filename).Info("starting logging")
+	c.logger = log.WithField("containerID", info.ContainerID)
 
 	config := defaultLogOpt()
 	if err := config.validateLogOpt(c.info.Config); err != nil {
@@ -181,7 +209,7 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 		c.indexName = config.index
 	}
 
-	c.pipeline.group, c.pipeline.ctx = errgroup.WithContext(ctx)
+	c.pipeline.group, c.pipeline.ctx = errgroup.WithContext(d.ctx)
 	c.pipeline.inputCh = make(chan logdriver.LogEntry)
 	c.pipeline.outputCh = make(chan LogMessage)
 
@@ -203,13 +231,10 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 // Read reads messages from proto buffer
 func (d *Driver) Read(filename string, config LogOpt) error {
 
-	d.mu.Lock()
-	c, exists := d.logs[filename]
-	if !exists {
-		d.mu.Unlock()
-		return fmt.Errorf("error: logger not found for socket ID: %v", filename)
+	c, err := d.getContainer(filename)
+	if err != nil {
+		return err
 	}
-	d.mu.Unlock()
 
 	c.pipeline.group.Go(func() error {
 
@@ -298,13 +323,10 @@ func (d *Driver) Read(filename string, config LogOpt) error {
 // Parse filters line messages
 func (d *Driver) Parse(filename string, config LogOpt) error {
 
-	d.mu.Lock()
-	c, exists := d.logs[filename]
-	if !exists {
-		d.mu.Unlock()
-		return fmt.Errorf("error: logger not found for socket ID: %v", filename)
+	c, err := d.getContainer(filename)
+	if err != nil {
+		return err
 	}
-	d.mu.Unlock()
 
 	c.pipeline.group.Go(func() error {
 		defer close(c.pipeline.outputCh)
@@ -352,13 +374,10 @@ func (d *Driver) Parse(filename string, config LogOpt) error {
 // Log sends messages to Elasticsearch Bulk Service
 func (d *Driver) Log(filename string, config LogOpt) error {
 
-	d.mu.Lock()
-	c, exists := d.logs[filename]
-	if !exists {
-		d.mu.Unlock()
-		return fmt.Errorf("error: logger not found for socket ID: %v", filename)
+	c, err := d.getContainer(filename)
+	if err != nil {
+		return err
 	}
-	d.mu.Unlock()
 
 	c.pipeline.group.Go(func() error {
 
@@ -398,24 +417,22 @@ func (d *Driver) Log(filename string, config LogOpt) error {
 // StopLogging implements the docker plugin interface
 func (d *Driver) StopLogging(file string) error {
 
+	filename := path.Base(file)
+
 	// this is required for some environment like travis
 	// otherwise the start and stop function are executed
 	// too fast, even before messages are sent to the pipeline
 	time.Sleep(1 * time.Second)
 
-	d.mu.Lock()
-	filename := path.Base(file)
-	log.WithField("fifo", file).Debug("deleted socket file")
-
-	c, exists := d.logs[filename]
-	if !exists {
-		d.mu.Unlock()
-		return fmt.Errorf("error: logger not found for socket ID: %v", filename)
+	c, err := d.getContainer(file)
+	if err != nil {
+		return err
 	}
-	delete(d.logs, file)
+	d.mu.Lock()
+	delete(d.logs, filename)
 	d.mu.Unlock()
 
-	c.logger.WithField("socket", filename).Info("stopping logging")
+	c.logger.WithField("fifo", file).Debug("removing fifo file")
 
 	if c.stream != nil {
 		c.logger.Info("closing container stream")
