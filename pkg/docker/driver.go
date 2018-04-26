@@ -37,21 +37,20 @@ type Driver struct {
 	logs map[string]*container
 }
 
-type pipeline struct {
-	group    *errgroup.Group
-	ctx      context.Context
-	outputCh chan LogMessage
-	inputCh  chan logdriver.LogEntry
-	// stopCh   chan struct{}
+type container struct {
+	cron      *cron.Cron
+	esClient  elasticsearch.Client
+	indexName string
+	info      logger.Info
+	pipeline  pipeline
+	stream    io.ReadCloser
 }
 
-type container struct {
-	stream    io.ReadCloser
-	info      logger.Info
-	esClient  elasticsearch.Client
-	pipeline  pipeline
-	cron      *cron.Cron
-	indexName string
+type pipeline struct {
+	ctx      context.Context
+	group    *errgroup.Group
+	inputCh  chan logdriver.LogEntry
+	outputCh chan LogMessage
 }
 
 // LogMessage ...
@@ -119,7 +118,7 @@ func (l LogMessage) timeOmityEmpty() *time.Time {
 	return &l.ContainerCreated
 }
 
-// NewDriver ...
+// NewDriver returns a pointer to driver
 func NewDriver() *Driver {
 	return &Driver{
 		logs: make(map[string]*container),
@@ -127,7 +126,7 @@ func NewDriver() *Driver {
 	}
 }
 
-// StartLogging ...
+// StartLogging implements the docker plugin interface
 func (d *Driver) StartLogging(file string, info logger.Info) error {
 
 	// log.Printf("info: starting log: %s\n", file)
@@ -394,7 +393,7 @@ func (d *Driver) Log(filename string, config LogOpt) error {
 	return nil
 }
 
-// StopLogging ...
+// StopLogging implements the docker plugin interface
 func (d *Driver) StopLogging(file string) error {
 
 	// this is required for some environment like travis
@@ -443,7 +442,7 @@ func (d *Driver) StopLogging(file string) error {
 	return nil
 }
 
-// Name ...
+// Name return the docker plugin name
 func (d Driver) Name() string {
 	return name
 }
