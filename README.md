@@ -183,7 +183,7 @@ $ docker run --rm -ti \
     --log-opt elasticsearch-username=elastic \
     --log-opt elasticsearch-password=changeme \
     --log-opt elasticsearch-sniff=false \
-    --log-opt elasticsearch-index=docker \
+    --log-opt elasticsearch-index=docker-%F \
     --log-opt elasticsearch-type=log \
     --log-opt elasticsearch-timeout=10 \
     --log-opt elasticsearch-version=5 \
@@ -193,7 +193,7 @@ $ docker run --rm -ti \
     --log-opt elasticsearch-bulk-size=1024 \
     --log-opt elasticsearch-bulk-flush-interval=1s \
     --log-opt elasticsearch-bulk-stats=false \
-        alpine echo this is a test logging message
+        alpine echo -n "this is a test logging message"
 ```
 
 Search in Elasticsearch for the log message:
@@ -202,7 +202,7 @@ Search in Elasticsearch for the log message:
 $ curl 127.0.0.1:9200/docker/log/_search\?pretty=true
 
 {
-  "_index" : "docker",
+  "_index" : "docker-2006.01.02",
   "_type" : "log",
   "_id" : "AWCywmj6Dipxk6-_e8T5",
   "_score" : 1.0,
@@ -215,7 +215,7 @@ $ curl 127.0.0.1:9200/docker/log/_search\?pretty=true
     "source" : "stdout",
     "timestamp" : "2018-01-18T21:45:30.294363869Z",
     "partial" : false,
-    "message" : "this is a test message\r"
+    "message" : "this is a test message"
   }
 }
 ```
