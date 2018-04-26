@@ -133,6 +133,7 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 	// log.Printf("info: starting log: %s\n", file)
 	// full path: /run/docker/logging/4f8fdcf6793a3a72296e4aedf4f94f5bb5269b3f52eb17061bfe0fd75c66776a
 	filename := path.Base(file)
+	logrus.WithField("file", file).Info("start logging")
 
 	// container's configuration is stored in memory
 	d.mu.Lock()
@@ -167,10 +168,6 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 		return fmt.Errorf("error: cannot create an elasticsearch client: %v", err)
 	}
 
-	c.pipeline.group, c.pipeline.ctx = errgroup.WithContext(ctx)
-	c.pipeline.inputCh = make(chan logdriver.LogEntry)
-	c.pipeline.outputCh = make(chan LogMessage)
-
 	if indexFlag(config.index) {
 		c.indexName = indexRegex(time.Now(), config.index)
 		c.cron = cron.New()
@@ -182,6 +179,34 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 		c.cron.Start()
 	} else {
 		c.indexName = config.index
+	}
+
+	c.pipeline.group, c.pipeline.ctx = errgroup.WithContext(ctx)
+	c.pipeline.inputCh = make(chan logdriver.LogEntry)
+	c.pipeline.outputCh = make(chan LogMessage)
+
+	if err := d.Read(filename, config); err != nil {
+		logrus.WithError(err).Error("could not read line message: %v", err)
+	}
+
+	if err := d.Parse(filename, config); err != nil {
+		logrus.WithError(err).Error("could not parse line message: %v", err)
+	}
+
+	if err := d.Log(filename, config); err != nil {
+		logrus.WithError(err).Error("could not log to elasticsearch: %v", err)
+	}
+
+	return nil
+}
+
+// Read reads messages from proto buffer
+func (d *Driver) Read(filename string, config LogOpt) error {
+
+	c, exists := d.logs[filename]
+	if !exists {
+		d.mu.Unlock()
+		return fmt.Errorf("error: logger not found for %v", filename)
 	}
 
 	c.pipeline.group.Go(func() error {
@@ -199,7 +224,7 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 		for {
 			if err = dec.ReadMsg(&buf); err != nil {
 				if err == io.EOF {
-					logrus.WithField("containerID", c.info.ContainerID).WithField("line", string(buf.Line)).Debugf("shutting down reader eof")
+					logrus.WithField("containerID", c.info.ContainerID).Debug("shutting down reader eof")
 					return nil
 				}
 				if err != nil {
@@ -233,6 +258,43 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 
 		return nil
 	})
+
+	return nil
+}
+
+// Stats shows metrics related to the bulk service
+// func (d *Driver) Stats(filename string, config LogOpt) error {
+// TODO: create metrics from stats
+// d.pipeline.group.Go(func() error {
+// 	stats := d.esClient.Stats()
+
+// 	fields := log.Fields{
+// 		"flushed":   stats.Flushed,
+// 		"committed": stats.Committed,
+// 		"indexed":   stats.Indexed,
+// 		"created":   stats.Created,
+// 		"updated":   stats.Updated,
+// 		"succeeded": stats.Succeeded,
+// 		"failed":    stats.Failed,
+// 	}
+
+// 	for i, w := range stats.Workers {
+// 		fmt.Printf("Worker %d: Number of requests queued: %d\n", i, w.Queued)
+// 		fmt.Printf("           Last response time       : %v\n", w.LastDuration)
+// 		fields[fmt.Sprintf("w%d.queued", i)] = w.Queued
+// 		fields[fmt.Sprintf("w%d.lastduration", i)] = w.LastDuration
+// 	}
+// })
+// }
+
+// Parse filters line messages
+func (d *Driver) Parse(filename string, config LogOpt) error {
+
+	c, exists := d.logs[filename]
+	if !exists {
+		d.mu.Unlock()
+		return fmt.Errorf("error: logger not found for %v", filename)
+	}
 
 	c.pipeline.group.Go(func() error {
 		defer close(c.pipeline.outputCh)
@@ -276,6 +338,18 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 		return nil
 	})
 
+	return nil
+}
+
+// Log sends messages to Elasticsearch Bulk Service
+func (d *Driver) Log(filename string, config LogOpt) error {
+
+	c, exists := d.logs[filename]
+	if !exists {
+		d.mu.Unlock()
+		return fmt.Errorf("error: logger not found for %v", filename)
+	}
+
 	c.pipeline.group.Go(func() error {
 
 		err := c.esClient.NewBulkProcessorService(c.pipeline.ctx, config.Bulk.workers, config.Bulk.actions, config.Bulk.size, config.Bulk.flushInterval, config.Bulk.stats)
@@ -317,28 +391,6 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 		return nil
 	})
 
-	// TODO: create metrics from stats
-	// d.pipeline.group.Go(func() error {
-	// 	stats := d.esClient.Stats()
-
-	// 	fields := log.Fields{
-	// 		"flushed":   stats.Flushed,
-	// 		"committed": stats.Committed,
-	// 		"indexed":   stats.Indexed,
-	// 		"created":   stats.Created,
-	// 		"updated":   stats.Updated,
-	// 		"succeeded": stats.Succeeded,
-	// 		"failed":    stats.Failed,
-	// 	}
-
-	// 	for i, w := range stats.Workers {
-	// 		fmt.Printf("Worker %d: Number of requests queued: %d\n", i, w.Queued)
-	// 		fmt.Printf("           Last response time       : %v\n", w.LastDuration)
-	// 		fields[fmt.Sprintf("w%d.queued", i)] = w.Queued
-	// 		fields[fmt.Sprintf("w%d.lastduration", i)] = w.LastDuration
-	// 	}
-	// })
-
 	return nil
 }
 
@@ -352,6 +404,8 @@ func (d *Driver) StopLogging(file string) error {
 
 	d.mu.Lock()
 	filename := path.Base(file)
+	logrus.WithField("file", file).Info("stop logging")
+
 	// full path: /var/lib/docker/plugins/1ce514430f4da85be15e02ce6956e506246190ea790753a58f7821892b4639ef/
 	//                rootfs/run/docker/logging/4f8fdcf6793a3a72296e4aedf4f94f5bb5269b3f52eb17061bfe0fd75c66776a
 	c, exists := d.logs[filename]
