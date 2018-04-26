@@ -7,7 +7,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"path"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -227,10 +229,18 @@ func (d *Driver) Read(filename string, config LogOpt) error {
 					c.logger.Debug("shutting down reader eof")
 					return nil
 				}
+				// the connection has been closed
+				// stop looping and close the input channel
+				// read /proc/self/fd/6: file already closed
+				if strings.Contains(err.Error(), os.ErrClosed.Error()) {
+					c.logger.WithError(err).Debug("shutting down fifo: closed by the writer")
+					break
+				}
 				if err != nil {
 					// the connection has been closed
 					// stop looping and closing the input channel
 					// read /proc/self/fd/6: file already closed
+					c.logger.WithError(err).Debug("shutting down fifo")
 					break
 					// do not return, otherwise group.Go closes the pipeline
 					// return err
