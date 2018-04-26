@@ -16,9 +16,9 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/types/plugins/logdriver"
 	"github.com/docker/docker/daemon/logger"
+	log "github.com/sirupsen/logrus"
 	"github.com/tonistiigi/fifo"
 
 	"github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch"
@@ -42,6 +42,7 @@ type container struct {
 	esClient  elasticsearch.Client
 	indexName string
 	info      logger.Info
+	logger    *log.Entry
 	pipeline  pipeline
 	stream    io.ReadCloser
 }
@@ -129,20 +130,17 @@ func NewDriver() *Driver {
 // StartLogging implements the docker plugin interface
 func (d *Driver) StartLogging(file string, info logger.Info) error {
 
-	// log.Printf("info: starting log: %s\n", file)
-	// full path: /run/docker/logging/4f8fdcf6793a3a72296e4aedf4f94f5bb5269b3f52eb17061bfe0fd75c66776a
 	filename := path.Base(file)
-	logrus.WithField("file", file).Info("start logging")
+	log.WithField("fifo", file).Debug("created socket file for the logging")
 
 	// container's configuration is stored in memory
 	d.mu.Lock()
 	if _, exists := d.logs[filename]; exists {
 		d.mu.Unlock()
-		return fmt.Errorf("error: [%v] a logger for this container already exists", filename)
+		return fmt.Errorf("error: a logger for this container already exists: %s", filename)
 	}
 	d.mu.Unlock()
 
-	// check if need to be stored in memory
 	ctx := context.Background()
 
 	f, err := fifo.OpenFifo(ctx, file, syscall.O_RDONLY, 0700)
@@ -155,7 +153,8 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 	d.logs[filename] = c
 	d.mu.Unlock()
 
-	logrus.WithField("containerID", c.info.ContainerID).WithField("socket", filename).Info("starting logging")
+	c.logger = log.WithField("containerID", c.info.ContainerID)
+	c.logger.WithField("socket", filename).Info("starting logging")
 
 	config := defaultLogOpt()
 	if err := config.validateLogOpt(c.info.Config); err != nil {
@@ -185,15 +184,15 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 	c.pipeline.outputCh = make(chan LogMessage)
 
 	if err := d.Read(filename, config); err != nil {
-		logrus.WithError(err).Error("could not read line message: %v", err)
+		c.logger.WithError(err).Error("could not read line message")
 	}
 
 	if err := d.Parse(filename, config); err != nil {
-		logrus.WithError(err).Error("could not parse line message: %v", err)
+		c.logger.WithError(err).Error("could not parse line message")
 	}
 
 	if err := d.Log(filename, config); err != nil {
-		logrus.WithError(err).Error("could not log to elasticsearch: %v", err)
+		c.logger.WithError(err).Error("could not log to elasticsearch")
 	}
 
 	return nil
@@ -202,17 +201,19 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 // Read reads messages from proto buffer
 func (d *Driver) Read(filename string, config LogOpt) error {
 
+	d.mu.Lock()
 	c, exists := d.logs[filename]
 	if !exists {
 		d.mu.Unlock()
-		return fmt.Errorf("error: logger not found for %v", filename)
+		return fmt.Errorf("error: logger not found for socket ID: %v", filename)
 	}
+	d.mu.Unlock()
 
 	c.pipeline.group.Go(func() error {
 
 		dec := protoio.NewUint32DelimitedReader(c.stream, binary.BigEndian, 1e6)
 		defer func() {
-			logrus.WithField("containerID", c.info.ContainerID).Info("closing docker stream")
+			c.logger.Info("closing docker stream")
 			dec.Close()
 			close(c.pipeline.inputCh)
 		}()
@@ -223,7 +224,7 @@ func (d *Driver) Read(filename string, config LogOpt) error {
 		for {
 			if err = dec.ReadMsg(&buf); err != nil {
 				if err == io.EOF {
-					logrus.WithField("containerID", c.info.ContainerID).Debug("shutting down reader eof")
+					c.logger.Debug("shutting down reader eof")
 					return nil
 				}
 				if err != nil {
@@ -238,18 +239,16 @@ func (d *Driver) Read(filename string, config LogOpt) error {
 				dec = protoio.NewUint32DelimitedReader(c.stream, binary.BigEndian, 1e6)
 			}
 
-			// logrus.WithField("containerID", c.info.ContainerID).WithField("line", string(buf.Line)).Debugf("pipe1")
-
 			// in case docker run command throws lots empty line messages
 			if len(bytes.TrimSpace(buf.Line)) == 0 {
-				logrus.WithField("containerID", c.info.ContainerID).WithField("line", string(buf.Line)).Debugf("trim")
+				c.logger.WithField("line", string(buf.Line)).Debug("trim space")
 				continue
 			}
 
 			select {
 			case c.pipeline.inputCh <- buf:
 			case <-c.pipeline.ctx.Done():
-				logrus.WithField("containerID", c.info.ContainerID).WithError(c.pipeline.ctx.Err()).Error("context closing pipe 1")
+				c.logger.WithError(c.pipeline.ctx.Err()).Error("closing read pipeline")
 				return c.pipeline.ctx.Err()
 			}
 			buf.Reset()
@@ -289,11 +288,13 @@ func (d *Driver) Read(filename string, config LogOpt) error {
 // Parse filters line messages
 func (d *Driver) Parse(filename string, config LogOpt) error {
 
+	d.mu.Lock()
 	c, exists := d.logs[filename]
 	if !exists {
 		d.mu.Unlock()
-		return fmt.Errorf("error: logger not found for %v", filename)
+		return fmt.Errorf("error: logger not found for socket ID: %v", filename)
 	}
+	d.mu.Unlock()
 
 	c.pipeline.group.Go(func() error {
 		defer close(c.pipeline.outputCh)
@@ -316,19 +317,17 @@ func (d *Driver) Parse(filename string, config LogOpt) error {
 			msg.Partial = m.Partial
 			msg.TimeNano = m.TimeNano
 
-			// logrus.WithField("containerID", c.info.ContainerID).WithField("line", string(buf.Line)).Debugf("pipe2")
-
 			// TODO: create a PR to grok upstream for parsing bytes
 			// so that we avoid having to convert the message to string
 			msg.GrokLine, msg.Line, err = groker.ParseLine(config.grokMatch, logMessage, m.Line)
 			if err != nil {
-				logrus.WithField("containerID", c.info.ContainerID).WithError(err).Error("parsing log message")
+				c.logger.WithError(err).Error("could not parse line with grok")
 			}
 
 			select {
 			case c.pipeline.outputCh <- msg:
 			case <-c.pipeline.ctx.Done():
-				logrus.WithField("containerID", c.info.ContainerID).WithError(c.pipeline.ctx.Err()).Error("context closing pipe 2")
+				c.logger.WithError(c.pipeline.ctx.Err()).Error("closing parse pipeline")
 				return c.pipeline.ctx.Err()
 			}
 
@@ -343,47 +342,40 @@ func (d *Driver) Parse(filename string, config LogOpt) error {
 // Log sends messages to Elasticsearch Bulk Service
 func (d *Driver) Log(filename string, config LogOpt) error {
 
+	d.mu.Lock()
 	c, exists := d.logs[filename]
 	if !exists {
 		d.mu.Unlock()
-		return fmt.Errorf("error: logger not found for %v", filename)
+		return fmt.Errorf("error: logger not found for socket ID: %v", filename)
 	}
+	d.mu.Unlock()
 
 	c.pipeline.group.Go(func() error {
 
 		err := c.esClient.NewBulkProcessorService(c.pipeline.ctx, config.Bulk.workers, config.Bulk.actions, config.Bulk.size, config.Bulk.flushInterval, config.Bulk.stats)
 		if err != nil {
-			logrus.WithField("containerID", c.info.ContainerID).WithError(err).Error("creating bulk processor")
-			// logrus.WithField("containerID", c.info.ContainerID).WithField("line", string(buf.Line)).Debugf("pipe1")
-
+			c.logger.WithError(err).Error("could not create bulk processor")
 		}
 
 		defer func() {
 			if err := c.esClient.Flush(); err != nil {
-				logrus.WithField("containerID", c.info.ContainerID).WithError(err).Error("flushing queue")
+				c.logger.WithError(err).Error("could not flush queue")
 			}
 
-			// logrus.WithField("containerID", c.info.ContainerID).WithField("client", c.esClient).Debugf("closing client")
-
 			if err := c.esClient.Close(); err != nil {
-				logrus.WithField("containerID", c.info.ContainerID).WithError(err).Error("closing client connection")
+				c.logger.WithError(err).Error("could not close client connection")
 			}
 			c.esClient.Stop()
 		}()
 
-		// this was helpful to test if the pipeline has been closed successfully
-		// newTicker := time.NewTicker(1 * time.Second)
 		for doc := range c.pipeline.outputCh {
-			// logrus.WithField("containerID", c.info.ContainerID).WithField("line", string(doc.Line)).WithField("grok", doc.GrokLine).Debugf("pipe3")
 
 			c.esClient.Add(c.indexName, config.tzpe, doc)
 
 			select {
 			case <-c.pipeline.ctx.Done():
-				logrus.WithField("containerID", c.info.ContainerID).WithError(c.pipeline.ctx.Err()).Error("context closing pipe 3")
+				c.logger.WithError(c.pipeline.ctx.Err()).Error("closing log pipeline")
 				return c.pipeline.ctx.Err()
-			// case <-newTicker.C:
-			// 	log.Printf("info: still ticking")
 			default:
 			}
 		}
@@ -403,31 +395,29 @@ func (d *Driver) StopLogging(file string) error {
 
 	d.mu.Lock()
 	filename := path.Base(file)
-	logrus.WithField("file", file).Info("stop logging")
+	log.WithField("fifo", file).Debug("deleted socket file")
 
-	// full path: /var/lib/docker/plugins/1ce514430f4da85be15e02ce6956e506246190ea790753a58f7821892b4639ef/
-	//                rootfs/run/docker/logging/4f8fdcf6793a3a72296e4aedf4f94f5bb5269b3f52eb17061bfe0fd75c66776a
 	c, exists := d.logs[filename]
 	if !exists {
 		d.mu.Unlock()
-		return fmt.Errorf("error: logger not found for %v", filename)
+		return fmt.Errorf("error: logger not found for socket ID: %v", filename)
 	}
 	delete(d.logs, file)
 	d.mu.Unlock()
 
-	logrus.WithField("containerID", c.info.ContainerID).WithField("socket", filename).Info("stopping logging")
+	c.logger.WithField("socket", filename).Info("stopping logging")
 
 	if c.stream != nil {
-		logrus.WithField("containerID", c.info.ContainerID).Info("closing container stream")
+		c.logger.Info("closing container stream")
 		c.stream.Close()
 	}
 
 	if c.pipeline.group != nil {
-		logrus.WithField("containerID", c.info.ContainerID).Info("closing pipeline")
+		c.logger.Info("closing pipeline")
 
 		// Check whether any goroutines failed.
 		if err := c.pipeline.group.Wait(); err != nil {
-			logrus.WithField("containerID", c.info.ContainerID).WithError(err).Error("pipeline wait group")
+			c.logger.WithError(err).Error("pipeline wait group")
 		}
 	}
 
