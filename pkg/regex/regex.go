@@ -1,27 +1,26 @@
-package docker
+package regex
 
 import (
 	"fmt"
 	"regexp"
 	"strings"
 	"time"
-
-	"github.com/Sirupsen/logrus"
 )
 
-// %. matches each strftime format sequence and ReplaceAllStringFunc
-// looks up each format sequence in the conversion table strftimeToRegex
-// to replace with a defined regular expression
 var percent = regexp.MustCompile("%.")
 
-func indexFlag(indexRegex string) bool {
-	if strings.Contains(indexRegex, "%") {
+// IsValid check if regex contains a percent sign
+func IsValid(str string) bool {
+	if strings.Contains(str, "%") {
 		return true
 	}
 	return false
 }
 
-func indexRegex(now time.Time, indexRegex string) string {
+// ParseDate matches each strftime format sequence and ReplaceAllStringFunc
+// looks up each format sequence in the conversion table regexToStrftime
+// to replace with a defined time format
+func ParseDate(now time.Time, regex string) string {
 
 	// %b     locale's abbreviated month name (Jan)
 	// %B     locale's full month name (January)
@@ -31,7 +30,7 @@ func indexRegex(now time.Time, indexRegex string) string {
 	// %m     month (01..12)
 	// %y     last two digits of year (00..99)
 	// %Y     year (2018)
-	var strftimeToRegex = map[string]string{
+	var regexToStrftime = map[string]string{
 		/*dayZeroPadded         */ `%d`: now.Format("02"),
 		/*monthShort            */ `%b`: now.Format("Jan"),
 		/*monthFull             */ `%B`: now.Format("January"),
@@ -40,15 +39,10 @@ func indexRegex(now time.Time, indexRegex string) string {
 		/*yearCentury           */ `%Y`: now.Format("2006"),
 		/*yearZeroPadded        */ `%y`: now.Format("06"),
 		/*dayOfYearZeroPadded   */ `%j`: fmt.Sprintf("%d", now.YearDay()),
-		// /*testSecond         */ `%z`: fmt.Sprintf("%02d", now.Second()),
 	}
 
-	var indexName = percent.ReplaceAllStringFunc(indexRegex, func(s string) string {
-		// org.elasticsearch.indices.InvalidIndexNameException: ... must be lowercase
-		return strings.ToLower(strftimeToRegex[s])
+	return percent.ReplaceAllStringFunc(regex, func(s string) string {
+		return regexToStrftime[s]
 	})
-	logrus.WithField("indexname", indexName).Debug("index name generated from regex")
-
-	return indexName
 
 }

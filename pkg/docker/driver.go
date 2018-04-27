@@ -25,6 +25,7 @@ import (
 
 	"github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch"
 	"github.com/rchicoli/docker-log-elasticsearch/pkg/extension/grok"
+	"github.com/rchicoli/docker-log-elasticsearch/pkg/regex"
 
 	protoio "github.com/gogo/protobuf/io"
 )
@@ -193,12 +194,13 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 		return fmt.Errorf("error: cannot create an elasticsearch client: %v", err)
 	}
 
-	c.indexName = indexRegex(time.Now(), config.index)
-	if indexFlag(config.index) {
+	// org.elasticsearch.indices.InvalidIndexNameException: ... must be lowercase
+	c.indexName = strings.ToLower(regex.ParseDate(time.Now(), config.index))
+	if regex.IsValid(config.index) {
 		c.cron = cron.New()
 		c.cron.AddFunc("@daily", func() {
 			d.mu.Lock()
-			c.indexName = indexRegex(time.Now(), config.index)
+			c.indexName = strings.ToLower(regex.ParseDate(time.Now(), config.index))
 			d.mu.Unlock()
 		})
 		c.cron.Start()
