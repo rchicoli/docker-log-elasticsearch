@@ -4,17 +4,17 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Sirupsen/logrus"
+	log "github.com/Sirupsen/logrus"
 	"github.com/docker/go-plugins-helpers/sdk"
 
 	"github.com/rchicoli/docker-log-elasticsearch/pkg/docker"
 )
 
-var logLevels = map[string]logrus.Level{
-	"debug": logrus.DebugLevel,
-	"info":  logrus.InfoLevel,
-	"warn":  logrus.WarnLevel,
-	"error": logrus.ErrorLevel,
+var logLevels = map[string]log.Level{
+	"debug": log.DebugLevel,
+	"info":  log.InfoLevel,
+	"warn":  log.WarnLevel,
+	"error": log.ErrorLevel,
 }
 
 func main() {
@@ -24,8 +24,8 @@ func main() {
 		levelVal = "info"
 	}
 	if level, exists := logLevels[levelVal]; exists {
-		logrus.SetLevel(level)
-		logrus.SetFormatter(&logrus.TextFormatter{
+		log.SetLevel(level)
+		log.SetFormatter(&log.TextFormatter{
 			DisableTimestamp: true,
 		})
 	} else {
