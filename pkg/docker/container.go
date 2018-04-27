@@ -71,5 +71,7 @@ func (d *Driver) getContainer(file string) (*container, error) {
 		return nil, fmt.Errorf("error: logger not found for socket ID: %v", file)
 	}
 
+	// c.logger.WithField("c", c).Info("c")
+
 	return c, nil
 }

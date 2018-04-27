@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 
 	log "github.com/Sirupsen/logrus"
@@ -15,6 +16,10 @@ var logLevels = map[string]log.Level{
 	"info":  log.InfoLevel,
 	"warn":  log.WarnLevel,
 	"error": log.ErrorLevel,
+}
+
+type Handler struct {
+	mux *http.ServeMux
 }
 
 func main() {
@@ -35,8 +40,13 @@ func main() {
 
 	h := sdk.NewHandler(`{"Implements": ["LoggingDriver"]}`)
 	d := docker.NewDriver()
-	docker.Handlers(&h, d)
+
+	h.HandleFunc("/LogDriver.StartLogging", d.StartLogging)
+	h.HandleFunc("/LogDriver.StopLogging", d.StopLogging)
+	h.HandleFunc("/LogDriver.Capabilities", d.Capabilities)
+	// h.HandleFunc("/LogDriver.ReadLogs", d.ReadLogs)
+
 	if err := h.ServeUnix(d.Name(), 0); err != nil {
-		panic(err)
+		log.WithError(err).Error("closing")
 	}
 }

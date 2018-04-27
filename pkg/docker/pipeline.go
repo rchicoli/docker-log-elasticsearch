@@ -22,6 +22,8 @@ func (d *Driver) Read(ctx context.Context, file string) error {
 		return err
 	}
 
+	c.logger.Debug("starting pipeline: Read")
+
 	c.pipeline.group.Go(func() error {
 
 		dec := protoio.NewUint32DelimitedReader(c.stream, binary.BigEndian, 1e6)
@@ -38,7 +40,7 @@ func (d *Driver) Read(ctx context.Context, file string) error {
 			if err = dec.ReadMsg(&buf); err != nil {
 				if err == io.EOF {
 					c.logger.Debug("shutting down reader eof")
-					return nil
+					break
 				}
 				// the connection has been closed
 				// stop looping and close the input channel
@@ -88,6 +90,8 @@ func (d *Driver) Parse(ctx context.Context, file, fields, grokMatch, grokPattern
 	if err != nil {
 		return err
 	}
+
+	c.logger.Debug("starting pipeline: Parse")
 
 	c.pipeline.group.Go(func() error {
 		defer close(c.pipeline.outputCh)
@@ -139,6 +143,8 @@ func (d *Driver) Log(ctx context.Context, file string, workers, actions, size in
 	if err != nil {
 		return err
 	}
+
+	c.logger.Debug("starting pipeline: Log")
 
 	c.pipeline.group.Go(func() error {
 
