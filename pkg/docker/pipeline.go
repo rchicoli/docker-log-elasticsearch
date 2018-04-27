@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/docker/docker/api/types/plugins/logdriver"
 	protoio "github.com/gogo/protobuf/io"
@@ -132,7 +133,7 @@ func (d *Driver) Parse(ctx context.Context, file, fields, grokMatch, grokPattern
 }
 
 // Log sends messages to Elasticsearch Bulk Service
-func (d *Driver) Log(ctx context.Context, file string, config Configuration) error {
+func (d *Driver) Log(ctx context.Context, file string, workers, actions, size int, flushInterval time.Duration, stats bool, indexName, tzpe string) error {
 
 	c, err := d.getContainer(file)
 	if err != nil {
@@ -141,7 +142,7 @@ func (d *Driver) Log(ctx context.Context, file string, config Configuration) err
 
 	c.pipeline.group.Go(func() error {
 
-		err := c.esClient.NewBulkProcessorService(ctx, config.Bulk.workers, config.Bulk.actions, config.Bulk.size, config.Bulk.flushInterval, config.Bulk.stats)
+		err = c.esClient.NewBulkProcessorService(ctx, workers, actions, size, flushInterval, stats)
 		if err != nil {
 			c.logger.WithError(err).Error("could not create bulk processor")
 		}
@@ -159,7 +160,7 @@ func (d *Driver) Log(ctx context.Context, file string, config Configuration) err
 
 		for doc := range c.pipeline.outputCh {
 
-			c.esClient.Add(c.indexName, config.tzpe, doc)
+			c.esClient.Add(indexName, tzpe, doc)
 
 			select {
 			case <-ctx.Done():

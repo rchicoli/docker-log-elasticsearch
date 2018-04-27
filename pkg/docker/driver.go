@@ -91,7 +91,7 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 		c.logger.WithError(err).Error("could not parse line message")
 	}
 
-	if err := d.Log(pctx, file, config); err != nil {
+	if err := d.Log(pctx, file, config.Bulk.workers, config.Bulk.actions, config.Bulk.size, config.Bulk.flushInterval, config.Bulk.stats, c.indexName, config.tzpe); err != nil {
 		c.logger.WithError(err).Error("could not log to elasticsearch")
 	}
 
