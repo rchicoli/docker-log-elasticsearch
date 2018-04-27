@@ -134,7 +134,7 @@ func NewDriver() *Driver {
 func (d *Driver) newContainer(file string) (*container, error) {
 
 	filename := path.Base(file)
-	log.WithField("fifo", file).Info("created fifo file")
+	log.WithField("fifo", file).Debug("created fifo file")
 
 	d.mu.Lock()
 	if _, exists := d.logs[filename]; exists {
