@@ -209,11 +209,11 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 	c.pipeline.inputCh = make(chan logdriver.LogEntry)
 	c.pipeline.outputCh = make(chan LogMessage)
 
-	if err := d.Read(pctx, file, config); err != nil {
+	if err := d.Read(pctx, file); err != nil {
 		c.logger.WithError(err).Error("could not read line message")
 	}
 
-	if err := d.Parse(pctx, file, config); err != nil {
+	if err := d.Parse(pctx, file, config.fields, config.grokMatch, config.grokPattern, config.grokPatternFrom, config.grokPatternSplitter, config.grokNamedCapture); err != nil {
 		c.logger.WithError(err).Error("could not parse line message")
 	}
 
@@ -225,7 +225,7 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 }
 
 // Read reads messages from proto buffer
-func (d *Driver) Read(ctx context.Context, file string, config LogOpt) error {
+func (d *Driver) Read(ctx context.Context, file string) error {
 
 	c, err := d.getContainer(file)
 	if err != nil {
@@ -317,7 +317,7 @@ func (d *Driver) Read(ctx context.Context, file string, config LogOpt) error {
 // }
 
 // Parse filters line messages
-func (d *Driver) Parse(ctx context.Context, file string, config LogOpt) error {
+func (d *Driver) Parse(ctx context.Context, file, fields, grokMatch, grokPattern, grokPatternFrom, grokPatternSplitter string, grokNamedCapture bool) error {
 
 	c, err := d.getContainer(file)
 	if err != nil {
@@ -327,14 +327,14 @@ func (d *Driver) Parse(ctx context.Context, file string, config LogOpt) error {
 	c.pipeline.group.Go(func() error {
 		defer close(c.pipeline.outputCh)
 
-		groker, err := grok.NewGrok(config.grokMatch, config.grokPattern, config.grokPatternFrom, config.grokPatternSplitter, config.grokNamedCapture)
+		groker, err := grok.NewGrok(grokMatch, grokPattern, grokPatternFrom, grokPatternSplitter, grokNamedCapture)
 		if err != nil {
 			return err
 		}
 
 		var logMessage string
 		// custom log message fields
-		msg := getLogOptFields(config.fields, c.info)
+		msg := getLogOptFields(fields, c.info)
 
 		for m := range c.pipeline.inputCh {
 
@@ -347,7 +347,7 @@ func (d *Driver) Parse(ctx context.Context, file string, config LogOpt) error {
 
 			// TODO: create a PR to grok upstream for parsing bytes
 			// so that we avoid having to convert the message to string
-			msg.GrokLine, msg.Line, err = groker.ParseLine(config.grokMatch, logMessage, m.Line)
+			msg.GrokLine, msg.Line, err = groker.ParseLine(grokMatch, logMessage, m.Line)
 			if err != nil {
 				c.logger.WithError(err).Error("could not parse line with grok")
 			}
@@ -413,8 +413,6 @@ func (d *Driver) Log(ctx context.Context, file string, config LogOpt) error {
 // StopLogging implements the docker plugin interface
 func (d *Driver) StopLogging(file string) error {
 
-	filename := path.Base(file)
-
 	// this is required for some environment like travis
 	// otherwise the start and stop function are executed
 	// too fast, even before messages are sent to the pipeline
@@ -424,6 +422,8 @@ func (d *Driver) StopLogging(file string) error {
 	if err != nil {
 		return err
 	}
+
+	filename := path.Base(file)
 	d.mu.Lock()
 	delete(d.logs, filename)
 	d.mu.Unlock()
