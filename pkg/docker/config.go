@@ -11,8 +11,8 @@ import (
 	"github.com/docker/docker/daemon/logger"
 )
 
-// LogOpt ...
-type LogOpt struct {
+// Configuration is a type to all log-opt provided
+type Configuration struct {
 	index    string
 	tzpe     string
 	url      string
@@ -38,7 +38,7 @@ type Bulk struct {
 	stats         bool
 }
 
-// Grok ...
+// Grok filter
 type Grok struct {
 	grokPattern         string
 	grokPatternFrom     string
@@ -47,8 +47,8 @@ type Grok struct {
 	grokNamedCapture    bool
 }
 
-func defaultLogOpt() LogOpt {
-	return LogOpt{
+func newConfiguration() Configuration {
+	return Configuration{
 		index:    "docker-%Y.%m.%d",
 		tzpe:     "log",
 		timeout:  1,
@@ -95,7 +95,7 @@ func parseAddress(address string) error {
 }
 
 // ValidateLogOpt looks for es specific log option es-address.
-func (c *LogOpt) validateLogOpt(cfg map[string]string) error {
+func (c *Configuration) validateLogOpt(cfg map[string]string) error {
 	for key, v := range cfg {
 		switch key {
 		case "elasticsearch-url":
@@ -205,9 +205,6 @@ func (c *LogOpt) validateLogOpt(cfg map[string]string) error {
 			}
 			c.grokNamedCapture = s
 
-			// case "tag":
-		// case "labels":
-		// case "env":
 		default:
 			return fmt.Errorf("error: unknown log-opt: %q", v)
 		}
@@ -216,7 +213,7 @@ func (c *LogOpt) validateLogOpt(cfg map[string]string) error {
 	return nil
 }
 
-func getLogOptFields(fields string, info logger.Info) LogMessage {
+func getLogMessageFields(fields string, info logger.Info) LogMessage {
 	var l LogMessage
 	for _, v := range strings.Split(fields, ",") {
 		switch v {
