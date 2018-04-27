@@ -134,13 +134,13 @@ func NewDriver() *Driver {
 func (d *Driver) newContainer(file string) (*container, error) {
 
 	filename := path.Base(file)
-	log.WithField("fifo", file).Debug("created fifo file")
+	log.WithField("fifo", file).Info("created fifo file")
 
 	d.mu.Lock()
-	defer d.mu.Unlock()
 	if _, exists := d.logs[filename]; exists {
 		return nil, fmt.Errorf("error: a logger for this container already exists: %s", filename)
 	}
+	d.mu.Unlock()
 
 	d.ctx = context.Background()
 
@@ -176,14 +176,11 @@ func (d *Driver) getContainer(file string) (*container, error) {
 // StartLogging implements the docker plugin interface
 func (d *Driver) StartLogging(file string, info logger.Info) error {
 
-	filename := path.Base(file)
-
 	c, err := d.newContainer(file)
 	if err != nil {
 		return err
 	}
 	c.info = info
-
 	c.logger = log.WithField("containerID", info.ContainerID)
 
 	config := defaultLogOpt()
@@ -213,15 +210,15 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 	c.pipeline.inputCh = make(chan logdriver.LogEntry)
 	c.pipeline.outputCh = make(chan LogMessage)
 
-	if err := d.Read(filename, config); err != nil {
+	if err := d.Read(file, config); err != nil {
 		c.logger.WithError(err).Error("could not read line message")
 	}
 
-	if err := d.Parse(filename, config); err != nil {
+	if err := d.Parse(file, config); err != nil {
 		c.logger.WithError(err).Error("could not parse line message")
 	}
 
-	if err := d.Log(filename, config); err != nil {
+	if err := d.Log(file, config); err != nil {
 		c.logger.WithError(err).Error("could not log to elasticsearch")
 	}
 
@@ -229,9 +226,9 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 }
 
 // Read reads messages from proto buffer
-func (d *Driver) Read(filename string, config LogOpt) error {
+func (d *Driver) Read(file string, config LogOpt) error {
 
-	c, err := d.getContainer(filename)
+	c, err := d.getContainer(file)
 	if err != nil {
 		return err
 	}
@@ -321,9 +318,9 @@ func (d *Driver) Read(filename string, config LogOpt) error {
 // }
 
 // Parse filters line messages
-func (d *Driver) Parse(filename string, config LogOpt) error {
+func (d *Driver) Parse(file string, config LogOpt) error {
 
-	c, err := d.getContainer(filename)
+	c, err := d.getContainer(file)
 	if err != nil {
 		return err
 	}
@@ -372,9 +369,9 @@ func (d *Driver) Parse(filename string, config LogOpt) error {
 }
 
 // Log sends messages to Elasticsearch Bulk Service
-func (d *Driver) Log(filename string, config LogOpt) error {
+func (d *Driver) Log(file string, config LogOpt) error {
 
-	c, err := d.getContainer(filename)
+	c, err := d.getContainer(file)
 	if err != nil {
 		return err
 	}
