@@ -183,7 +183,7 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 	c.info = info
 	c.logger = log.WithField("containerID", info.ContainerID)
 
-	config := defaultLogOpt()
+	config := newConfiguration()
 	if err := config.validateLogOpt(c.info.Config); err != nil {
 		return fmt.Errorf("error: validating log options: %v", err)
 	}
@@ -292,7 +292,7 @@ func (d *Driver) Read(ctx context.Context, file string) error {
 }
 
 // Stats shows metrics related to the bulk service
-// func (d *Driver) Stats(filename string, config LogOpt) error {
+// func (d *Driver) Stats(filename string, config Configuration) error {
 // TODO: create metrics from stats
 // d.pipeline.group.Go(func() error {
 // 	stats := d.esClient.Stats()
@@ -334,7 +334,7 @@ func (d *Driver) Parse(ctx context.Context, file, fields, grokMatch, grokPattern
 
 		var logMessage string
 		// custom log message fields
-		msg := getLogOptFields(fields, c.info)
+		msg := getLogMessageFields(fields, c.info)
 
 		for m := range c.pipeline.inputCh {
 
@@ -368,7 +368,7 @@ func (d *Driver) Parse(ctx context.Context, file, fields, grokMatch, grokPattern
 }
 
 // Log sends messages to Elasticsearch Bulk Service
-func (d *Driver) Log(ctx context.Context, file string, config LogOpt) error {
+func (d *Driver) Log(ctx context.Context, file string, config Configuration) error {
 
 	c, err := d.getContainer(file)
 	if err != nil {
