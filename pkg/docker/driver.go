@@ -130,8 +130,9 @@ func NewDriver() *Driver {
 	}
 }
 
-// newContainer returns a pointer to a container
-func (d *Driver) newContainer(file string) (*container, error) {
+// newContainer stores the container's configuration in memory
+// and returns a pointer to the container
+func (d *Driver) newContainer(ctx context.Context, file string) (*container, error) {
 
 	filename := path.Base(file)
 	log.WithField("fifo", file).Debug("created fifo file")
@@ -142,9 +143,7 @@ func (d *Driver) newContainer(file string) (*container, error) {
 	}
 	d.mu.Unlock()
 
-	d.ctx = context.Background()
-
-	f, err := fifo.OpenFifo(d.ctx, file, syscall.O_RDONLY, 0700)
+	f, err := fifo.OpenFifo(ctx, file, syscall.O_RDONLY, 0700)
 	if err != nil {
 		return nil, fmt.Errorf("could not open fifo: %q", err)
 	}
@@ -157,7 +156,7 @@ func (d *Driver) newContainer(file string) (*container, error) {
 	return c, nil
 }
 
-// getContainer retrieves a container's configuration from memory
+// getContainer retrieves the container's configuration from memory
 func (d *Driver) getContainer(file string) (*container, error) {
 
 	filename := path.Base(file)
@@ -176,7 +175,9 @@ func (d *Driver) getContainer(file string) (*container, error) {
 // StartLogging implements the docker plugin interface
 func (d *Driver) StartLogging(file string, info logger.Info) error {
 
-	c, err := d.newContainer(file)
+	ctx := context.Background()
+
+	c, err := d.newContainer(ctx, file)
 	if err != nil {
 		return err
 	}
@@ -206,7 +207,7 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 		c.indexName = config.index
 	}
 
-	c.pipeline.group, c.pipeline.ctx = errgroup.WithContext(d.ctx)
+	c.pipeline.group, c.pipeline.ctx = errgroup.WithContext(ctx)
 	c.pipeline.inputCh = make(chan logdriver.LogEntry)
 	c.pipeline.outputCh = make(chan LogMessage)
 
