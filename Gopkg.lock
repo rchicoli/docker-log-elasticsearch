@@ -2,12 +2,13 @@
 
 
 [[projects]]
+  branch = "master"
   name = "github.com/Azure/go-ansiterm"
   packages = [
     ".",
     "winterm"
   ]
-  revision = "388960b655244e76e24c75f48631564eaefade62"
+  revision = "d6e3b3328b783f23731bc4d058875b0371ff8109"
 
 [[projects]]
   name = "github.com/Microsoft/go-winio"
@@ -24,13 +25,14 @@
 [[projects]]
   name = "github.com/Sirupsen/logrus"
   packages = ["."]
-  revision = "d26492970760ca5d33129d2d799e34be5c4782eb"
-  version = "v0.11.0"
+  revision = "ba1b36c82c5e05c4f912a88eab0dcd91a171688f"
+  version = "v0.11.5"
 
 [[projects]]
   name = "github.com/coreos/go-systemd"
   packages = ["activation"]
-  revision = "c966a8af8422394b2e370d90e2101adba21c14be"
+  revision = "40e2722dffead74698ca12a750f64ef313ddce05"
+  version = "v16"
 
 [[projects]]
   name = "github.com/docker/docker"
@@ -70,17 +72,20 @@
     "sockets",
     "tlsconfig"
   ]
-  revision = "e15c02316c12de00874640cd76311849de2aeed5"
+  revision = "3ede32e2033de7505e6500d6c868c2b9ed9f169d"
+  version = "v0.3.0"
 
 [[projects]]
+  branch = "master"
   name = "github.com/docker/go-plugins-helpers"
   packages = ["sdk"]
-  revision = "bd8c600f0cdd76c7a57ff6aa86bd2b423868c688"
+  revision = "61cb8e2334204460162c8bd2417cd43cb71da66f"
 
 [[projects]]
   name = "github.com/docker/go-units"
   packages = ["."]
-  revision = "9e638d38cf6977a37a8ea0078f3ee75a7cdb2dd1"
+  revision = "47565b4f722fb6ceae66b95f853feed578a4a51c"
+  version = "v0.3.3"
 
 [[projects]]
   name = "github.com/gogo/protobuf"
@@ -88,9 +93,11 @@
     "io",
     "proto"
   ]
-  revision = "35b81a066e522fb86ece043a8ef1dbfa10b4fed1"
+  revision = "1adfc126b41513cc696b209667c8656ea7aac67c"
+  version = "v1.0.0"
 
 [[projects]]
+  branch = "master"
   name = "github.com/mailru/easyjson"
   packages = [
     ".",
@@ -98,7 +105,7 @@
     "jlexer",
     "jwriter"
   ]
-  revision = "2a92e673c9a6302dd05c3a691ae1f24aef46457d"
+  revision = "8b799c424f57fa123fc63a99d6383bc6e4c02578"
 
 [[projects]]
   name = "github.com/olivere/elastic"
@@ -107,13 +114,14 @@
     "config",
     "uritemplates"
   ]
-  revision = "c51e74f9bcab8906a2f6cf5660dac396ba51b3d6"
-  version = "v6.1.4"
+  revision = "d6362604399c7af560b54f048b4fcfbdd6eff293"
+  version = "v6.1.14"
 
 [[projects]]
   name = "github.com/pkg/errors"
   packages = ["."]
-  revision = "e881fd58d78e04cf6d0de1217f8707c8cc2249bc"
+  revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
+  version = "v0.8.0"
 
 [[projects]]
   name = "github.com/robfig/cron"
@@ -122,9 +130,10 @@
   version = "v1"
 
 [[projects]]
+  branch = "master"
   name = "github.com/tonistiigi/fifo"
   packages = ["."]
-  revision = "fbfb6a11ec671efbe94ad1c12c2e98773f19e1e6"
+  revision = "3d5202aec260678c48179c56f40e6f38a095738c"
 
 [[projects]]
   name = "github.com/vjeantet/grok"
@@ -133,13 +142,14 @@
   version = "v1.0.0"
 
 [[projects]]
+  branch = "master"
   name = "golang.org/x/net"
   packages = [
     "context",
-    "context/ctxhttp",
+    "internal/socks",
     "proxy"
   ]
-  revision = "d866cfc389cec985d6fda2859936a575a55a3ab6"
+  revision = "5f9ae10d9af5b1c89ae6904293b14b064d4ada23"
 
 [[projects]]
   branch = "master"
@@ -148,17 +158,19 @@
   revision = "1d60e4601c6fd243af51cc01ddf169918a5407ca"
 
 [[projects]]
+  branch = "master"
   name = "golang.org/x/sys"
   packages = [
     "unix",
     "windows"
   ]
-  revision = "83801418e1b59fb1880e363299581ee543af32ca"
+  revision = "bb9c189858d91f42db229b04d45a4c3d23a7662a"
 
 [[projects]]
+  branch = "master"
   name = "golang.org/x/time"
   packages = ["rate"]
-  revision = "a4bde12657593d5e90d0533a3e4fd95e635124cb"
+  revision = "fbb02b2291d28baffd63558aa44b4b56f178d650"
 
 [[projects]]
   name = "gopkg.in/olivere/elastic.v2"
@@ -177,8 +189,8 @@
     "backoff",
     "uritemplates"
   ]
-  revision = "5a75b7d18bca7420e68338600e8c9f611435f911"
-  version = "v3.0.69"
+  revision = "defe35fda8067a90957799162db966f5ea54342e"
+  version = "v3.0.73"
 
 [[projects]]
   name = "gopkg.in/olivere/elastic.v5"
@@ -187,8 +199,8 @@
     "config",
     "uritemplates"
   ]
-  revision = "3f891f0d04aba0bba9a8bd365a9d3846efcb3527"
-  version = "v5.0.52"
+  revision = "dbe820f35164384c998099db63481b583d53f73b"
+  version = "v5.0.66"
 
 [solve-meta]
   analyzer-name = "dep"
