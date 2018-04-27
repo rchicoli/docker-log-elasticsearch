@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/docker/go-plugins-helpers/sdk"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/rchicoli/docker-log-elasticsearch/pkg/docker"
 )

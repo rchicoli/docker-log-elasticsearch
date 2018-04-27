@@ -19,9 +19,9 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/types/plugins/logdriver"
 	"github.com/docker/docker/daemon/logger"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch"
 	"github.com/rchicoli/docker-log-elasticsearch/pkg/extension/grok"
