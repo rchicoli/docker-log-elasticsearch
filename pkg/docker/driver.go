@@ -51,7 +51,6 @@ type container struct {
 }
 
 type pipeline struct {
-	ctx      context.Context
 	group    *errgroup.Group
 	inputCh  chan logdriver.LogEntry
 	outputCh chan LogMessage
@@ -194,8 +193,8 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 		return fmt.Errorf("error: cannot create an elasticsearch client: %v", err)
 	}
 
+	c.indexName = indexRegex(time.Now(), config.index)
 	if indexFlag(config.index) {
-		c.indexName = indexRegex(time.Now(), config.index)
 		c.cron = cron.New()
 		c.cron.AddFunc("@daily", func() {
 			d.mu.Lock()
@@ -203,23 +202,22 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 			d.mu.Unlock()
 		})
 		c.cron.Start()
-	} else {
-		c.indexName = config.index
 	}
 
-	c.pipeline.group, c.pipeline.ctx = errgroup.WithContext(ctx)
+	var pctx context.Context
+	c.pipeline.group, pctx = errgroup.WithContext(ctx)
 	c.pipeline.inputCh = make(chan logdriver.LogEntry)
 	c.pipeline.outputCh = make(chan LogMessage)
 
-	if err := d.Read(file, config); err != nil {
+	if err := d.Read(pctx, file, config); err != nil {
 		c.logger.WithError(err).Error("could not read line message")
 	}
 
-	if err := d.Parse(file, config); err != nil {
+	if err := d.Parse(pctx, file, config); err != nil {
 		c.logger.WithError(err).Error("could not parse line message")
 	}
 
-	if err := d.Log(file, config); err != nil {
+	if err := d.Log(pctx, file, config); err != nil {
 		c.logger.WithError(err).Error("could not log to elasticsearch")
 	}
 
@@ -227,7 +225,7 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 }
 
 // Read reads messages from proto buffer
-func (d *Driver) Read(file string, config LogOpt) error {
+func (d *Driver) Read(ctx context.Context, file string, config LogOpt) error {
 
 	c, err := d.getContainer(file)
 	if err != nil {
@@ -280,9 +278,9 @@ func (d *Driver) Read(file string, config LogOpt) error {
 
 			select {
 			case c.pipeline.inputCh <- buf:
-			case <-c.pipeline.ctx.Done():
-				c.logger.WithError(c.pipeline.ctx.Err()).Error("closing read pipeline")
-				return c.pipeline.ctx.Err()
+			case <-ctx.Done():
+				c.logger.WithError(ctx.Err()).Error("closing read pipeline")
+				return ctx.Err()
 			}
 			buf.Reset()
 		}
@@ -319,7 +317,7 @@ func (d *Driver) Read(file string, config LogOpt) error {
 // }
 
 // Parse filters line messages
-func (d *Driver) Parse(file string, config LogOpt) error {
+func (d *Driver) Parse(ctx context.Context, file string, config LogOpt) error {
 
 	c, err := d.getContainer(file)
 	if err != nil {
@@ -356,9 +354,9 @@ func (d *Driver) Parse(file string, config LogOpt) error {
 
 			select {
 			case c.pipeline.outputCh <- msg:
-			case <-c.pipeline.ctx.Done():
-				c.logger.WithError(c.pipeline.ctx.Err()).Error("closing parse pipeline")
-				return c.pipeline.ctx.Err()
+			case <-ctx.Done():
+				c.logger.WithError(ctx.Err()).Error("closing parse pipeline")
+				return ctx.Err()
 			}
 
 		}
@@ -370,7 +368,7 @@ func (d *Driver) Parse(file string, config LogOpt) error {
 }
 
 // Log sends messages to Elasticsearch Bulk Service
-func (d *Driver) Log(file string, config LogOpt) error {
+func (d *Driver) Log(ctx context.Context, file string, config LogOpt) error {
 
 	c, err := d.getContainer(file)
 	if err != nil {
@@ -379,7 +377,7 @@ func (d *Driver) Log(file string, config LogOpt) error {
 
 	c.pipeline.group.Go(func() error {
 
-		err := c.esClient.NewBulkProcessorService(c.pipeline.ctx, config.Bulk.workers, config.Bulk.actions, config.Bulk.size, config.Bulk.flushInterval, config.Bulk.stats)
+		err := c.esClient.NewBulkProcessorService(ctx, config.Bulk.workers, config.Bulk.actions, config.Bulk.size, config.Bulk.flushInterval, config.Bulk.stats)
 		if err != nil {
 			c.logger.WithError(err).Error("could not create bulk processor")
 		}
@@ -400,9 +398,9 @@ func (d *Driver) Log(file string, config LogOpt) error {
 			c.esClient.Add(c.indexName, config.tzpe, doc)
 
 			select {
-			case <-c.pipeline.ctx.Done():
-				c.logger.WithError(c.pipeline.ctx.Err()).Error("closing log pipeline")
-				return c.pipeline.ctx.Err()
+			case <-ctx.Done():
+				c.logger.WithError(ctx.Err()).Error("closing log pipeline")
+				return ctx.Err()
 			default:
 			}
 		}
