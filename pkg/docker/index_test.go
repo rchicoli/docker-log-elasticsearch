@@ -47,6 +47,7 @@ func Test_indexRegex(t *testing.T) {
 		{name: "yearZeroPadded", args: args{now: time.Now(), indexRegex: "docker-%m"}, want: fmt.Sprintf("docker-%s", today.Format("01"))},
 		{name: "yearZeroPadded", args: args{now: time.Now(), indexRegex: "docker-%d"}, want: fmt.Sprintf("docker-%s", today.Format("02"))},
 		{name: "dayOfYearZeroPadded", args: args{now: time.Now(), indexRegex: "docker-%j"}, want: fmt.Sprintf("docker-%d", today.YearDay())},
+		{name: "zeroRegex", args: args{now: time.Now(), indexRegex: "docker"}, want: "docker"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
