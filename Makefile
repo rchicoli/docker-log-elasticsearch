@@ -18,7 +18,7 @@ DOCKER_COMPOSE      := $(shell which docker-compose)
 
 all: clean docker_build plugin_create plugin_enable clean
 
-local: clean build unit_tests plugin_create plugin_enable clean
+local: clean build unit_tests plugin_create plugin_set plugin_enable clean
 
 clean:
 	@echo ""
@@ -59,6 +59,10 @@ plugin_enable:
 plugin_push:
 	@echo ""
 	docker plugin push $(PLUGIN_NAME):$(PLUGIN_TAG)
+
+plugin_set:
+	@echo ""
+	docker plugin set $(PLUGIN_NAME):$(PLUGIN_TAG) LOG_LEVEL=debug
 
 push: plugin_push
 
