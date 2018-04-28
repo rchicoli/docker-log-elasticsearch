@@ -45,19 +45,18 @@ func (d *Driver) Name() string {
 	return name
 }
 
-// StartLogging handler
+// StartLogging implements the docker plugin interface
 func (d *Driver) StartLogging(file string, info logger.Info) error {
-
-	ctx := context.Background()
-
-	c, err := d.newContainer(ctx, file)
-	if err != nil {
-		return err
-	}
-	c.logger = log.WithField("containerID", info.ContainerID)
 
 	config := newConfiguration()
 	if err := config.validateLogOpt(info.Config); err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+
+	c, err := d.newContainer(ctx, file, info.ContainerID)
+	if err != nil {
 		return err
 	}
 
@@ -80,8 +79,6 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 
 	var pctx context.Context
 	c.pipeline.group, pctx = errgroup.WithContext(ctx)
-	c.pipeline.inputCh = make(chan logdriver.LogEntry)
-	c.pipeline.outputCh = make(chan LogMessage)
 
 	if err := c.Read(pctx); err != nil {
 		c.logger.WithError(err).Error("could not read line message")
@@ -102,7 +99,7 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 
 }
 
-// StopLogging handler
+// StopLogging implements the docker plugin interface
 func (d *Driver) StopLogging(file string) error {
 
 	// this is required for some environment like travis
@@ -131,8 +128,7 @@ func (d *Driver) StopLogging(file string) error {
 		c.logger.Info("closing pipeline")
 
 		// Check whether any goroutines failed.
-		err := c.pipeline.group.Wait()
-		if err != nil {
+		if err := c.pipeline.group.Wait(); err != nil {
 			c.logger.WithError(err).Error("pipeline wait group")
 		}
 	}
@@ -151,7 +147,7 @@ func (d *Driver) StopLogging(file string) error {
 
 // newContainer stores the container's configuration in memory
 // and returns a pointer to the container
-func (d *Driver) newContainer(ctx context.Context, file string) (*container, error) {
+func (d *Driver) newContainer(ctx context.Context, file, containerID string) (*container, error) {
 
 	filename := path.Base(file)
 	log.WithField("fifo", file).Debug("created fifo file")
@@ -168,7 +164,14 @@ func (d *Driver) newContainer(ctx context.Context, file string) (*container, err
 	}
 
 	d.mu.Lock()
-	c := &container{stream: f}
+	c := &container{
+		stream: f,
+		logger: log.WithField("containerID", containerID),
+		pipeline: pipeline{
+			inputCh:  make(chan logdriver.LogEntry),
+			outputCh: make(chan LogMessage),
+		},
+	}
 	d.logs[filename] = c
 	d.mu.Unlock()
 

@@ -23,7 +23,6 @@ type container struct {
 	cron      *cron.Cron
 	esClient  elasticsearch.Client
 	indexName string
-	info      logger.Info
 	logger    *log.Entry
 	pipeline  pipeline
 	stream    io.ReadCloser

@@ -21,18 +21,18 @@ var logLevels = map[string]log.Level{
 	"error": log.ErrorLevel,
 }
 
-// StartLoggingRequest format
+// StartLoggingRequest payload
 type StartLoggingRequest struct {
 	File string      `json:"file,omitempty"`
 	Info logger.Info `json:"info,omitempty"`
 }
 
-// StopLoggingRequest format
+// StopLoggingRequest payload
 type StopLoggingRequest struct {
 	File string `json:"file,omitempty"`
 }
 
-// CapabilitiesResponse format
+// CapabilitiesResponse payload
 type CapabilitiesResponse struct {
 	Cap logger.Capability `json:"capabilities,omitempty"`
 	Err string            `json:"err,omitempty"`
