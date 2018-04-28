@@ -2,16 +2,15 @@ package docker
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
-	"net/http"
 	"path"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/robfig/cron"
+	"github.com/tonistiigi/fifo"
 
 	"golang.org/x/sync/errgroup"
 
@@ -27,45 +26,9 @@ const (
 	name = "elasticsearchlog"
 )
 
-// StartLoggingRequest format
-type StartLoggingRequest struct {
-	File string      `json:"file,omitempty"`
-	Info logger.Info `json:"info,omitempty"`
-}
-
-// StopLoggingRequest format
-type StopLoggingRequest struct {
-	File string `json:"file,omitempty"`
-}
-
-// CapabilitiesResponse format
-type CapabilitiesResponse struct {
-	Cap logger.Capability `json:"capabilities,omitempty"`
-	Err string            `json:"err,omitempty"`
-}
-
-// ReadLogsRequest format
-// type ReadLogsRequest struct {
-// 	Info   logger.Info       `json:"info"`
-// 	Config logger.ReadConfig `json:"config"`
-// }
-
-type response struct {
-	Err string `json:"err,omitempty"`
-}
-
-func respond(err error, w http.ResponseWriter) {
-	var res response
-	if err != nil {
-		res.Err = err.Error()
-	}
-	json.NewEncoder(w).Encode(&res)
-}
-
 // Driver ...
 type Driver struct {
 	mu   *sync.Mutex
-	ctx  context.Context
 	logs map[string]*container
 }
 
@@ -83,39 +46,24 @@ func (d *Driver) Name() string {
 }
 
 // StartLogging handler
-func (d *Driver) StartLogging(w http.ResponseWriter, r *http.Request) {
-
-	var req StartLoggingRequest
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respond(fmt.Errorf("error: could not decode payload: %v", err), w)
-		return
-	}
-
-	if req.Info.ContainerID == "" {
-		respond(errors.New("error: could not find containerID in request payload"), w)
-		return
-	}
+func (d *Driver) StartLogging(file string, info logger.Info) error {
 
 	ctx := context.Background()
 
-	c, err := d.newContainer(ctx, req.File)
+	c, err := d.newContainer(ctx, file)
 	if err != nil {
-		respond(err, w)
-		return
+		return err
 	}
-	c.info = req.Info
-	c.logger = log.WithField("containerID", c.info.ContainerID)
+	c.logger = log.WithField("containerID", info.ContainerID)
 
 	config := newConfiguration()
-	if err := config.validateLogOpt(c.info.Config); err != nil {
-		respond(err, w)
-		return
+	if err := config.validateLogOpt(info.Config); err != nil {
+		return err
 	}
 
 	c.esClient, err = elasticsearch.NewClient(config.version, config.url, config.username, config.password, config.timeout, config.sniff, config.insecure)
 	if err != nil {
-		respond(fmt.Errorf("error: cannot create an elasticsearch client: %v", err), w)
+		return fmt.Errorf("error: cannot create an elasticsearch client: %v", err)
 	}
 
 	// org.elasticsearch.indices.InvalidIndexNameException: ... must be lowercase
@@ -135,49 +83,44 @@ func (d *Driver) StartLogging(w http.ResponseWriter, r *http.Request) {
 	c.pipeline.inputCh = make(chan logdriver.LogEntry)
 	c.pipeline.outputCh = make(chan LogMessage)
 
-	if err := d.Read(pctx, req.File); err != nil {
+	if err := c.Read(pctx); err != nil {
 		c.logger.WithError(err).Error("could not read line message")
+		return err
 	}
 
-	if err := d.Parse(pctx, req.File, config.fields, config.grokMatch, config.grokPattern, config.grokPatternFrom, config.grokPatternSplitter, config.grokNamedCapture); err != nil {
+	if err := c.Parse(pctx, info, config.fields, config.grokMatch, config.grokPattern, config.grokPatternFrom, config.grokPatternSplitter, config.grokNamedCapture); err != nil {
 		c.logger.WithError(err).Error("could not parse line message")
+		return err
 	}
 
-	if err := d.Log(pctx, req.File, config.Bulk.workers, config.Bulk.actions, config.Bulk.size, config.Bulk.flushInterval, config.Bulk.stats, c.indexName, config.tzpe); err != nil {
+	if err := c.Log(pctx, config.Bulk.workers, config.Bulk.actions, config.Bulk.size, config.Bulk.flushInterval, config.Bulk.stats, c.indexName, config.tzpe); err != nil {
 		c.logger.WithError(err).Error("could not log to elasticsearch")
+		return err
 	}
 
-	respond(err, w)
+	return nil
 
 }
 
 // StopLogging handler
-func (d *Driver) StopLogging(w http.ResponseWriter, r *http.Request) {
-
-	var req StopLoggingRequest
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+func (d *Driver) StopLogging(file string) error {
 
 	// this is required for some environment like travis
 	// otherwise the start and stop function are executed
 	// too fast, even before messages are sent to the pipeline
 	time.Sleep(1 * time.Second)
 
-	c, err := d.getContainer(req.File)
+	c, err := d.getContainer(file)
 	if err != nil {
-		respond(err, w)
-		return
+		return err
 	}
 
-	filename := path.Base(req.File)
+	filename := path.Base(file)
 	d.mu.Lock()
 	delete(d.logs, filename)
 	d.mu.Unlock()
 
-	c.logger.WithField("fifo", req.File).Debug("removing fifo file")
+	c.logger.WithField("fifo", file).Debug("removing fifo file")
 
 	if c.stream != nil {
 		c.logger.Info("closing container stream")
@@ -202,33 +145,48 @@ func (d *Driver) StopLogging(w http.ResponseWriter, r *http.Request) {
 	//	close client connection on last pipeline
 	// }
 
-	respond(err, w)
+	return nil
 
 }
 
-// Capabilities handler
-func (d *Driver) Capabilities(w http.ResponseWriter, r *http.Request) {
-	json.NewEncoder(w).Encode(&CapabilitiesResponse{
-		Cap: logger.Capability{ReadLogs: false},
-	})
+// newContainer stores the container's configuration in memory
+// and returns a pointer to the container
+func (d *Driver) newContainer(ctx context.Context, file string) (*container, error) {
+
+	filename := path.Base(file)
+	log.WithField("fifo", file).Debug("created fifo file")
+
+	d.mu.Lock()
+	if _, exists := d.logs[filename]; exists {
+		return nil, fmt.Errorf("error: a logger for this container already exists: %s", filename)
+	}
+	d.mu.Unlock()
+
+	f, err := fifo.OpenFifo(ctx, file, syscall.O_RDONLY, 0700)
+	if err != nil {
+		return nil, fmt.Errorf("could not open fifo: %q", err)
+	}
+
+	d.mu.Lock()
+	c := &container{stream: f}
+	d.logs[filename] = c
+	d.mu.Unlock()
+
+	return c, nil
 }
 
-// func (d *Driver) ReadLogs(w http.ResponseWriter, r *http.Request) {
-// 	var req ReadLogsRequest
-// 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-// 		http.Error(w, err.Error(), http.StatusBadRequest)
-// 		return
-// 	}
+// getContainer retrieves the container's configuration from memory
+func (d *Driver) getContainer(file string) (*container, error) {
 
-// 	stream, err := d.ReadLogs(req.Info, req.Config)
-// 	if err != nil {
-// 		http.Error(w, err.Error(), http.StatusInternalServerError)
-// 		return
-// 	}
-// 	defer stream.Close()
+	filename := path.Base(file)
 
-// 	w.Header().Set("Content-Type", "application/x-json-stream")
-// 	wf := ioutils.NewWriteFlusher(w)
-// 	io.Copy(wf, stream)
+	d.mu.Lock()
+	defer d.mu.Unlock()
 
-// }
+	c, exists := d.logs[filename]
+	if !exists {
+		return nil, fmt.Errorf("error: logger not found for socket ID: %v", file)
+	}
+
+	return c, nil
+}

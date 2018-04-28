@@ -9,18 +9,34 @@ import (
 	"strings"
 	"time"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/types/plugins/logdriver"
+	"github.com/docker/docker/daemon/logger"
 	protoio "github.com/gogo/protobuf/io"
+	"github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch"
 	"github.com/rchicoli/docker-log-elasticsearch/pkg/extension/grok"
+	"github.com/robfig/cron"
+	"golang.org/x/sync/errgroup"
 )
 
-// Read reads messages from proto buffer
-func (d *Driver) Read(ctx context.Context, file string) error {
+type container struct {
+	cron      *cron.Cron
+	esClient  elasticsearch.Client
+	indexName string
+	info      logger.Info
+	logger    *log.Entry
+	pipeline  pipeline
+	stream    io.ReadCloser
+}
 
-	c, err := d.getContainer(file)
-	if err != nil {
-		return err
-	}
+type pipeline struct {
+	group    *errgroup.Group
+	inputCh  chan logdriver.LogEntry
+	outputCh chan LogMessage
+}
+
+// Read reads messages from proto buffer
+func (c *container) Read(ctx context.Context) error {
 
 	c.logger.Debug("starting pipeline: Read")
 
@@ -84,12 +100,7 @@ func (d *Driver) Read(ctx context.Context, file string) error {
 }
 
 // Parse filters line messages
-func (d *Driver) Parse(ctx context.Context, file, fields, grokMatch, grokPattern, grokPatternFrom, grokPatternSplitter string, grokNamedCapture bool) error {
-
-	c, err := d.getContainer(file)
-	if err != nil {
-		return err
-	}
+func (c *container) Parse(ctx context.Context, info logger.Info, fields, grokMatch, grokPattern, grokPatternFrom, grokPatternSplitter string, grokNamedCapture bool) error {
 
 	c.logger.Debug("starting pipeline: Parse")
 
@@ -103,7 +114,7 @@ func (d *Driver) Parse(ctx context.Context, file, fields, grokMatch, grokPattern
 
 		var logMessage string
 		// custom log message fields
-		msg := getLogMessageFields(fields, c.info)
+		msg := getLogMessageFields(fields, info)
 
 		for m := range c.pipeline.inputCh {
 
@@ -137,18 +148,13 @@ func (d *Driver) Parse(ctx context.Context, file, fields, grokMatch, grokPattern
 }
 
 // Log sends messages to Elasticsearch Bulk Service
-func (d *Driver) Log(ctx context.Context, file string, workers, actions, size int, flushInterval time.Duration, stats bool, indexName, tzpe string) error {
-
-	c, err := d.getContainer(file)
-	if err != nil {
-		return err
-	}
+func (c *container) Log(ctx context.Context, workers, actions, size int, flushInterval time.Duration, stats bool, indexName, tzpe string) error {
 
 	c.logger.Debug("starting pipeline: Log")
 
 	c.pipeline.group.Go(func() error {
 
-		err = c.esClient.NewBulkProcessorService(ctx, workers, actions, size, flushInterval, stats)
+		err := c.esClient.NewBulkProcessorService(ctx, workers, actions, size, flushInterval, stats)
 		if err != nil {
 			c.logger.WithError(err).Error("could not create bulk processor")
 		}
