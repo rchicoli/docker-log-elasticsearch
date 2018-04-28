@@ -117,7 +117,7 @@ func main() {
 	// })
 
 	if err := h.ServeUnix(d.Name(), 0); err != nil {
-		log.WithError(err).Error("error: serving unix")
+		log.WithError(err).Fatal("error: serving unix")
 	}
 }
 
