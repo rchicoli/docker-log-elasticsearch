@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 
 	"gopkg.in/olivere/elastic.v2"
 )
@@ -18,7 +19,7 @@ type Elasticsearch struct {
 }
 
 // NewClient ...
-func NewClient(address, username, password string, timeout int, sniff bool, insecure bool) (*Elasticsearch, error) {
+func NewClient(address, username, password string, timeout time.Duration, sniff bool, insecure bool) (*Elasticsearch, error) {
 
 	url, _ := url.Parse(address)
 	tr := new(http.Transport)

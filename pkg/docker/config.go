@@ -16,7 +16,7 @@ type Configuration struct {
 	index    string
 	tzpe     string
 	url      string
-	timeout  int
+	timeout  time.Duration
 	fields   string
 	version  string
 	username string
@@ -51,7 +51,7 @@ func newConfiguration() Configuration {
 	return Configuration{
 		index:    "docker-%Y.%m.%d",
 		tzpe:     "log",
-		timeout:  1,
+		timeout:  10 * time.Second,
 		fields:   "containerID,containerName,containerImageName,containerCreated",
 		version:  "5",
 		sniff:    true,
@@ -153,7 +153,7 @@ func (c *Configuration) validateLogOpt(cfg map[string]string) error {
 				return fmt.Errorf("error: elasticsearch-version not supported: %s", v)
 			}
 		case "elasticsearch-timeout":
-			timeout, err := strconv.Atoi(v)
+			timeout, err := time.ParseDuration(v)
 			if err != nil {
 				return fmt.Errorf("error: parsing elasticsearch-timeout: %q", err)
 			}

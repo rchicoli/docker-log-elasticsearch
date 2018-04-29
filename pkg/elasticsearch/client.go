@@ -3,6 +3,7 @@ package elasticsearch
 import (
 	"context"
 	"fmt"
+	"time"
 
 	elasticv1 "github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch/v1"
 	elasticv2 "github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch/v2"
@@ -32,7 +33,7 @@ type Client interface {
 }
 
 // NewClient ...
-func NewClient(version string, url, username, password string, timeout int, sniff bool, insecure bool) (Client, error) {
+func NewClient(version string, url, username, password string, timeout time.Duration, sniff bool, insecure bool) (Client, error) {
 	switch version {
 	case "1":
 		client, err := elasticv1.NewClient(url, username, password, timeout, sniff, insecure)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/olivere/elastic"
 	"golang.org/x/net/context"
@@ -20,7 +21,7 @@ type Elasticsearch struct {
 }
 
 // NewClient ...
-func NewClient(address, username, password string, timeout int, sniff bool, insecure bool) (*Elasticsearch, error) {
+func NewClient(address, username, password string, timeout time.Duration, sniff bool, insecure bool) (*Elasticsearch, error) {
 
 	url, _ := url.Parse(address)
 	tr := new(http.Transport)

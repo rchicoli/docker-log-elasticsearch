@@ -63,7 +63,7 @@ Before creating a docker container, a healthy instance of Elasticsearch service 
 | elasticsearch-insecure | false | no |
 | elasticsearch-password | no | no |  |
 | elasticsearch-sniff | yes | no | |
-| elasticsearch-timeout | 1    | no  |
+| elasticsearch-timeout | 10s    | no  |
 | elasticsearch-type  | log    | no  |
 | elasticsearch-username | no | no |  |
 | elasticsearch-url   | no     | yes |
@@ -119,7 +119,7 @@ Interpreted sequences are:
 
 ###### elasticsearch-timeout ######
   - *timeout* maximum time in seconds that a connection is allowed to take
-  - *example*: 10
+  - *examples*: 300ms, 1s, 2h45m
 
 ###### elasticsearch-fields ######
   - *fields* to log to Elasticsearch Cluster
@@ -185,7 +185,7 @@ $ docker run --rm -ti \
     --log-opt elasticsearch-sniff=false \
     --log-opt elasticsearch-index=docker-%F \
     --log-opt elasticsearch-type=log \
-    --log-opt elasticsearch-timeout=10 \
+    --log-opt elasticsearch-timeout=60s \
     --log-opt elasticsearch-version=5 \
     --log-opt elasticsearch-fields=containerID,containerName,containerImageID,containerImageName,containerCreated \
     --log-opt elasticsearch-bulk-workers=1 \
