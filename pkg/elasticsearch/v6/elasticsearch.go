@@ -71,10 +71,10 @@ func (e *Elasticsearch) Add(index, tzpe string, msg interface{}) {
 // or the estimated size in bytes is larger than specified in the
 // BulkProcessorService.
 func (e *Elasticsearch) CommitRequired(actions int, bulkSize int) bool {
-	if e.BulkService.NumberOfActions() >= actions {
+	if actions >= 0 && e.BulkService.NumberOfActions() >= actions {
 		return true
 	}
-	if e.BulkService.EstimatedSizeInBytes() >= int64(bulkSize) {
+	if bulkSize >= 0 && e.BulkService.EstimatedSizeInBytes() >= int64(bulkSize) {
 		return true
 	}
 	return false
