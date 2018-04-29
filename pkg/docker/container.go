@@ -174,12 +174,16 @@ func (c *container) Log(ctx context.Context, workers int, indexName, tzpe string
 		c.esClient.Stop()
 	}()
 
+	var err error
 	for i := 0; i < workers; i++ {
 		workerID := i
 		c.logger.WithField("workerID", workerID).Debug("starting worker")
 
 		// one bulk service for each worker
-		c.bulkService[workerID] = elasticsearch.NewBulk(c.esClient)
+		c.bulkService[workerID], err = elasticsearch.NewBulk(c.esClient)
+		if err != nil {
+			return err
+		}
 
 		c.pipeline.group.Go(func() error {
 

@@ -93,7 +93,7 @@ function test_bulk_multiple_messages(){
     --log-opt elasticsearch-bulk-flush-interval='1s' \
     rchicoli/webapper
 
-  for i in {1..10}; do
+  for i in {1..99}; do
     basht_run curl -XPOST -H "Content-Type: application/json" --data "{\"message\":\"${message}-$i\"}" "http://${WEBAPPER_IP}:${WEBAPPER_PORT}/log"
   done
 
@@ -101,7 +101,7 @@ function test_bulk_multiple_messages(){
 
   basht_run curl -s --connect-timeout 5 \
     "${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search?pretty=true&size=100"
-  for i in {1..10}; do
+  for i in {1..99}; do
     basht_assert "echo '${output}' | jq -r '.hits.hits[]._source | select(.message==\"${message}-$i\").message'" == "${message}-$i"
   done
 

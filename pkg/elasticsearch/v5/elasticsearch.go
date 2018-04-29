@@ -11,24 +11,20 @@ import (
 	"gopkg.in/olivere/elastic.v5"
 )
 
+const version = 5
+
 // Elasticsearch ...
 type Elasticsearch struct {
 	*elastic.Client
 	// *elastic.BulkProcessor
 	// *elastic.BulkProcessorService
-	*elastic.BulkService
-	bulkService map[int]*elastic.BulkService
-	// bs          elastic.BulkService
-	*elastic.BulkResponse
 }
 
 type BulkService struct {
-	bs *elastic.BulkService
+	bulkService *elastic.BulkService
 }
 
-// type BulkResponse = elastic.BulkResponse
-
-// NewClient ...
+// NewClient creates a new elasticsearch client
 func NewClient(address, username, password string, timeout time.Duration, sniff bool, insecure bool) (*Elasticsearch, error) {
 
 	url, _ := url.Parse(address)
@@ -54,9 +50,6 @@ func NewClient(address, username, password string, timeout time.Duration, sniff 
 	}
 	return &Elasticsearch{
 		Client: c,
-		// BulkProcessorService: c.BulkProcessor(),
-		// BulkService: c.Bulk(),
-		// bulkService: make(map[int]*elastic.BulkService),
 	}, nil
 }
 
@@ -68,23 +61,21 @@ func (e *Elasticsearch) Log(ctx context.Context, index, tzpe string, msg interfa
 	return nil
 }
 
+// Bulk creates a service
 func Bulk(client *Elasticsearch) *BulkService {
 	return &BulkService{elastic.NewBulkService(client.Client)}
 }
 
+// Version reports the client version
 func (e *Elasticsearch) Version() int {
-	return 5
+	return version
 }
-
-// func (e Elasticsearch) NewBulk(id int) {
-// 	e.bs = e.Client.Bulk()
-// }
 
 // Add adds bulkable requests, i.e. BulkIndexRequest, BulkUpdateRequest,
 // and/or BulkDeleteRequest.
 func (e BulkService) Add(index, tzpe string, msg interface{}) {
 	r := elastic.NewBulkIndexRequest().Index(index).Type(tzpe).Doc(msg)
-	e.bs.Add(r)
+	e.bulkService.Add(r)
 }
 
 // CommitRequired returns true if the service has to commit its
@@ -92,10 +83,10 @@ func (e BulkService) Add(index, tzpe string, msg interface{}) {
 // or the estimated size in bytes is larger than specified in the
 // BulkProcessorService.
 func (e BulkService) CommitRequired(actions int, bulkSize int) bool {
-	if actions >= 0 && e.bs.NumberOfActions() >= actions {
+	if actions >= 0 && e.bulkService.NumberOfActions() >= actions {
 		return true
 	}
-	if bulkSize >= 0 && e.bs.EstimatedSizeInBytes() >= int64(bulkSize) {
+	if bulkSize >= 0 && e.bulkService.EstimatedSizeInBytes() >= int64(bulkSize) {
 		return true
 	}
 	return false
@@ -118,7 +109,7 @@ func (e BulkService) CommitRequired(actions int, bulkSize int) bool {
 //   }
 // }
 func (e BulkService) Do(ctx context.Context) (interface{}, int, bool, error) {
-	bulkResponse, err := e.bs.Do(ctx)
+	bulkResponse, err := e.bulkService.Do(ctx)
 	if bulkResponse != nil {
 		return bulkResponse, bulkResponse.Took, bulkResponse.Errors, err
 	}
@@ -163,13 +154,13 @@ func (e BulkService) Errors(bulkResponse interface{}) []map[int]string {
 // EstimatedSizeInBytes returns the estimated size of all bulkable
 // requests added via Add.
 func (e BulkService) EstimatedSizeInBytes() int64 {
-	return e.bs.EstimatedSizeInBytes()
+	return e.bulkService.EstimatedSizeInBytes()
 }
 
 // NumberOfActions returns the number of bulkable requests that need to
 // be sent to Elasticsearch on the next batch.
 func (e BulkService) NumberOfActions() int {
-	return e.bs.NumberOfActions()
+	return e.bulkService.NumberOfActions()
 }
 
 // Stop stops the background processes that the client is running,
