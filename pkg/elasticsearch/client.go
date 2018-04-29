@@ -16,19 +16,23 @@ type Client interface {
 	// Close() error
 	// Flush() error
 
-	Add(id int, index, tzpe string, msg interface{})
-	CommitRequired(id int, actions int, bulkSize int) bool
-	Do(id int, ctx context.Context) (interface{}, int, bool, error)
-	Errors(bulkResponse interface{}) []map[int]string
-	EstimatedSizeInBytes(id int) int64
-	NumberOfActions(id int) int
-
-	NewBulk(id int)
-
+	// NewBulk(id int)
+	// Bulk() Bulk
 	// Stop stops the background processes that the client is running,
 	// i.e. sniffing the cluster periodically and running health checks
 	// on the nodes.
 	Stop()
+
+	Version() int
+}
+
+type Bulk interface {
+	Add(index, tzpe string, msg interface{})
+	CommitRequired(actions int, bulkSize int) bool
+	Do(ctx context.Context) (interface{}, int, bool, error)
+	Errors(bulkResponse interface{}) []map[int]string
+	EstimatedSizeInBytes() int64
+	NumberOfActions() int
 }
 
 // NewClient ...
@@ -61,4 +65,17 @@ func NewClient(version string, url, username, password string, timeout time.Dura
 	default:
 		return nil, fmt.Errorf("error: elasticsearch version not supported: %v", version)
 	}
+}
+
+// func (client Client) NewBulk() Bulk {
+func NewBulk(client Client) Bulk {
+	switch client.Version() {
+	case 5:
+		return elasticv5.Bulk(client.(*elasticv5.Elasticsearch))
+	default:
+		// return nil, fmt.Errorf("error: elasticsearch version not supported: %v", version)
+	}
+	return nil
+	// return client.Bulk()
+	// return elasticv5.Bulk(client.(*elasticv5.Elasticsearch))
 }

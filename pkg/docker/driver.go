@@ -171,8 +171,9 @@ func (d *Driver) newContainer(ctx context.Context, file, containerID string) (*c
 
 	d.mu.Lock()
 	c := &container{
-		stream: f,
-		logger: log.WithField("containerID", containerID),
+		bulkService: make(map[int]elasticsearch.Bulk),
+		stream:      f,
+		logger:      log.WithField("containerID", containerID),
 		pipeline: pipeline{
 			commitCh: make(chan struct{}),
 			inputCh:  make(chan logdriver.LogEntry),
