@@ -100,7 +100,10 @@ func (e *Elasticsearch) CommitRequired(actions int, bulkSize int) bool {
 // }
 func (e *Elasticsearch) Do(ctx context.Context) (interface{}, int, bool, error) {
 	bulkResponse, err := e.BulkService.Do(ctx)
-	return bulkResponse, bulkResponse.Took, bulkResponse.Errors, err
+	if bulkResponse != nil {
+		return bulkResponse, bulkResponse.Took, bulkResponse.Errors, err
+	}
+	return nil, 0, true, err
 }
 
 // Errors parses a BulkResponse and returns the reason of the failure requests
@@ -122,6 +125,11 @@ func (e *Elasticsearch) Do(ctx context.Context) (interface{}, int, bool, error) 
 // 	"status" : 400
 //   }
 func (e *Elasticsearch) Errors(bulkResponse interface{}) []map[int]string {
+
+	if bulkResponse == nil {
+		return nil
+	}
+
 	var reason []map[int]string
 	for _, item := range bulkResponse.(*elastic.BulkResponse).Items {
 		for _, result := range item {

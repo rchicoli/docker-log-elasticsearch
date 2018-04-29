@@ -25,7 +25,7 @@ function test_bulk_commit_after_one_action(){
     --log-driver rchicoli/docker-log-elasticsearch:development \
     --log-opt elasticsearch-url="${ELASTICSEARCH_URL}" \
     --log-opt elasticsearch-version="${CLIENT_VERSION}" \
-    --name $name \
+    --name "$name" \
     --log-opt elasticsearch-bulk-workers=2 \
     --log-opt elasticsearch-bulk-actions=1 \
     --log-opt elasticsearch-bulk-flush-interval=30s \
