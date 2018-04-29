@@ -30,7 +30,6 @@ function test_bulk(){
     --log-opt elasticsearch-bulk-actions=2 \
     --log-opt elasticsearch-bulk-size="-1" \
     --log-opt elasticsearch-bulk-flush-interval=1s \
-    --log-opt elasticsearch-bulk-stats=false \
     alpine echo -n "$message"
 
   sleep "${SLEEP_TIME}"
