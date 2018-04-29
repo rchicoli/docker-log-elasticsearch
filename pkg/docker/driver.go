@@ -12,7 +12,8 @@ import (
 	"github.com/robfig/cron"
 	"github.com/tonistiigi/fifo"
 
-	"golang.org/x/sync/errgroup"
+	// "golang.org/x/sync/errgroup"
+	"github.com/rchicoli/docker-log-elasticsearch/internal/pkg/errgroup"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/types/plugins/logdriver"

@@ -16,7 +16,8 @@ import (
 	"github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch"
 	"github.com/rchicoli/docker-log-elasticsearch/pkg/extension/grok"
 	"github.com/robfig/cron"
-	"golang.org/x/sync/errgroup"
+	// "golang.org/x/sync/errgroup"
+	"github.com/rchicoli/docker-log-elasticsearch/internal/pkg/errgroup"
 )
 
 type container struct {
@@ -153,25 +154,33 @@ func (c *container) Log(ctx context.Context, workers int, indexName, tzpe string
 
 	c.logger.Debug("starting pipeline: Log")
 
-	c.pipeline.group.Go(func() error {
-		defer func() {
-			close(c.pipeline.commitCh)
-		}()
+	for i := 0; i < workers; i++ {
+		workerID := i
+		c.logger.WithField("workerID", workerID).Debug("starting worker")
 
-		for doc := range c.pipeline.outputCh {
+		c.pipeline.group.Go(func() error {
+			defer func() {
+				c.pipeline.group.ErrOnce.Do(func() {
+					close(c.pipeline.commitCh)
+				})
+			}()
 
-			c.esClient.Add(indexName, tzpe, doc)
+			for doc := range c.pipeline.outputCh {
+				// c.logger.WithField("workerID", workerID).Debug("working number")
 
-			select {
-			case c.pipeline.commitCh <- struct{}{}:
-			case <-ctx.Done():
-				c.logger.WithError(ctx.Err()).Error("closing log pipeline")
-				return ctx.Err()
-			default:
+				c.esClient.Add(indexName, tzpe, doc)
+
+				select {
+				case <-ctx.Done():
+					c.logger.WithError(ctx.Err()).Error("closing log pipeline")
+					return ctx.Err()
+				case c.pipeline.commitCh <- struct{}{}:
+				}
 			}
-		}
-		return nil
-	})
+
+			return nil
+		})
+	}
 
 	return nil
 }
