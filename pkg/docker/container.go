@@ -37,6 +37,13 @@ type pipeline struct {
 	ticker   *time.Ticker
 }
 
+type processor interface {
+	Read(ctx context.Context) error
+	Parse(ctx context.Context, info logger.Info, fields, grokMatch, grokPattern, grokPatternFrom, grokPatternSplitter string, grokNamedCapture bool) error
+	Add(ctx context.Context, workers int, indexName, tzpe string) error
+	Commit(ctx context.Context, actions, size int, flushInterval time.Duration) error
+}
+
 // Read reads messages from proto buffer
 func (c *container) Read(ctx context.Context) error {
 
@@ -149,8 +156,8 @@ func (c *container) Parse(ctx context.Context, info logger.Info, fields, grokMat
 	return nil
 }
 
-// Log sends messages to Elasticsearch Bulk Service
-func (c *container) Log(ctx context.Context, workers int, indexName, tzpe string) error {
+// Add adds messages to Elasticsearch Bulk Service
+func (c *container) Add(ctx context.Context, workers int, indexName, tzpe string) error {
 
 	c.logger.Debug("starting pipeline: Log")
 
@@ -185,7 +192,7 @@ func (c *container) Log(ctx context.Context, workers int, indexName, tzpe string
 	return nil
 }
 
-// Log sends messages to Elasticsearch Bulk Service
+// Commit commits messages to Elasticsearch
 func (c *container) Commit(ctx context.Context, actions, size int, flushInterval time.Duration) error {
 
 	c.logger.Debug("starting pipeline: Commit")
