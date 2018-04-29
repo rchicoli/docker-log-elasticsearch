@@ -37,11 +37,11 @@ type pipeline struct {
 	ticker   *time.Ticker
 }
 
-type processor interface {
+type Processor interface {
 	Read(ctx context.Context) error
 	Parse(ctx context.Context, info logger.Info, fields, grokMatch, grokPattern, grokPatternFrom, grokPatternSplitter string, grokNamedCapture bool) error
-	Add(ctx context.Context, workers int, indexName, tzpe string) error
-	Commit(ctx context.Context, actions, size int, flushInterval time.Duration) error
+	Log(ctx context.Context, workers int, indexName, tzpe string, actions, bulkSize int) error
+	// Commit(ctx context.Context, actions, size int, flushInterval time.Duration) error
 }
 
 // Read reads messages from proto buffer
@@ -157,7 +157,7 @@ func (c *container) Parse(ctx context.Context, info logger.Info, fields, grokMat
 }
 
 // Add adds messages to Elasticsearch Bulk Service
-func (c *container) Add(ctx context.Context, workers int, indexName, tzpe string) error {
+func (c *container) Log(ctx context.Context, workers int, indexName, tzpe string, actions, bulkSize int) error {
 
 	c.logger.Debug("starting pipeline: Log")
 
@@ -165,27 +165,43 @@ func (c *container) Add(ctx context.Context, workers int, indexName, tzpe string
 		workerID := i
 		c.logger.WithField("workerID", workerID).Debug("starting worker")
 
+		c.esClient.NewBulk(workerID)
+
 		c.pipeline.group.Go(func() error {
-			defer func() {
-				c.pipeline.group.ErrOnce.Do(func() {
-					close(c.pipeline.commitCh)
-				})
-			}()
+			// defer func() {
+			// 	c.pipeline.group.ErrOnce.Do(func() {
+			// 		close(c.pipeline.commitCh)
+			// 	})
+			// }()
 
-			for doc := range c.pipeline.outputCh {
-				// c.logger.WithField("workerID", workerID).Debug("working number")
-
-				c.esClient.Add(indexName, tzpe, doc)
-
+			// for doc := range c.pipeline.outputCh {
+			for {
 				select {
+				case doc, open := <-c.pipeline.outputCh:
+					if !open {
+						c.flush(workerID, ctx)
+						return nil
+					}
+					// c.logger.WithField("workerID", workerID).Debug("working number")
+
+					c.esClient.Add(workerID, indexName, tzpe, doc)
+
+					// c.pipeline.group.ErrOnce.Do(func() {
+					if c.esClient.CommitRequired(workerID, actions, bulkSize) {
+						c.commit(workerID, ctx)
+					}
+					// })
+
+				// select {
 				case <-ctx.Done():
 					c.logger.WithError(ctx.Err()).Error("closing log pipeline")
 					return ctx.Err()
-				case c.pipeline.commitCh <- struct{}{}:
+					// case c.pipeline.commitCh <- struct{}{}:
+					// }
 				}
 			}
 
-			return nil
+			// return nil
 		})
 	}
 
@@ -193,68 +209,68 @@ func (c *container) Add(ctx context.Context, workers int, indexName, tzpe string
 }
 
 // Commit commits messages to Elasticsearch
-func (c *container) Commit(ctx context.Context, actions, size int, flushInterval time.Duration) error {
+// func (c *container) Commit(ctx context.Context, actions, size int, flushInterval time.Duration) error {
 
-	c.logger.Debug("starting pipeline: Commit")
+// 	c.logger.Debug("starting pipeline: Commit")
 
-	c.pipeline.group.Go(func() error {
+// 	c.pipeline.group.Go(func() error {
 
-		// err := c.esClient.NewBulkProcessorService(ctx, workers, actions, size, flushInterval, stats)
+// 		// err := c.esClient.NewBulkProcessorService(ctx, workers, actions, size, flushInterval, stats)
 
-		c.pipeline.ticker = time.NewTicker(flushInterval)
+// 		c.pipeline.ticker = time.NewTicker(flushInterval)
 
-		defer func() {
-			// if err := c.esClient.Flush(); err != nil {
-			// 	c.logger.WithError(err).Error("could not flush queue")
-			// }
-			// if err := c.esClient.Close(); err != nil {
-			// 	c.logger.WithError(err).Error("could not close client connection")
-			// }
-			c.logger.Debug("stopping ticker")
-			c.pipeline.ticker.Stop()
+// 		defer func() {
+// 			// if err := c.esClient.Flush(); err != nil {
+// 			// 	c.logger.WithError(err).Error("could not flush queue")
+// 			// }
+// 			// if err := c.esClient.Close(); err != nil {
+// 			// 	c.logger.WithError(err).Error("could not close client connection")
+// 			// }
+// 			c.logger.Debug("stopping ticker")
+// 			c.pipeline.ticker.Stop()
 
-			// commit any left messages in the queue
-			c.flush(ctx)
+// 			// commit any left messages in the queue
+// 			c.flush(ctx)
 
-			c.logger.Debug("stopping client")
-			c.esClient.Stop()
-		}()
+// 			c.logger.Debug("stopping client")
+// 			c.esClient.Stop()
+// 		}()
 
-		for {
-			select {
-			case _, open := <-c.pipeline.commitCh:
-				if !open {
-					return nil
-				}
-				if c.esClient.CommitRequired(actions, size) {
-					c.commit(ctx)
-				}
+// 		for {
+// 			select {
+// 			case _, open := <-c.pipeline.commitCh:
+// 				if !open {
+// 					return nil
+// 				}
+// 				if c.esClient.CommitRequired(actions, size) {
+// 					c.flush(ctx)
+// 				}
 
-			case <-c.pipeline.ticker.C:
-				c.flush(ctx)
+// 			case <-c.pipeline.ticker.C:
+// 				c.flush(ctx)
 
-			case <-ctx.Done():
-				c.logger.WithError(ctx.Err()).Error("closing log pipeline")
-				return ctx.Err()
-			}
-		}
-	})
+// 			case <-ctx.Done():
+// 				c.logger.WithError(ctx.Err()).Error("closing log pipeline")
+// 				return ctx.Err()
+// 			}
+// 		}
+// 	})
 
-	return nil
-}
+// 	return nil
+// }
 
-func (c *container) flush(ctx context.Context) {
-	if c.esClient.NumberOfActions() > 0 {
-		c.commit(ctx)
+func (c *container) flush(workerID int, ctx context.Context) {
+	if c.esClient.NumberOfActions(workerID) > 0 {
+		c.commit(workerID, ctx)
 	}
 }
 
-func (c *container) commit(ctx context.Context) {
+func (c *container) commit(workerID int, ctx context.Context) {
 
 	// c.logger.WithField("size", c.esClient.EstimatedSizeInBytes()).Debug("estimed size in bytes")
 	// c.logger.WithField("actions", c.esClient.NumberOfActions()).Debug("number of actions...")
 
-	bulkResponse, took, rerr, err := c.esClient.Do(ctx)
+	bulkResponse, took, rerr, err := c.esClient.Do(workerID, ctx)
 	if err != nil || rerr {
 		c.logger.WithError(err).Error("could not commit all messages to elasticsearch")
 

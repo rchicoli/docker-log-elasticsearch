@@ -91,15 +91,15 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 		return err
 	}
 
-	if err := c.Add(pctx, config.Bulk.workers, c.indexName, config.tzpe); err != nil {
+	if err := c.Log(pctx, config.Bulk.workers, c.indexName, config.tzpe, config.Bulk.actions, config.Bulk.size); err != nil {
 		c.logger.WithError(err).Error("could not log to elasticsearch")
 		return err
 	}
 
-	if err := c.Commit(pctx, config.Bulk.actions, config.Bulk.size, config.Bulk.flushInterval); err != nil {
-		c.logger.WithError(err).Error("could not log to elasticsearch")
-		return err
-	}
+	// if err := c.Commit(pctx, config.Bulk.actions, config.Bulk.size, config.Bulk.flushInterval); err != nil {
+	// 	c.logger.WithError(err).Error("could not log to elasticsearch")
+	// 	return err
+	// }
 
 	return nil
 
