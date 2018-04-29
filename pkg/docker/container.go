@@ -16,19 +16,17 @@ import (
 	"github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch"
 	"github.com/rchicoli/docker-log-elasticsearch/pkg/extension/grok"
 	"github.com/robfig/cron"
-	// "golang.org/x/sync/errgroup"
-	"github.com/rchicoli/docker-log-elasticsearch/internal/pkg/errgroup"
+	"golang.org/x/sync/errgroup"
 )
 
 type container struct {
 	cron        *cron.Cron
 	esClient    elasticsearch.Client
 	bulkService map[int]elasticsearch.Bulk
-	// bulkService elasticsearch.Bulk
-	indexName string
-	logger    *log.Entry
-	pipeline  pipeline
-	stream    io.ReadCloser
+	indexName   string
+	logger      *log.Entry
+	pipeline    pipeline
+	stream      io.ReadCloser
 }
 
 type pipeline struct {
@@ -43,7 +41,6 @@ type Processor interface {
 	Read(ctx context.Context) error
 	Parse(ctx context.Context, info logger.Info, fields, grokMatch, grokPattern, grokPatternFrom, grokPatternSplitter string, grokNamedCapture bool) error
 	Log(ctx context.Context, workers int, indexName, tzpe string, actions, bulkSize int, flushInterval time.Duration) error
-	// Commit(ctx context.Context, actions, size int, flushInterval time.Duration) error
 }
 
 // Read reads messages from proto buffer
@@ -166,7 +163,7 @@ func (c *container) Log(ctx context.Context, workers int, indexName, tzpe string
 	c.pipeline.ticker = time.NewTicker(flushInterval)
 
 	defer func() {
-		// close earlier?
+		// stop earlier?
 		c.logger.Debug("stopping ticker")
 		c.pipeline.ticker.Stop()
 
@@ -216,7 +213,6 @@ func (c *container) Log(ctx context.Context, workers int, indexName, tzpe string
 				}
 			}
 
-			// return nil
 		})
 	}
 

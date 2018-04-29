@@ -12,8 +12,7 @@ import (
 	"github.com/robfig/cron"
 	"github.com/tonistiigi/fifo"
 
-	// "golang.org/x/sync/errgroup"
-	"github.com/rchicoli/docker-log-elasticsearch/internal/pkg/errgroup"
+	"golang.org/x/sync/errgroup"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/types/plugins/logdriver"
@@ -95,11 +94,6 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 		c.logger.WithError(err).Error("could not log to elasticsearch")
 		return err
 	}
-
-	// if err := c.Commit(pctx, config.Bulk.actions, config.Bulk.size, config.Bulk.flushInterval); err != nil {
-	// 	c.logger.WithError(err).Error("could not log to elasticsearch")
-	// 	return err
-	// }
 
 	return nil
 
