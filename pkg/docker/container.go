@@ -42,7 +42,7 @@ type pipeline struct {
 type Processor interface {
 	Read(ctx context.Context) error
 	Parse(ctx context.Context, info logger.Info, fields, grokMatch, grokPattern, grokPatternFrom, grokPatternSplitter string, grokNamedCapture bool) error
-	Log(ctx context.Context, workers int, indexName, tzpe string, actions, bulkSize int) error
+	Log(ctx context.Context, workers int, indexName, tzpe string, actions, bulkSize int, flushInterval time.Duration) error
 	// Commit(ctx context.Context, actions, size int, flushInterval time.Duration) error
 }
 
@@ -159,30 +159,35 @@ func (c *container) Parse(ctx context.Context, info logger.Info, fields, grokMat
 }
 
 // Add adds messages to Elasticsearch Bulk Service
-func (c *container) Log(ctx context.Context, workers int, indexName, tzpe string, actions, bulkSize int) error {
+func (c *container) Log(ctx context.Context, workers int, indexName, tzpe string, actions, bulkSize int, flushInterval time.Duration) error {
 
 	c.logger.Debug("starting pipeline: Log")
+
+	c.pipeline.ticker = time.NewTicker(flushInterval)
+
+	defer func() {
+		// close earlier?
+		c.logger.Debug("stopping ticker")
+		c.pipeline.ticker.Stop()
+
+		c.logger.Debug("stopping client")
+		c.esClient.Stop()
+	}()
 
 	for i := 0; i < workers; i++ {
 		workerID := i
 		c.logger.WithField("workerID", workerID).Debug("starting worker")
 
-		// one bulk service for each goroutine
+		// one bulk service for each worker
 		c.bulkService[workerID] = elasticsearch.NewBulk(c.esClient)
-		// bulkService := elasticsearch.NewBulk(c.esClient)
 
 		c.pipeline.group.Go(func() error {
-			// defer func() {
-			// 	c.pipeline.group.ErrOnce.Do(func() {
-			// 		close(c.pipeline.commitCh)
-			// 	})
-			// }()
 
-			// for doc := range c.pipeline.outputCh {
 			for {
 				select {
 				case doc, open := <-c.pipeline.outputCh:
 					if !open {
+						// commit any left messages in the queue
 						c.flush(workerID, ctx)
 						return nil
 					}
@@ -194,11 +199,15 @@ func (c *container) Log(ctx context.Context, workers int, indexName, tzpe string
 						c.commit(workerID, ctx)
 					}
 
+				case <-c.pipeline.ticker.C:
+					// c.logger.WithFields(log.Fields{"ticker": c.pipeline.ticker, "workerID": workerID}).Debug("ticking")
+					c.flush(workerID, ctx)
+
 				case <-ctx.Done():
 					c.logger.WithError(ctx.Err()).Error("closing log pipeline")
 					return ctx.Err()
 					// commit has to be in the same goroutine
-					// because of reset is called in the Do()
+					// because of reset is called in the Do() func
 					// case c.pipeline.commitCh <- struct{}{}:
 				}
 			}
@@ -209,57 +218,6 @@ func (c *container) Log(ctx context.Context, workers int, indexName, tzpe string
 
 	return nil
 }
-
-// Commit commits messages to Elasticsearch
-// func (c *container) Commit(ctx context.Context, actions, size int, flushInterval time.Duration) error {
-
-// 	c.logger.Debug("starting pipeline: Commit")
-
-// 	c.pipeline.group.Go(func() error {
-
-// 		// err := c.esClient.NewBulkProcessorService(ctx, workers, actions, size, flushInterval, stats)
-
-// 		c.pipeline.ticker = time.NewTicker(flushInterval)
-
-// 		defer func() {
-// 			// if err := c.esClient.Flush(); err != nil {
-// 			// 	c.logger.WithError(err).Error("could not flush queue")
-// 			// }
-// 			// if err := c.esClient.Close(); err != nil {
-// 			// 	c.logger.WithError(err).Error("could not close client connection")
-// 			// }
-// 			c.logger.Debug("stopping ticker")
-// 			c.pipeline.ticker.Stop()
-
-// 			// commit any left messages in the queue
-// 			c.flush(ctx)
-
-// 			c.logger.Debug("stopping client")
-// 			c.esClient.Stop()
-// 		}()
-
-// 		for {
-// 			select {
-// 			case _, open := <-c.pipeline.commitCh:
-// 				if !open {
-// 					return nil
-// 				}
-// 				if c.esClient.CommitRequired(actions, size) {
-// 					c.flush(ctx)
-// 				}
-
-// 			case <-c.pipeline.ticker.C:
-// 				c.flush(ctx)
-
-// 			case <-ctx.Done():
-// 				c.logger.WithError(ctx.Err()).Error("closing log pipeline")
-// 				return ctx.Err()
-// 			}
-// 		}
-// 	})
-
-// 	return nil
-// }
 
 func (c *container) flush(workerID int, ctx context.Context) {
 	if c.bulkService[workerID].NumberOfActions() > 0 {
