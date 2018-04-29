@@ -9,6 +9,7 @@ SCRIPTS_DIR         ?= $(BASE_DIR)/scripts
 TESTS_DIR           ?= $(BASE_DIR)/tests
 
 CLIENT_VERSION      ?= 5
+DEBUG_LEVEL			?= debug
 
 SHELL               := /bin/bash
 SYSCTL              := $(shell which sysctl)
@@ -62,7 +63,7 @@ plugin_push:
 
 plugin_set:
 	@echo ""
-	docker plugin set $(PLUGIN_NAME):$(PLUGIN_TAG) LOG_LEVEL=debug
+	docker plugin set $(PLUGIN_NAME):$(PLUGIN_TAG) LOG_LEVEL=$(DEBUG_LEVEL)
 
 push: plugin_push
 
