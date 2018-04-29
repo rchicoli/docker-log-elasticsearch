@@ -75,3 +75,36 @@ function test_bulk_disable_actions_and_bulk_size(){
   basht_assert "echo '${output}' | jq -r '.hits.hits[0]._source.message'" == "$message"
 
 }
+
+function test_bulk_multiple_messages(){
+
+  description="[${BASHT_TEST_FILENAME##*/}] acceptance-tests (v${CLIENT_VERSION}): $BASHT_TEST_NUMBER - bulk multiple bulk messages"
+  echo "$description"
+
+  name="${BASHT_TEST_FILENAME##*/}.${BASHT_TEST_NUMBER}"
+  message="$((RANDOM)) $description"
+
+  basht_run docker run -d \
+    --log-driver rchicoli/docker-log-elasticsearch:development \
+    --log-opt elasticsearch-url="${ELASTICSEARCH_URL}" \
+    --log-opt elasticsearch-version="${CLIENT_VERSION}" \
+     --name "$name" --ip="${WEBAPPER_IP}" --network="docker_development" \
+    --log-opt elasticsearch-bulk-actions=15 \
+    --log-opt elasticsearch-bulk-flush-interval='1s' \
+    rchicoli/webapper
+
+  for i in {1..99}; do
+    basht_run curl -XPOST -H "Content-Type: application/json" --data "{\"message\":\"${message}-$i\"}" "http://${WEBAPPER_IP}:${WEBAPPER_PORT}/log"
+  done
+
+  sleep "${SLEEP_TIME}"
+
+  basht_run curl -s --connect-timeout 5 \
+    "${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search?pretty=true&size=100"
+  for i in {1..99}; do
+    basht_assert "echo '${output}' | jq -r '.hits.hits[]._source | select(.message==\"${message}-$i\").message'" == "${message}-$i"
+  done
+
+  basht_run docker rm -f "$name"
+
+}
