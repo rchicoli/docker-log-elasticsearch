@@ -192,7 +192,6 @@ $ docker run --rm -ti \
     --log-opt elasticsearch-bulk-actions=1000 \
     --log-opt elasticsearch-bulk-size=1024 \
     --log-opt elasticsearch-bulk-flush-interval=1s \
-    --log-opt elasticsearch-bulk-stats=false \
         alpine echo -n "this is a test logging message"
 ```
 
