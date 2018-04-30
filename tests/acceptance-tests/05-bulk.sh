@@ -98,7 +98,8 @@ function test_bulk_multiple_messages(){
     basht_run curl -XPOST -H "Content-Type: application/json" --data "{\"message\":\"${message}-$i\"}" "http://${WEBAPPER_IP}:${WEBAPPER_PORT}/log"
   done
 
-  basht_run docker rm -f "$name"
+  basht_run docker stop "$name"
+  basht_run docker rm "$name"
   sleep "${SLEEP_TIME}"
 
   basht_run curl -s --connect-timeout 5 \
