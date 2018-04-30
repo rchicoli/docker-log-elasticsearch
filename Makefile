@@ -18,7 +18,7 @@ DOCKER_COMPOSE      := $(shell which docker-compose)
 
 .PHONY: all
 
-all: clean docker_build plugin_create plugin_enable clean
+all: clean docker_build plugin_create plugin_set plugin_enable clean
 
 local: clean build unit_tests plugin_create plugin_set plugin_enable clean
 
