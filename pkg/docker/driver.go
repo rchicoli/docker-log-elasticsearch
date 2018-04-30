@@ -6,16 +6,12 @@ import (
 	"path"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/robfig/cron"
-	"github.com/tonistiigi/fifo"
 
 	"golang.org/x/sync/errgroup"
 
-	log "github.com/Sirupsen/logrus"
-	"github.com/docker/docker/api/types/plugins/logdriver"
 	"github.com/docker/docker/daemon/logger"
 
 	"github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch"
@@ -53,8 +49,11 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 		return err
 	}
 
-	ctx := context.Background()
+	if d.containerExists(file) {
+		return fmt.Errorf("error: a logger for this container already exists: %s", file)
+	}
 
+	ctx := context.Background()
 	c, err := d.newContainer(ctx, file, info.ContainerID)
 	if err != nil {
 		return err
@@ -145,35 +144,28 @@ func (d *Driver) StopLogging(file string) error {
 
 }
 
+func (d *Driver) containerExists(file string) bool {
+	filename := path.Base(file)
+	d.mu.Lock()
+	if _, exists := d.logs[filename]; exists {
+		return true
+	}
+	d.mu.Unlock()
+	return false
+}
+
 // newContainer stores the container's configuration in memory
 // and returns a pointer to the container
 func (d *Driver) newContainer(ctx context.Context, file, containerID string) (*container, error) {
 
 	filename := path.Base(file)
-	log.WithField("fifo", file).Debug("created fifo file")
 
-	d.mu.Lock()
-	if _, exists := d.logs[filename]; exists {
-		return nil, fmt.Errorf("error: a logger for this container already exists: %s", filename)
-	}
-	d.mu.Unlock()
-
-	f, err := fifo.OpenFifo(ctx, file, syscall.O_RDONLY, 0700)
+	c, err := newContainer(ctx, file, containerID)
 	if err != nil {
-		return nil, fmt.Errorf("could not open fifo: %q", err)
+		return nil, err
 	}
 
 	d.mu.Lock()
-	c := &container{
-		bulkService: make(map[int]*BulkWorker),
-		stream:      f,
-		logger:      log.WithField("containerID", containerID),
-		pipeline: pipeline{
-			commitCh: make(chan struct{}),
-			inputCh:  make(chan logdriver.LogEntry),
-			outputCh: make(chan LogMessage),
-		},
-	}
 	d.logs[filename] = c
 	d.mu.Unlock()
 
@@ -190,7 +182,7 @@ func (d *Driver) getContainer(file string) (*container, error) {
 
 	c, exists := d.logs[filename]
 	if !exists {
-		return nil, fmt.Errorf("error: logger not found for socket ID: %v", file)
+		return nil, fmt.Errorf("error: container not found for socket ID: %v", file)
 	}
 
 	return c, nil

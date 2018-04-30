@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"os"
 	"strings"
+	"syscall"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -16,6 +18,7 @@ import (
 	"github.com/rchicoli/docker-log-elasticsearch/pkg/elasticsearch"
 	"github.com/rchicoli/docker-log-elasticsearch/pkg/extension/grok"
 	"github.com/robfig/cron"
+	"github.com/tonistiigi/fifo"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -40,6 +43,27 @@ type Processor interface {
 	Read(ctx context.Context) error
 	Parse(ctx context.Context, info logger.Info, fields, grokMatch, grokPattern, grokPatternFrom, grokPatternSplitter string, grokNamedCapture bool) error
 	Log(ctx context.Context, workers int, indexName, tzpe string, actions, bulkSize int, flushInterval time.Duration) error
+}
+
+// newContainer stores the container's configuration in memory
+// and returns a pointer to the container
+func newContainer(ctx context.Context, file, containerID string) (*container, error) {
+
+	f, err := fifo.OpenFifo(ctx, file, syscall.O_RDONLY, 0700)
+	if err != nil {
+		return nil, fmt.Errorf("could not open fifo: %q", err)
+	}
+
+	return &container{
+		bulkService: make(map[int]*BulkWorker),
+		stream:      f,
+		logger:      log.WithField("containerID", containerID),
+		pipeline: pipeline{
+			commitCh: make(chan struct{}),
+			inputCh:  make(chan logdriver.LogEntry),
+			outputCh: make(chan LogMessage),
+		},
+	}, nil
 }
 
 // Read reads messages from proto buffer
