@@ -91,7 +91,7 @@ function test_bulk_multiple_messages(){
      --name "$name" --ip="${WEBAPPER_IP}" --network="docker_development" \
     --log-opt elasticsearch-bulk-actions=100 \
     --log-opt elasticsearch-bulk-flush-interval='1s' \
-    --log-opt elasticsearch-bulk-workers=99 \
+    --log-opt elasticsearch-bulk-workers=2 \
     rchicoli/webapper
 
   bulk_size=199
