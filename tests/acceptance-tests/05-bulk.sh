@@ -91,20 +91,21 @@ function test_bulk_multiple_messages(){
      --name "$name" --ip="${WEBAPPER_IP}" --network="docker_development" \
     --log-opt elasticsearch-bulk-actions=100 \
     --log-opt elasticsearch-bulk-flush-interval='1s' \
+    --log-opt elasticsearch-bulk-workers=50 \
     rchicoli/webapper
 
-  for i in {1..20}; do
+  for i in {1..49}; do
     basht_run curl -XPOST -H "Content-Type: application/json" --data "{\"message\":\"${message}-$i\"}" "http://${WEBAPPER_IP}:${WEBAPPER_PORT}/log"
   done
 
+  basht_run docker rm -f "$name"
   sleep "${SLEEP_TIME}"
 
   basht_run curl -s --connect-timeout 5 \
     "${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search?pretty=true&size=100"
-  for i in {1..20}; do
+  for i in {1..49}; do
     basht_assert "echo '${output}' | jq -r '.hits.hits[]._source | select(.message==\"${message}-$i\").message'" == "${message}-$i"
   done
 
-  basht_run docker rm -f "$name"
 
 }

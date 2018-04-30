@@ -39,16 +39,18 @@ function test_reconnect_after_elasticsearch_restart(){
   basht_run curl -XPOST -H "Content-Type: application/json" --data "{\"message\":\"${message}-3\"}" "http://${WEBAPPER_IP}:${WEBAPPER_PORT}/log"
   basht_run curl -XPOST -H "Content-Type: application/json" --data "{\"message\":\"${message}-4\"}" "http://${WEBAPPER_IP}:${WEBAPPER_PORT}/log"
   basht_run curl -XPOST -H "Content-Type: application/json" --data "{\"message\":\"${message}-5\"}" "http://${WEBAPPER_IP}:${WEBAPPER_PORT}/log"
+
+  # sleep for awhile when elasticsearch is down to test a reconnection
   sleep 10
 
   basht_run docker start elasticsearch
   basht_run _elasticsearchHealth
+
+  basht_run docker rm -f "$name"
   sleep "${SLEEP_TIME}"
 
   basht_run curl -s -k -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" --connect-timeout 5 \
     "${ELASTICSEARCH_URL}/_search?pretty=true&size=10"
   basht_assert "echo '${output}' | jq -r '.hits.total'" == 5
-
-  basht_run docker rm -f "$name"
 
 }

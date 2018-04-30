@@ -124,6 +124,10 @@ func (d *Driver) StopLogging(file string) error {
 		c.stream.Close()
 	}
 
+	if c.cron != nil {
+		c.cron.Stop()
+	}
+
 	if c.pipeline.group != nil {
 		c.logger.Info("closing pipeline")
 
@@ -133,13 +137,9 @@ func (d *Driver) StopLogging(file string) error {
 		}
 	}
 
-	if c.cron != nil {
-		c.cron.Stop()
+	if c.esClient != nil {
+		c.esClient.Stop()
 	}
-
-	// if c.esClient != nil {
-	//	close client connection on last pipeline
-	// }
 
 	return nil
 
