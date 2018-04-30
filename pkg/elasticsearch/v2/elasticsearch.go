@@ -133,13 +133,16 @@ func (e BulkService) Do(_ context.Context) (interface{}, int, bool, error) {
 //   }
 func (e BulkService) Errors(bulkResponse interface{}) []map[int]string {
 
-	if bulkResponse == nil {
+	if bulkResponse == nil || bulkResponse.(*elastic.BulkResponse).Items == nil {
 		return nil
 	}
 
 	var reason []map[int]string
 	for _, item := range bulkResponse.(*elastic.BulkResponse).Items {
 		for _, result := range item {
+			if result.Error == nil {
+				continue
+			}
 			reason = append(reason, map[int]string{
 				result.Status: result.Error.Reason,
 			})
