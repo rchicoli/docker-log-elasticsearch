@@ -64,23 +64,24 @@ func (c *container) Read(ctx context.Context) error {
 			if err = dec.ReadMsg(&buf); err != nil {
 				if err == io.EOF {
 					c.logger.Debug("shutting down reader eof")
-					break
+					return nil
 				}
 				// the connection has been closed
 				// stop looping and close the input channel
 				// read /proc/self/fd/6: file already closed
 				if strings.Contains(err.Error(), os.ErrClosed.Error()) {
 					c.logger.WithError(err).Debug("shutting down fifo: closed by the writer")
-					break
+					// break
+					// shutdown grafully all pipelines
+					return nil
 				}
 				if err != nil {
 					// the connection has been closed
 					// stop looping and closing the input channel
 					// read /proc/self/fd/6: file already closed
 					c.logger.WithError(err).Debug("shutting down fifo")
-					break
-					// do not return, otherwise group.Go closes the pipeline
-					// return err
+					// break
+					return err
 				}
 
 				dec = protoio.NewUint32DelimitedReader(c.stream, binary.BigEndian, 1e6)
@@ -95,13 +96,13 @@ func (c *container) Read(ctx context.Context) error {
 			select {
 			case c.pipeline.inputCh <- buf:
 			case <-ctx.Done():
-				c.logger.WithError(ctx.Err()).Error("closing read pipeline")
+				c.logger.WithError(ctx.Err()).Error("closing read pipeline: Read")
 				return ctx.Err()
 			}
 			buf.Reset()
 		}
 
-		return nil
+		// return nil
 	})
 
 	return nil
@@ -143,7 +144,7 @@ func (c *container) Parse(ctx context.Context, info logger.Info, fields, grokMat
 			select {
 			case c.pipeline.outputCh <- msg:
 			case <-ctx.Done():
-				c.logger.WithError(ctx.Err()).Error("closing parse pipeline")
+				c.logger.WithError(ctx.Err()).Error("closing parse pipeline: Parse")
 				return ctx.Err()
 			}
 
@@ -202,7 +203,7 @@ func (c *container) Log(ctx context.Context, workers int, indexName, tzpe string
 					// c.logger.WithFields(log.Fields{"ticker": ticker, "workerID": workerID}).Debug("ticking")
 					c.flush(workerID, ctx)
 				case <-ctx.Done():
-					c.logger.WithError(ctx.Err()).Error("closing log pipeline")
+					c.logger.WithError(ctx.Err()).Error("closing log pipeline: Log")
 					return ctx.Err()
 					// commit has to be in the same goroutine
 					// because of reset is called in the Do() func
