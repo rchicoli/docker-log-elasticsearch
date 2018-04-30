@@ -78,11 +78,11 @@ function test_bulk_disable_actions_and_bulk_size(){
 
 function test_bulk_multiple_messages(){
 
-  description="[${BASHT_TEST_FILENAME##*/}] acceptance-tests (v${CLIENT_VERSION}): $BASHT_TEST_NUMBER - bulk multiple bulk messages"
+  description="[${BASHT_TEST_FILENAME##*/}] acceptance-tests (v${CLIENT_VERSION}): $BASHT_TEST_NUMBER - bulk multiple messages"
   echo "$description"
 
   name="${BASHT_TEST_FILENAME##*/}.${BASHT_TEST_NUMBER}"
-  message="$((RANDOM)) $description"
+  message="bulk-multi-message"
 
   basht_run docker run -d \
     --log-driver rchicoli/docker-log-elasticsearch:development \
@@ -91,22 +91,26 @@ function test_bulk_multiple_messages(){
      --name "$name" --ip="${WEBAPPER_IP}" --network="docker_development" \
     --log-opt elasticsearch-bulk-actions=100 \
     --log-opt elasticsearch-bulk-flush-interval='1s' \
-    --log-opt elasticsearch-bulk-workers=50 \
+    --log-opt elasticsearch-bulk-workers=99 \
     rchicoli/webapper
 
-  for i in {1..49}; do
-    basht_run curl -XPOST -H "Content-Type: application/json" --data "{\"message\":\"${message}-$i\"}" "http://${WEBAPPER_IP}:${WEBAPPER_PORT}/log"
+  bulk_size=499
+
+  for i in $(seq 1 "$bulk_size"); do
+    basht_run curl -s -XPOST -H "Content-Type: application/json" --data "{\"message\":\"$message-$i\"}" "http://${WEBAPPER_IP}:${WEBAPPER_PORT}/log" >/dev/null
   done
 
   basht_run docker stop "$name"
   basht_run docker rm "$name"
   sleep "${SLEEP_TIME}"
 
-  basht_run curl -s --connect-timeout 5 \
-    "${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search?pretty=true&size=100"
-  for i in {1..49}; do
-    basht_assert "echo '${output}' | jq -r '.hits.hits[]._source | select(.message==\"${message}-$i\").message'" == "${message}-$i"
-  done
+  basht_run curl -s --connect-timeout 5 "${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search?pretty=true&size=1"
+  basht_assert "echo '${output}' | jq -r '.hits.total'" == "$bulk_size"
 
+  for i in $(seq 1 "$bulk_size"); do
+    basht_run curl -G -s --connect-timeout 5 "${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search?pretty=true" \
+      --data-urlencode "q=message:${message}-$i" >/dev/null
+    basht_assert "echo '${output}' | jq -r '.hits.hits[0]._source.message'" equals "$message-$i"
+  done
 
 }
