@@ -94,7 +94,7 @@ function test_bulk_multiple_messages(){
     --log-opt elasticsearch-bulk-workers=99 \
     rchicoli/webapper
 
-  bulk_size=499
+  bulk_size=199
 
   for i in $(seq 1 "$bulk_size"); do
     basht_run curl -s -XPOST -H "Content-Type: application/json" --data "{\"message\":\"$message-$i\"}" "http://${WEBAPPER_IP}:${WEBAPPER_PORT}/log" >/dev/null
@@ -108,8 +108,8 @@ function test_bulk_multiple_messages(){
   basht_assert "echo '${output}' | jq -r '.hits.total'" == "$bulk_size"
 
   for i in $(seq 1 "$bulk_size"); do
-    basht_run curl -G -s --connect-timeout 5 "${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search?pretty=true" \
-      --data-urlencode "q=message:${message}-$i" >/dev/null
+    basht_run curl -G -s --connect-timeout 5 "${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search?pretty=true&size=1" \
+      --data-urlencode "q=message:\"${message}-$i\"" >/dev/null
     basht_assert "echo '${output}' | jq -r '.hits.hits[0]._source.message'" equals "$message-$i"
   done
 
