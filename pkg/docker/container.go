@@ -162,19 +162,10 @@ func (c *container) Log(ctx context.Context, workers int, indexName, tzpe string
 
 	c.pipeline.ticker = time.NewTicker(flushInterval)
 
-	defer func() {
-		// stop earlier?
-		c.logger.Debug("stopping ticker")
-		c.pipeline.ticker.Stop()
-
-		c.logger.Debug("stopping client")
-		c.esClient.Stop()
-	}()
-
 	var err error
 	for i := 0; i < workers; i++ {
 		workerID := i
-		c.logger.WithField("workerID", workerID).Debug("starting worker")
+		c.logger.WithField("workerID", workerID).WithField("flushinterval", flushInterval).Debug("starting worker")
 
 		// one bulk service for each worker
 		c.bulkService[workerID], err = elasticsearch.NewBulk(c.esClient)
@@ -186,11 +177,18 @@ func (c *container) Log(ctx context.Context, workers int, indexName, tzpe string
 
 			for {
 				select {
+				case <-c.pipeline.ticker.C:
+					c.logger.WithFields(log.Fields{"ticker": c.pipeline.ticker, "workerID": workerID}).Debug("ticking")
+					c.flush(workerID, ctx)
 				case doc, open := <-c.pipeline.outputCh:
 					if !open {
 						// commit any left messages in the queue
 						c.flush(workerID, ctx)
+						// time.Sleep(1 * time.Second)
+
+						c.stop()
 						return nil
+						// break
 					}
 					// c.logger.WithField("workerID", workerID).Debug("working number")
 
@@ -200,12 +198,9 @@ func (c *container) Log(ctx context.Context, workers int, indexName, tzpe string
 						c.commit(workerID, ctx)
 					}
 
-				case <-c.pipeline.ticker.C:
-					// c.logger.WithFields(log.Fields{"ticker": c.pipeline.ticker, "workerID": workerID}).Debug("ticking")
-					c.flush(workerID, ctx)
-
 				case <-ctx.Done():
 					c.logger.WithError(ctx.Err()).Error("closing log pipeline")
+					c.stop()
 					return ctx.Err()
 					// commit has to be in the same goroutine
 					// because of reset is called in the Do() func
@@ -225,6 +220,13 @@ func (c *container) flush(workerID int, ctx context.Context) {
 	}
 }
 
+func (c *container) stop() {
+	// c.logger.Debug("stopping ticker")
+	c.pipeline.ticker.Stop()
+
+	// c.logger.Debug("stopping client")
+	c.esClient.Stop()
+}
 func (c *container) commit(workerID int, ctx context.Context) {
 
 	// c.logger.WithField("size", c.esClient.EstimatedSizeInBytes()).Debug("estimed size in bytes")

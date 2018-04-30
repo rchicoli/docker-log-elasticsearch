@@ -89,7 +89,7 @@ function test_bulk_multiple_messages(){
     --log-opt elasticsearch-url="${ELASTICSEARCH_URL}" \
     --log-opt elasticsearch-version="${CLIENT_VERSION}" \
      --name "$name" --ip="${WEBAPPER_IP}" --network="docker_development" \
-    --log-opt elasticsearch-bulk-actions=15 \
+    --log-opt elasticsearch-bulk-actions=100 \
     --log-opt elasticsearch-bulk-flush-interval='1s' \
     rchicoli/webapper
 
