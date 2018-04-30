@@ -165,7 +165,7 @@ func (d *Driver) newContainer(ctx context.Context, file, containerID string) (*c
 
 	d.mu.Lock()
 	c := &container{
-		bulkService: make(map[int]elasticsearch.Bulk),
+		bulkService: make(map[int]*BulkWorker),
 		stream:      f,
 		logger:      log.WithField("containerID", containerID),
 		pipeline: pipeline{

@@ -22,7 +22,7 @@ import (
 type container struct {
 	cron        *cron.Cron
 	esClient    elasticsearch.Client
-	bulkService map[int]elasticsearch.Bulk
+	bulkService map[int]*BulkWorker
 	indexName   string
 	logger      *log.Entry
 	pipeline    pipeline
@@ -156,6 +156,24 @@ func (c *container) Parse(ctx context.Context, info logger.Info, fields, grokMat
 	return nil
 }
 
+type BulkWorker struct {
+	elasticsearch.Bulk
+	logger *log.Entry
+	ticker *time.Ticker
+}
+
+func newWorker(client elasticsearch.Client, logEntry *log.Entry, workerID int, flushInterval time.Duration) (*BulkWorker, error) {
+	bulkService, err := elasticsearch.NewBulk(client)
+	if err != nil {
+		return nil, err
+	}
+	return &BulkWorker{
+		Bulk:   bulkService,
+		logger: logEntry.WithField("workerID", workerID),
+		ticker: time.NewTicker(flushInterval),
+	}, nil
+}
+
 // Add adds messages to Elasticsearch Bulk Service
 func (c *container) Log(ctx context.Context, workers int, indexName, tzpe string, actions, bulkSize int, flushInterval time.Duration) error {
 
@@ -164,25 +182,22 @@ func (c *container) Log(ctx context.Context, workers int, indexName, tzpe string
 	var err error
 	for i := 0; i < workers; i++ {
 		workerID := i
-		c.logger.WithField("workerID", workerID).Debug("starting worker")
 
 		// one bulk service for each worker
-		c.bulkService[workerID], err = elasticsearch.NewBulk(c.esClient)
+		c.bulkService[workerID], err = newWorker(c.esClient, c.logger, workerID, flushInterval)
 		if err != nil {
 			return err
 		}
-		// one ticker per worker
-		// TODO: create a type worker
-		ticker := time.NewTicker(flushInterval)
 
+		c.bulkService[workerID].logger.Debug("starting worker")
 		c.pipeline.group.Go(func() error {
 
 			defer func() {
-				c.logger.WithField("workerID", workerID).Debug("closing worker")
+				c.bulkService[workerID].logger.Debug("closing worker")
 				// commit any left messages in the queue
-				c.flush(workerID, ctx)
+				c.bulkService[workerID].Flush(ctx)
 				c.logger.Debug("stopping ticker")
-				ticker.Stop()
+				c.bulkService[workerID].ticker.Stop()
 			}()
 
 			for {
@@ -191,19 +206,17 @@ func (c *container) Log(ctx context.Context, workers int, indexName, tzpe string
 					if !open {
 						return nil
 					}
-					// c.logger.WithField("workerID", workerID).Debug("working number")
-
 					c.bulkService[workerID].Add(indexName, tzpe, doc)
 
 					if c.bulkService[workerID].CommitRequired(actions, bulkSize) {
-						c.commit(workerID, ctx)
+						c.bulkService[workerID].Commit(ctx)
 					}
 
-				case <-ticker.C:
-					// c.logger.WithFields(log.Fields{"ticker": ticker, "workerID": workerID}).Debug("ticking")
-					c.flush(workerID, ctx)
+				case <-c.bulkService[workerID].ticker.C:
+					// c.bulkService[workerID].logger.WithField("ticker", c.bulkService[workerID].ticker).Debug("ticking")
+					c.bulkService[workerID].Flush(ctx)
 				case <-ctx.Done():
-					c.logger.WithError(ctx.Err()).Error("closing log pipeline: Log")
+					c.bulkService[workerID].logger.WithError(ctx.Err()).Error("closing log pipeline: Log")
 					return ctx.Err()
 					// commit has to be in the same goroutine
 					// because of reset is called in the Do() func
@@ -216,32 +229,37 @@ func (c *container) Log(ctx context.Context, workers int, indexName, tzpe string
 	return nil
 }
 
-func (c *container) flush(workerID int, ctx context.Context) {
-	if c.bulkService[workerID].NumberOfActions() > 0 {
-		c.commit(workerID, ctx)
+type BulkWorkerService interface {
+	Flush(ctx context.Context)
+	Commit(ctx context.Context)
+}
+
+func (b BulkWorker) Flush(ctx context.Context) {
+	if b.NumberOfActions() > 0 {
+		b.Commit(ctx)
 	}
 }
 
-func (c *container) commit(workerID int, ctx context.Context) {
+func (b *BulkWorker) Commit(ctx context.Context) {
 
-	// c.logger.WithField("size", c.esClient.EstimatedSizeInBytes()).Debug("estimed size in bytes")
-	// c.logger.WithField("actions", c.esClient.NumberOfActions()).Debug("number of actions...")
-	// c.logger.WithFields(log.Fields{"docs": c.bulkService[workerID].NumberOfActions(), "workerID": workerID}).Debug("bulking")
+	// b.logger.WithField("size", c.esClient.EstimatedSizeInBytes()).Debug("estimed size in bytes")
+	// b.logger.WithField("actions", c.esClient.NumberOfActions()).Debug("number of actions...")
+	// b.logger.WithFields(log.Fields{"docs": c.bulkService[workerID].NumberOfActions(), "workerID": workerID}).Debug("bulking")
 
-	bulkResponse, _, rerr, err := c.bulkService[workerID].Do(ctx)
+	bulkResponse, _, rerr, err := b.Do(ctx)
 	if err != nil || rerr {
-		c.logger.WithError(err).Error("could not commit all messages to elasticsearch")
+		b.logger.WithError(err).Error("could not commit all messages to elasticsearch")
 
 		// find out the reasons of the failure
-		if responses := c.bulkService[workerID].Errors(bulkResponse); responses != nil {
+		if responses := b.Errors(bulkResponse); responses != nil {
 			for _, response := range responses {
 				for status, reason := range response {
-					c.logger.WithFields(log.Fields{"reason": reason, "status": status}).Info("reason and status")
+					b.logger.WithFields(log.Fields{"reason": reason, "status": status}).Info("reason and status")
 				}
 			}
 		}
 	}
-	// c.logger.WithFields(log.Fields{"took": took, "workerID": workerID}).Debug("bulk response time")
+	// b.logger.WithFields(log.Fields{"took": took}).Debug("bulk response time")
 }
 
 // Stats shows metrics related to the bulk service
