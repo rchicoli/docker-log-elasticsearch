@@ -34,7 +34,6 @@ type pipeline struct {
 	inputCh  chan logdriver.LogEntry
 	outputCh chan LogMessage
 	commitCh chan struct{}
-	ticker   *time.Ticker
 }
 
 type Processor interface {
