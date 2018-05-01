@@ -70,17 +70,17 @@ func NewClient(version string, url, username, password string, timeout time.Dura
 }
 
 // NewBulk returns a bulkService depending on the client version
-func NewBulk(client Client) (Bulk, error) {
+func NewBulk(client Client, timeout time.Duration) (Bulk, error) {
 	version := client.Version()
 	switch version {
 	case 1:
-		return elasticv1.Bulk(client.(*elasticv1.Elasticsearch)), nil
+		return elasticv1.Bulk(client.(*elasticv1.Elasticsearch), timeout), nil
 	case 2:
-		return elasticv2.Bulk(client.(*elasticv2.Elasticsearch)), nil
+		return elasticv2.Bulk(client.(*elasticv2.Elasticsearch), timeout), nil
 	case 5:
-		return elasticv5.Bulk(client.(*elasticv5.Elasticsearch)), nil
+		return elasticv5.Bulk(client.(*elasticv5.Elasticsearch), timeout), nil
 	case 6:
-		return elasticv6.Bulk(client.(*elasticv6.Elasticsearch)), nil
+		return elasticv6.Bulk(client.(*elasticv6.Elasticsearch), timeout), nil
 	default:
 		return nil, fmt.Errorf("error: elasticsearch version not supported: %v", version)
 	}

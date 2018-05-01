@@ -89,7 +89,7 @@ func (d *Driver) StartLogging(file string, info logger.Info) error {
 		return err
 	}
 
-	if err := c.Log(pctx, config.Bulk.workers, c.indexName, config.tzpe, config.Bulk.actions, config.Bulk.size, config.Bulk.flushInterval); err != nil {
+	if err := c.Log(pctx, config.Bulk.workers, c.indexName, config.tzpe, config.Bulk.actions, config.Bulk.size, config.Bulk.flushInterval, config.timeout); err != nil {
 		c.logger.WithError(err).Error("could not log to elasticsearch")
 		return err
 	}
@@ -137,6 +137,7 @@ func (d *Driver) StopLogging(file string) error {
 	}
 
 	if c.esClient != nil {
+		c.logger.Info("stopping client")
 		c.esClient.Stop()
 	}
 

@@ -20,10 +20,6 @@ type Elasticsearch struct {
 	// *elastic.BulkProcessorService
 }
 
-type BulkService struct {
-	bulkService *elastic.BulkService
-}
-
 // NewClient creates a new elasticsearch client
 func NewClient(address, username, password string, timeout time.Duration, sniff bool, insecure bool) (*Elasticsearch, error) {
 
@@ -61,14 +57,25 @@ func (e *Elasticsearch) Log(ctx context.Context, index, tzpe string, msg interfa
 	return nil
 }
 
-// Bulk creates a service
-func Bulk(client *Elasticsearch) *BulkService {
-	return &BulkService{elastic.NewBulkService(client.Client)}
-}
-
 // Version reports the client version
 func (e *Elasticsearch) Version() int {
 	return version
+}
+
+// BulkService ...
+type BulkService struct {
+	bulkService    *elastic.BulkService
+	initialTimeout time.Duration
+	timeout        time.Duration
+}
+
+// Bulk creates a service
+func Bulk(client *Elasticsearch, timeout time.Duration) *BulkService {
+	return &BulkService{
+		bulkService:    elastic.NewBulkService(client.Client),
+		timeout:        timeout,
+		initialTimeout: 100 * time.Millisecond,
+	}
 }
 
 // Add adds bulkable requests, i.e. BulkIndexRequest, BulkUpdateRequest,
@@ -109,7 +116,29 @@ func (e BulkService) CommitRequired(actions int, bulkSize int) bool {
 //   }
 // }
 func (e BulkService) Do(ctx context.Context) (interface{}, int, bool, error) {
-	bulkResponse, err := e.bulkService.Do(ctx)
+
+	var bulkResponse *elastic.BulkResponse
+
+	// commitFunc will commit bulk requests and, on failure, be retried
+	// via exponential backoff
+	commitFunc := func() error {
+		var err error
+		bulkResponse, err = e.bulkService.Do(ctx)
+		// if bulkResponse != nil {
+		// 	if bulkResponse.Errors {
+		// 		err = errors.New("bulk response errors")
+		// 	}
+		// }
+		return err
+	}
+	// notifyFunc will be called if retry fails
+	notifyFunc := func(_ error) {
+		// log.Printf("elastic: bulk processor failed but may retry: %v", err)
+	}
+
+	policy := elastic.NewExponentialBackoff(e.initialTimeout, e.timeout)
+	err := elastic.RetryNotify(commitFunc, policy, notifyFunc)
+
 	if bulkResponse != nil {
 		return bulkResponse, bulkResponse.Took, bulkResponse.Errors, err
 	}
@@ -136,7 +165,10 @@ func (e BulkService) Do(ctx context.Context) (interface{}, int, bool, error) {
 //   }
 func (e BulkService) Errors(bulkResponse interface{}) []map[int]string {
 
-	if bulkResponse == nil || bulkResponse.(*elastic.BulkResponse).Items == nil {
+	if bulkResponse == nil {
+		return nil
+	}
+	if bulkResponse.(*elastic.BulkResponse).Items == nil {
 		return nil
 	}
 

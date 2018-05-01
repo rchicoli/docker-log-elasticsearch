@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"gopkg.in/olivere/elastic.v3"
+	"gopkg.in/olivere/elastic.v3/backoff"
 )
 
 const version = 2
@@ -16,11 +17,6 @@ const version = 2
 // Elasticsearch client
 type Elasticsearch struct {
 	*elastic.Client
-}
-
-// BulkService ...
-type BulkService struct {
-	bulkService *elastic.BulkService
 }
 
 // NewClient creates a new elasticsearch client
@@ -60,12 +56,23 @@ func (e *Elasticsearch) Log(_ context.Context, index, tzpe string, msg interface
 	return nil
 }
 
-func Bulk(client *Elasticsearch) *BulkService {
-	return &BulkService{elastic.NewBulkService(client.Client)}
-}
-
 func (e *Elasticsearch) Version() int {
 	return version
+}
+
+// BulkService ...
+type BulkService struct {
+	bulkService    *elastic.BulkService
+	initialTimeout time.Duration
+	timeout        time.Duration
+}
+
+func Bulk(client *Elasticsearch, timeout time.Duration) *BulkService {
+	return &BulkService{
+		bulkService:    elastic.NewBulkService(client.Client),
+		initialTimeout: 100 * time.Millisecond,
+		timeout:        timeout,
+	}
 }
 
 // Add adds bulkable requests, i.e. BulkIndexRequest, BulkUpdateRequest,
@@ -105,12 +112,30 @@ func (e BulkService) CommitRequired(actions int, bulkSize int) bool {
 //     }
 //   }
 // }
-func (e BulkService) Do(_ context.Context) (interface{}, int, bool, error) {
-	bulkResponse, err := e.bulkService.Do()
+func (e BulkService) Do(context.Context) (interface{}, int, bool, error) {
+
+	var bulkResponse *elastic.BulkResponse
+
+	// commitFunc will commit bulk requests and, on failure, be retried
+	// via exponential backoff
+	commitFunc := func() error {
+		var err error
+		bulkResponse, err = e.bulkService.Do()
+		return err
+	}
+	// notifyFunc will be called if retry fails
+	notifyFunc := func(_ error, _ time.Duration) {
+		// log.Errorf("elastic: bulk processor failed but may retry: %v", err)
+	}
+
+	policy := backoff.NewExponentialBackoff(e.initialTimeout, e.timeout).SendStop(true)
+	err := backoff.RetryNotify(commitFunc, policy, notifyFunc)
+
 	if bulkResponse != nil {
 		return bulkResponse, bulkResponse.Took, bulkResponse.Errors, err
 	}
 	return nil, 0, true, err
+
 }
 
 // Errors parses a BulkResponse and returns the reason of the failure requests
@@ -133,7 +158,10 @@ func (e BulkService) Do(_ context.Context) (interface{}, int, bool, error) {
 //   }
 func (e BulkService) Errors(bulkResponse interface{}) []map[int]string {
 
-	if bulkResponse == nil || bulkResponse.(*elastic.BulkResponse).Items == nil {
+	if bulkResponse == nil {
+		return nil
+	}
+	if bulkResponse.(*elastic.BulkResponse).Items == nil {
 		return nil
 	}
 
@@ -149,6 +177,7 @@ func (e BulkService) Errors(bulkResponse interface{}) []map[int]string {
 		}
 	}
 	return reason
+
 }
 
 // EstimatedSizeInBytes returns the estimated size of all bulkable

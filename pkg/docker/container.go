@@ -183,8 +183,8 @@ type BulkWorker struct {
 	ticker *time.Ticker
 }
 
-func newWorker(client elasticsearch.Client, logEntry *log.Entry, workerID int, flushInterval time.Duration) (*BulkWorker, error) {
-	bulkService, err := elasticsearch.NewBulk(client)
+func newWorker(client elasticsearch.Client, logEntry *log.Entry, workerID int, flushInterval, timeout time.Duration) (*BulkWorker, error) {
+	bulkService, err := elasticsearch.NewBulk(client, timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -196,13 +196,13 @@ func newWorker(client elasticsearch.Client, logEntry *log.Entry, workerID int, f
 }
 
 // Add adds messages to Elasticsearch Bulk Service
-func (c *container) Log(ctx context.Context, workers int, indexName, tzpe string, actions, bulkSize int, flushInterval time.Duration) error {
+func (c *container) Log(ctx context.Context, workers int, indexName, tzpe string, actions, bulkSize int, flushInterval, timeout time.Duration) error {
 
 	c.logger.Debug("starting pipeline: Log")
 
 	for workerID := 0; workerID < workers; workerID++ {
 
-		b, err := newWorker(c.esClient, c.logger, workerID, flushInterval)
+		b, err := newWorker(c.esClient, c.logger, workerID, flushInterval, timeout)
 		c.bulkService[workerID] = b
 		if err != nil {
 			return err
@@ -217,6 +217,7 @@ func (c *container) Log(ctx context.Context, workers int, indexName, tzpe string
 				b.Flush(ctx)
 				c.logger.Debug("stopping ticker")
 				b.ticker.Stop()
+				delete(c.bulkService, workerID)
 			}()
 
 			for {
@@ -276,7 +277,7 @@ func (b *BulkWorker) Commit(ctx context.Context) {
 		if responses := b.Errors(bulkResponse); responses != nil {
 			for _, response := range responses {
 				for status, reason := range response {
-					b.logger.WithFields(log.Fields{"reason": reason, "status": status}).Info("reason and status")
+					b.logger.WithFields(log.Fields{"reason": reason, "status": status}).Info("response error message and status code")
 				}
 			}
 		}
