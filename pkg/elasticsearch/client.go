@@ -13,25 +13,32 @@ import (
 
 // Client ...
 type Client interface {
-	// Log(ctx context.Context, index, tzpe string, msg interface{}) error
+
+	// NewBulkProcessorService(ctx context.Context, workers, bulkActions, bulkSize int, flushInterval time.Duration, stats bool) error
+	// Stop the bulk processor and do some cleanup
+	// Close() error
+	// Flush() error
 
 	// Stop stops the background processes that the client is running,
 	// i.e. sniffing the cluster periodically and running health checks
 	// on the nodes.
 	Stop()
 
-	NewBulkProcessorService(ctx context.Context, workers, bulkActions, bulkSize int, flushInterval time.Duration, stats bool) error
-	Add(index, tzpe string, msg interface{}) error
+	Version() int
+}
 
-	// Stop the bulk processor and do some cleanup
-	Close() error
-	// Stats()
-
-	Flush() error
+// Bulk Service implementation
+type Bulk interface {
+	Add(index, tzpe string, msg interface{})
+	CommitRequired(actions int, bulkSize int) bool
+	Do(ctx context.Context) (interface{}, int, bool, error)
+	Errors(bulkResponse interface{}) []map[int]string
+	EstimatedSizeInBytes() int64
+	NumberOfActions() int
 }
 
 // NewClient ...
-func NewClient(version string, url, username, password string, timeout int, sniff bool, insecure bool) (Client, error) {
+func NewClient(version string, url, username, password string, timeout time.Duration, sniff bool, insecure bool) (Client, error) {
 	switch version {
 	case "1":
 		client, err := elasticv1.NewClient(url, username, password, timeout, sniff, insecure)
@@ -57,6 +64,23 @@ func NewClient(version string, url, username, password string, timeout int, snif
 			return nil, fmt.Errorf("error: cannot create an elasticsearch client: %v", err)
 		}
 		return client, nil
+	default:
+		return nil, fmt.Errorf("error: elasticsearch version not supported: %v", version)
+	}
+}
+
+// NewBulk returns a bulkService depending on the client version
+func NewBulk(client Client, timeout time.Duration) (Bulk, error) {
+	version := client.Version()
+	switch version {
+	case 1:
+		return elasticv1.Bulk(client.(*elasticv1.Elasticsearch), timeout), nil
+	case 2:
+		return elasticv2.Bulk(client.(*elasticv2.Elasticsearch), timeout), nil
+	case 5:
+		return elasticv5.Bulk(client.(*elasticv5.Elasticsearch), timeout), nil
+	case 6:
+		return elasticv6.Bulk(client.(*elasticv6.Elasticsearch), timeout), nil
 	default:
 		return nil, fmt.Errorf("error: elasticsearch version not supported: %v", version)
 	}
