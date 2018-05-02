@@ -39,6 +39,7 @@ type pipeline struct {
 	commitCh chan struct{}
 }
 
+// Processor interface
 type Processor interface {
 	Read(ctx context.Context) error
 	Parse(ctx context.Context, info logger.Info, fields, grokMatch, grokPattern, grokPatternFrom, grokPatternSplitter string, grokNamedCapture bool) error
@@ -183,8 +184,8 @@ type BulkWorker struct {
 	ticker *time.Ticker
 }
 
-func newWorker(client elasticsearch.Client, logEntry *log.Entry, workerID int, flushInterval, timeout time.Duration) (*BulkWorker, error) {
-	bulkService, err := elasticsearch.NewBulk(client, timeout)
+func newWorker(client elasticsearch.Client, logEntry *log.Entry, actions, workerID int, flushInterval, timeout time.Duration) (*BulkWorker, error) {
+	bulkService, err := elasticsearch.NewBulk(client, timeout, actions)
 	if err != nil {
 		return nil, err
 	}
@@ -196,13 +197,13 @@ func newWorker(client elasticsearch.Client, logEntry *log.Entry, workerID int, f
 }
 
 // Add adds messages to Elasticsearch Bulk Service
-func (c *container) Log(ctx context.Context, workers int, indexName, tzpe string, actions, bulkSize int, flushInterval, timeout time.Duration) error {
+func (c *container) Log(ctx context.Context, url string, workers int, indexName, tzpe string, actions, bulkSize int, flushInterval, timeout time.Duration) error {
 
 	c.logger.Debug("starting pipeline: Log")
 
 	for workerID := 0; workerID < workers; workerID++ {
 
-		b, err := newWorker(c.esClient, c.logger, workerID, flushInterval, timeout)
+		b, err := newWorker(c.esClient, c.logger, actions, workerID, flushInterval, timeout)
 		c.bulkService[workerID] = b
 		if err != nil {
 			return err
@@ -215,17 +216,39 @@ func (c *container) Log(ctx context.Context, workers int, indexName, tzpe string
 				b.logger.Debug("closing worker")
 				// commit any left messages in the queue
 				b.Flush(ctx)
-				c.logger.Debug("stopping ticker")
+				b.logger.Debug("stopping ticker")
 				b.ticker.Stop()
 				delete(c.bulkService, workerID)
 			}()
 
+			// healthcheck := func() error {
+			// 	cctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+			// 	defer cancel()
+			// 	resp, err := c.esClient.Do(cctx, "HEAD", "")
+			// 	if err != nil {
+			// 		c.logger.WithError(err).Debug("error head")
+			// 		time.Sleep(5 * time.Second)
+			// 		return err
+			// 	}
+			// 	if resp >= 200 && resp < 300 {
+			// 		return nil
+			// 	}
+			// 	c.logger.WithField("status", resp).Debug("status code")
+			// 	time.Sleep(3 * time.Second)
+			// 	return errors.New("not beetwen 200 and 300 status code")
+			// }
 			for {
+
+				// for healthcheck() != nil {
+				// 	c.logger.Debug("healthcheck is checking")
+				// }
+
 				select {
 				case doc, open := <-c.pipeline.outputCh:
 					if !open {
 						return nil
 					}
+					// c.logger.WithField("line", string(doc.Line)).Info("reached last pipeline")
 					b.Add(indexName, tzpe, doc)
 
 					if b.CommitRequired(actions, bulkSize) {
@@ -242,6 +265,7 @@ func (c *container) Log(ctx context.Context, workers int, indexName, tzpe string
 					// because of reset is called in the Do() func
 					// case c.pipeline.commitCh <- struct{}{}:
 				}
+
 			}
 		})
 	}
@@ -249,6 +273,7 @@ func (c *container) Log(ctx context.Context, workers int, indexName, tzpe string
 	return nil
 }
 
+// BulkWorkerService interface
 type BulkWorkerService interface {
 	Flush(ctx context.Context)
 	Commit(ctx context.Context)
@@ -270,17 +295,25 @@ func (b *BulkWorker) Commit(ctx context.Context) {
 	// b.logger.WithFields(log.Fields{"docs": b.NumberOfActions(), "workerID": workerID}).Debug("bulking")
 
 	bulkResponse, _, rerr, err := b.Do(ctx)
-	if err != nil || rerr {
-		b.logger.WithError(err).Error("could not commit all messages to elasticsearch")
-
+	if rerr {
 		// find out the reasons of the failure
 		if responses := b.Errors(bulkResponse); responses != nil {
 			for _, response := range responses {
-				for status, reason := range response {
-					b.logger.WithFields(log.Fields{"reason": reason, "status": status}).Info("response error message and status code")
+				for range response {
+					for status, reason := range response {
+						if status == 429 {
+							b.logger.WithFields(log.Fields{"reason": reason, "status": status}).Info("resending request")
+						} else {
+							b.logger.WithFields(log.Fields{"reason": reason, "status": status}).Info("response error message and status code")
+						}
+					}
 				}
 			}
+			return
 		}
+	}
+	if err != nil {
+		b.logger.WithError(err).Error("could not send all messages to elasticsearch")
 	}
 	// b.logger.WithFields(log.Fields{"took": took}).Debug("bulk response time")
 }

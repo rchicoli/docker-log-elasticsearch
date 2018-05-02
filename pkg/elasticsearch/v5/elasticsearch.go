@@ -3,10 +3,12 @@ package v5
 import (
 	"crypto/tls"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"time"
 
+	"github.com/google/uuid"
 	"golang.org/x/net/context"
 	"gopkg.in/olivere/elastic.v5"
 )
@@ -64,24 +66,38 @@ func (e *Elasticsearch) Version() int {
 
 // BulkService ...
 type BulkService struct {
-	bulkService    *elastic.BulkService
-	initialTimeout time.Duration
-	timeout        time.Duration
+	actions         int
+	bulkService     *elastic.BulkService
+	checkStatusCode []int
+	initialTimeout  time.Duration
+	requests        map[string]*elastic.BulkIndexRequest
+	timeout         time.Duration
 }
 
 // Bulk creates a service
-func Bulk(client *Elasticsearch, timeout time.Duration) *BulkService {
+func Bulk(client *Elasticsearch, timeout time.Duration, actions int) *BulkService {
 	return &BulkService{
-		bulkService:    elastic.NewBulkService(client.Client),
-		timeout:        timeout,
-		initialTimeout: 100 * time.Millisecond,
+		actions:         actions,
+		bulkService:     elastic.NewBulkService(client.Client),
+		checkStatusCode: []int{429},
+		initialTimeout:  100 * time.Millisecond,
+		requests:        make(map[string]*elastic.BulkIndexRequest, actions),
+		timeout:         timeout,
 	}
 }
 
 // Add adds bulkable requests, i.e. BulkIndexRequest, BulkUpdateRequest,
 // and/or BulkDeleteRequest.
 func (e BulkService) Add(index, tzpe string, msg interface{}) {
-	r := elastic.NewBulkIndexRequest().Index(index).Type(tzpe).Doc(msg)
+
+	id := uuid.New().String()
+	r := elastic.NewBulkIndexRequest().Index(index).Type(tzpe).Doc(msg).Id(id)
+
+	// TODO: create a PR for return a Bulkable request
+	// then we can move this before Do() func
+	// save requests for resending them, in case of failure
+	e.requests[id] = r
+
 	e.bulkService.Add(r)
 }
 
@@ -132,17 +148,49 @@ func (e BulkService) Do(ctx context.Context) (interface{}, int, bool, error) {
 		return err
 	}
 	// notifyFunc will be called if retry fails
-	notifyFunc := func(_ error) {
-		// log.Printf("elastic: bulk processor failed but may retry: %v", err)
+	notifyFunc := func(err error) {
+		log.Printf("elastic: bulk processor failed but may retry: %v\n", err)
 	}
 
 	policy := elastic.NewExponentialBackoff(e.initialTimeout, e.timeout)
 	err := elastic.RetryNotify(commitFunc, policy, notifyFunc)
-
-	if bulkResponse != nil {
-		return bulkResponse, bulkResponse.Took, bulkResponse.Errors, err
+	if err != nil {
+		return nil, 0, true, err
 	}
-	return nil, 0, true, err
+
+	// retrieve all failed responses for resending them again
+	e.ResendRequests(bulkResponse.Failed(), e.checkStatusCode...)
+
+	// reset requests
+	e.requests = make(map[string]*elastic.BulkIndexRequest, e.actions)
+
+	return bulkResponse, bulkResponse.Took, bulkResponse.Errors, err
+}
+
+// ResendRequests helps dealing with bulk rejections
+// https://www.elastic.co/guide/en/elasticsearch/guide/current/_monitoring_individual_nodes.html
+func (e BulkService) ResendRequests(bulkResponse []*elastic.BulkResponseItem, statusCode ...int) {
+	if bulkResponse == nil {
+		return
+	}
+
+	resendRequest := make([]elastic.BulkableRequest, 0, len(bulkResponse))
+
+	// extract the rejected actions from the bulk response,
+	for _, item := range bulkResponse {
+		for _, status := range statusCode {
+			if item.Status == status {
+				resendRequest = append(resendRequest, e.requests[item.Id])
+			}
+		}
+	}
+	// pause the import thread for 3–5 seconds.
+	time.Sleep(3 * time.Second)
+	if len(resendRequest) > 0 {
+		// send a new bulk request with just the rejected actions.
+		e.bulkService.Add(resendRequest...)
+	}
+
 }
 
 // Errors parses a BulkResponse and returns the reason of the failure requests
