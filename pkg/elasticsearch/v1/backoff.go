@@ -15,9 +15,9 @@ type MyRetrier struct {
 }
 
 // NewMyRetrier ...
-func NewMyRetrier(timeout time.Duration) *MyRetrier {
+func NewMyRetrier(timeout int) *MyRetrier {
 	return &MyRetrier{
-		backoff: elastic.NewExponentialBackoff(100*time.Millisecond, timeout),
+		backoff: elastic.NewExponentialBackoff(100*time.Millisecond, time.Duration(timeout)*time.Second),
 	}
 }
 
@@ -25,7 +25,7 @@ func NewMyRetrier(timeout time.Duration) *MyRetrier {
 func (r *MyRetrier) Retry(retry int, req *http.Request, resp *http.Response, err error) (time.Duration, bool, error) {
 	// Fail hard on a specific error
 	if err == syscall.ECONNREFUSED {
-		return 0, false, errors.New("network problems: connection refused")
+		return 0, false, errors.New("Elasticsearch or network down")
 	}
 
 	// Let the backoff strategy decide how long to wait and whether to stop

@@ -9,8 +9,6 @@ SCRIPTS_DIR         ?= $(BASE_DIR)/scripts
 TESTS_DIR           ?= $(BASE_DIR)/tests
 
 CLIENT_VERSION      ?= 5
-DEBUG_LEVEL			?= debug
-TZ					?= Europe/Berlin
 
 SHELL               := /bin/bash
 SYSCTL              := $(shell which sysctl)
@@ -18,7 +16,7 @@ DOCKER_COMPOSE      := $(shell which docker-compose)
 
 .PHONY: all
 
-all: clean docker_build plugin_create plugin_set plugin_enable clean
+all: clean docker_build plugin_create plugin_enable clean
 
 local: clean build unit_tests plugin_create plugin_set plugin_enable clean
 
@@ -64,7 +62,7 @@ plugin_push:
 
 plugin_set:
 	@echo ""
-	docker plugin set $(PLUGIN_NAME):$(PLUGIN_TAG) LOG_LEVEL=$(DEBUG_LEVEL) TZ=$(TZ)
+	docker plugin set $(PLUGIN_NAME):$(PLUGIN_TAG) LOG_LEVEL=debug
 
 push: plugin_push
 

@@ -37,6 +37,7 @@ function test_multiple_containers_with_different_configurations(){
     --log-opt elasticsearch-bulk-actions=2 \
     --log-opt elasticsearch-bulk-size="-1" \
     --log-opt elasticsearch-bulk-flush-interval=1s \
+    --log-opt elasticsearch-bulk-stats=false \
     --log-opt elasticsearch-fields='config,containerID,containerName,containerArgs,containerImageID,containerImageName,containerCreated,containerEnv,containerLabels,daemonName' \
     alpine echo -n "$message"
 
@@ -56,6 +57,7 @@ function test_multiple_containers_with_different_configurations(){
     --log-opt elasticsearch-bulk-actions=2 \
     --log-opt elasticsearch-bulk-size="-1" \
     --log-opt elasticsearch-bulk-flush-interval=1s \
+    --log-opt elasticsearch-bulk-stats=false \
     --log-opt grok-pattern='MY_NUMBER=(?:[+-]?(?:[0-9]+)) && MY_USER=[a-zA-Z0-9._-]+ && MY_PATTERN=%{MY_NUMBER:random_number} %{MY_USER:user}' \
     --log-opt grok-pattern-splitter=' && ' \
     --log-opt grok-match='%{MY_PATTERN:line}' \

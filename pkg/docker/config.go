@@ -16,7 +16,7 @@ type Configuration struct {
 	index    string
 	tzpe     string
 	url      string
-	timeout  time.Duration
+	timeout  int
 	fields   string
 	version  string
 	username string
@@ -35,7 +35,7 @@ type Bulk struct {
 	actions       int
 	size          int
 	flushInterval time.Duration
-	// stats         bool
+	stats         bool
 }
 
 // Grok filter
@@ -51,7 +51,7 @@ func newConfiguration() Configuration {
 	return Configuration{
 		index:    "docker-%Y.%m.%d",
 		tzpe:     "log",
-		timeout:  10 * time.Second,
+		timeout:  1,
 		fields:   "containerID,containerName,containerImageName,containerCreated",
 		version:  "5",
 		sniff:    true,
@@ -60,9 +60,9 @@ func newConfiguration() Configuration {
 		Bulk: Bulk{
 			workers:       1,
 			actions:       100,
-			size:          5 << 20, // 5 MB = 0101 0000 0000 0000 0000 0000 = 5242880
+			size:          5 << 20,
 			flushInterval: 5 * time.Second,
-			// stats:         false,
+			stats:         false,
 		},
 
 		Grok: Grok{
@@ -153,7 +153,7 @@ func (c *Configuration) validateLogOpt(cfg map[string]string) error {
 				return fmt.Errorf("error: elasticsearch-version not supported: %s", v)
 			}
 		case "elasticsearch-timeout":
-			timeout, err := time.ParseDuration(v)
+			timeout, err := strconv.Atoi(v)
 			if err != nil {
 				return fmt.Errorf("error: parsing elasticsearch-timeout: %q", err)
 			}
@@ -183,12 +183,12 @@ func (c *Configuration) validateLogOpt(cfg map[string]string) error {
 				return fmt.Errorf("error: parsing elasticsearch-bulk-flush-interval: %q", err)
 			}
 			c.Bulk.flushInterval = flushInterval
-		// case "elasticsearch-bulk-stats":
-		// 	stats, err := strconv.ParseBool(v)
-		// 	if err != nil {
-		// 		return fmt.Errorf("error: parsing elasticsearch-bulk-stats: %q", err)
-		// 	}
-		// 	c.Bulk.stats = stats
+		case "elasticsearch-bulk-stats":
+			stats, err := strconv.ParseBool(v)
+			if err != nil {
+				return fmt.Errorf("error: parsing elasticsearch-bulk-stats: %q", err)
+			}
+			c.Bulk.stats = stats
 
 		case "grok-pattern":
 			c.grokPattern = v
