@@ -43,7 +43,7 @@ type pipeline struct {
 type Processor interface {
 	Read(ctx context.Context) error
 	Parse(ctx context.Context, info logger.Info, fields, grokMatch, grokPattern, grokPatternFrom, grokPatternSplitter string, grokNamedCapture bool) error
-	Log(ctx context.Context, workers int, indexName, tzpe string, actions, bulkSize int, flushInterval time.Duration) error
+	Log(ctx context.Context, workers int, indexName, tzpe string, actions, bulkSize int, flushInterval, timeout time.Duration) error
 }
 
 // newContainer stores the container's configuration in memory
@@ -197,7 +197,7 @@ func newWorker(client elasticsearch.Client, logEntry *log.Entry, actions, worker
 }
 
 // Add adds messages to Elasticsearch Bulk Service
-func (c *container) Log(ctx context.Context, url string, workers int, indexName, tzpe string, actions, bulkSize int, flushInterval, timeout time.Duration) error {
+func (c *container) Log(ctx context.Context, workers int, indexName, tzpe string, actions, bulkSize int, flushInterval, timeout time.Duration) error {
 
 	c.logger.Debug("starting pipeline: Log")
 
@@ -221,27 +221,7 @@ func (c *container) Log(ctx context.Context, url string, workers int, indexName,
 				delete(c.bulkService, workerID)
 			}()
 
-			// healthcheck := func() error {
-			// 	cctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-			// 	defer cancel()
-			// 	resp, err := c.esClient.Do(cctx, "HEAD", "")
-			// 	if err != nil {
-			// 		c.logger.WithError(err).Debug("error head")
-			// 		time.Sleep(5 * time.Second)
-			// 		return err
-			// 	}
-			// 	if resp >= 200 && resp < 300 {
-			// 		return nil
-			// 	}
-			// 	c.logger.WithField("status", resp).Debug("status code")
-			// 	time.Sleep(3 * time.Second)
-			// 	return errors.New("not beetwen 200 and 300 status code")
-			// }
 			for {
-
-				// for healthcheck() != nil {
-				// 	c.logger.Debug("healthcheck is checking")
-				// }
 
 				select {
 				case doc, open := <-c.pipeline.outputCh:
