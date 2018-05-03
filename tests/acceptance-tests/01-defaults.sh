@@ -63,14 +63,14 @@ function test_default_fields_are_filled_out(){
     "${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search?pretty=true&size=1" \
     --data-urlencode "q=message:\"$message\""
 
-  basht_assert "echo '${output}' | jq -r '.hits.hits[0]._source.containerCreated'"   regexp ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]+Z$
+  basht_assert "echo '${output}' | jq -r '.hits.hits[0]._source.containerCreated'"   regexp ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]+
   basht_assert "echo '${output}' | jq -r '.hits.hits[0]._source.containerID'"        regexp ^[a-z0-9]{12}$
   basht_assert "echo '${output}' | jq -r '.hits.hits[0]._source.containerImageName'" == "alpine"
   basht_assert "echo '${output}' | jq -r '.hits.hits[0]._source.containerName'"      == "$name"
   basht_assert "echo '${output}' | jq -r '.hits.hits[0]._source.message'"            == "$message"
   basht_assert "echo '${output}' | jq -r '.hits.hits[0]._source.source'"             == "stdout"
   basht_assert "echo '${output}' | jq -r '.hits.hits[0]._source.partial'"            == "true"
-  basht_assert "echo '${output}' | jq -r '.hits.hits[0]._source.timestamp'"          =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]+Z$
+  basht_assert "echo '${output}' | jq -r '.hits.hits[0]._source.timestamp'"          =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]+
   basht_assert "echo '${output}' | jq -r '.hits.hits[0]._source[]' | wc -l"          == 8
 
 }
