@@ -2,12 +2,14 @@ package v5
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"net/url"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/google/uuid"
 	"golang.org/x/net/context"
 	"gopkg.in/olivere/elastic.v5"
@@ -18,11 +20,11 @@ const version = 5
 // Elasticsearch ...
 type Elasticsearch struct {
 	*elastic.Client
-	// *elastic.BulkProcessor
-	// *elastic.BulkProcessorService
+	*elastic.BulkProcessor
+	*elastic.BulkProcessorService
 }
 
-// NewClient creates a new elasticsearch client
+// NewClient ...
 func NewClient(address, username, password string, timeout time.Duration, sniff bool, insecure bool) (*Elasticsearch, error) {
 
 	url, _ := url.Parse(address)
@@ -47,7 +49,8 @@ func NewClient(address, username, password string, timeout time.Duration, sniff 
 		return nil, fmt.Errorf("elasticsearch: cannot connect to the endpoint: %s\n%v", url, err)
 	}
 	return &Elasticsearch{
-		Client: c,
+		Client:               c,
+		BulkProcessorService: c.BulkProcessor(),
 	}, nil
 }
 
@@ -57,6 +60,131 @@ func (e *Elasticsearch) Log(ctx context.Context, index, tzpe string, msg interfa
 		return err
 	}
 	return nil
+}
+
+type mapRequests struct {
+	requests map[string]string
+}
+
+type Payload struct {
+	Index `json:"index"`
+}
+
+type Index struct {
+	ID    string `json:"_id"`
+	Index string `json:"_index"`
+	Type  string `json:"_type"`
+}
+
+func parseRequest(bulkableRequests []elastic.BulkableRequest) (*mapRequests, error) {
+
+	header := true
+	payload := &Payload{}
+	requests := make(map[string]string)
+
+	for _, bulkableRequest := range bulkableRequests {
+		vv, err := bulkableRequest.Source()
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range vv {
+			if header {
+				json.Unmarshal([]byte(v), payload)
+				requests[payload.ID] = ""
+				header = false
+				continue
+			}
+			requests[payload.ID] = v
+			header = true
+		}
+	}
+
+	return &mapRequests{requests}, nil
+}
+
+func (p *mapRequests) ById(id string) string {
+	request, exists := p.requests[id]
+	if !exists {
+		return "request not found"
+	}
+	return request
+}
+
+func (e *Elasticsearch) NewBulkProcessorService(ctx context.Context, workers, actions, size int, flushInterval, timeout time.Duration, stats bool, log *logrus.Entry) error {
+
+	afterFunc := func(executionId int64, bulkableRequests []elastic.BulkableRequest, response *elastic.BulkResponse, err error) {
+
+		if response != nil && response.Errors {
+			// map all requests in order to log the one who's failed
+			requests, perr := parseRequest(bulkableRequests)
+			if perr != nil {
+				log.WithError(err).Error("could not parse request")
+			}
+
+			// find out the reasons of the failure
+			for _, result := range response.Failed() {
+				if result.Error == nil {
+					continue
+				}
+				log.WithFields(logrus.Fields{
+					"workerId":  executionId,
+					"requestId": result.Id,
+					"request":   requests.ById(result.Id),
+					"reason":    result.Error.Reason,
+					"status":    result.Status,
+				}).Error("response error message and status code")
+			}
+		}
+
+		if err != nil {
+			log.WithError(err).WithFields(logrus.Fields{
+				"workerId": executionId,
+				"requests": bulkableRequests,
+				"response": response,
+			}).Error("after func")
+		}
+	}
+	backoff := elastic.NewExponentialBackoff(200*time.Millisecond, timeout)
+
+	p, err := e.BulkProcessorService.
+		Workers(workers).
+		BulkActions(actions).         // commit if # requests >= BulkSize
+		BulkSize(size).               // commit if size of requests >= 1 MB
+		FlushInterval(flushInterval). // commit every given interval
+		Stats(stats).                 // collect stats
+		Backoff(backoff).
+		After(afterFunc).
+		Do(ctx)
+	if err != nil {
+		return err
+	}
+
+	e.BulkProcessor = p
+
+	return nil
+}
+
+func (e *Elasticsearch) Add(index, tzpe string, msg interface{}) error {
+	id := uuid.New().String()
+	r := elastic.NewBulkIndexRequest().Index(index).Type(tzpe).Doc(msg).Id(id)
+	e.BulkProcessor.Add(r)
+
+	return nil
+}
+
+func (e *Elasticsearch) Close() error {
+	return e.BulkProcessor.Close()
+}
+
+func (e *Elasticsearch) Flush() error {
+	return e.BulkProcessor.Flush()
+}
+
+// Stop stops the background processes that the client is running,
+// i.e. sniffing the cluster periodically and running health checks
+// on the nodes.
+func (e *Elasticsearch) Stop() {
+	e.Client.Stop()
 }
 
 // Version reports the client version
@@ -159,10 +287,10 @@ func (e BulkService) Do(ctx context.Context) (interface{}, int, bool, error) {
 	}
 
 	// retrieve all failed responses for resending them again
-	e.ResendRequests(bulkResponse.Failed(), e.checkStatusCode...)
+	// e.ResendRequests(bulkResponse.Failed(), e.checkStatusCode...)
 
 	// reset requests
-	e.requests = make(map[string]*elastic.BulkIndexRequest, e.actions)
+	// e.requests = make(map[string]*elastic.BulkIndexRequest, e.actions)
 
 	return bulkResponse, bulkResponse.Took, bulkResponse.Errors, err
 }
@@ -244,13 +372,6 @@ func (e BulkService) EstimatedSizeInBytes() int64 {
 // be sent to Elasticsearch on the next batch.
 func (e BulkService) NumberOfActions() int {
 	return e.bulkService.NumberOfActions()
-}
-
-// Stop stops the background processes that the client is running,
-// i.e. sniffing the cluster periodically and running health checks
-// on the nodes.
-func (e *Elasticsearch) Stop() {
-	e.Client.Stop()
 }
 
 // func (e *Elasticsearch) NewBulkProcessorService(ctx context.Context, workers, actions, size int, flushInterval time.Duration, stats bool) error {

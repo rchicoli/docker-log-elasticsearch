@@ -40,11 +40,11 @@ type pipeline struct {
 }
 
 // Processor interface
-type Processor interface {
-	Read(ctx context.Context) error
-	Parse(ctx context.Context, info logger.Info, fields, grokMatch, grokPattern, grokPatternFrom, grokPatternSplitter string, grokNamedCapture bool) error
-	Log(ctx context.Context, workers int, indexName, tzpe string, actions, bulkSize int, flushInterval, timeout time.Duration) error
-}
+// type Processor interface {
+// 	Read(ctx context.Context) error
+// 	Parse(ctx context.Context, info logger.Info, fields, grokMatch, grokPattern, grokPatternFrom, grokPatternSplitter string, grokNamedCapture bool) error
+// 	Log(ctx context.Context, workers int, indexName, tzpe string, actions, bulkSize int, flushInterval, timeout time.Duration) error
+// }
 
 // newContainer stores the container's configuration in memory
 // and returns a pointer to the container
@@ -177,6 +177,61 @@ func (c *container) Parse(ctx context.Context, info logger.Info, fields, grokMat
 	return nil
 }
 
+// Log sends messages to Elasticsearch Bulk Service
+func (c *container) Log(ctx context.Context, workers, actions, size int, flushInterval, timeout time.Duration, stats bool, indexName, tzpe string) error {
+
+	c.logger.Debug("starting pipeline: Log")
+
+	c.pipeline.group.Go(func() error {
+
+		err := c.esClient.NewBulkProcessorService(
+			ctx,
+			workers,
+			actions,
+			size,
+			flushInterval,
+			timeout,
+			false,
+			c.logger,
+		)
+		if err != nil {
+			c.logger.WithError(err).Error("could not create bulk processor")
+			return err
+		}
+
+		defer func() {
+			if err := c.esClient.Flush(); err != nil {
+				c.logger.WithError(err).Error("could not flush queue")
+			}
+
+			if err := c.esClient.Close(); err != nil {
+				c.logger.WithError(err).Error("could not close bulk processor")
+			}
+		}()
+
+		for doc := range c.pipeline.outputCh {
+
+			c.esClient.Add(indexName, tzpe, doc)
+
+			select {
+			case <-ctx.Done():
+				c.logger.WithError(ctx.Err()).Error("closing log pipeline")
+				return ctx.Err()
+			default:
+			}
+		}
+		return nil
+	})
+
+	return nil
+}
+
+// BulkWorkerService interface
+type BulkWorkerService interface {
+	Flush(ctx context.Context)
+	Commit(ctx context.Context)
+}
+
 // BulkWorker provides a Bulk Processor
 type BulkWorker struct {
 	elasticsearch.Bulk
@@ -194,69 +249,6 @@ func newWorker(client elasticsearch.Client, logEntry *log.Entry, actions, worker
 		logger: logEntry.WithField("workerID", workerID),
 		ticker: time.NewTicker(flushInterval),
 	}, nil
-}
-
-// Add adds messages to Elasticsearch Bulk Service
-func (c *container) Log(ctx context.Context, workers int, indexName, tzpe string, actions, bulkSize int, flushInterval, timeout time.Duration) error {
-
-	c.logger.Debug("starting pipeline: Log")
-
-	for workerID := 0; workerID < workers; workerID++ {
-
-		b, err := newWorker(c.esClient, c.logger, actions, workerID, flushInterval, timeout)
-		c.bulkService[workerID] = b
-		if err != nil {
-			return err
-		}
-
-		b.logger.Debug("starting worker")
-		c.pipeline.group.Go(func() error {
-
-			defer func() {
-				b.logger.Debug("closing worker")
-				// commit any left messages in the queue
-				b.Flush(ctx)
-				b.logger.Debug("stopping ticker")
-				b.ticker.Stop()
-				delete(c.bulkService, workerID)
-			}()
-
-			for {
-
-				select {
-				case doc, open := <-c.pipeline.outputCh:
-					if !open {
-						return nil
-					}
-					// c.logger.WithField("line", string(doc.Line)).Info("reached last pipeline")
-					b.Add(indexName, tzpe, doc)
-
-					if b.CommitRequired(actions, bulkSize) {
-						b.Commit(ctx)
-					}
-
-				case <-b.ticker.C:
-					// b.logger.WithField("ticker", b.ticker).Debug("ticking")
-					b.Flush(ctx)
-				case <-ctx.Done():
-					b.logger.WithError(ctx.Err()).Error("closing log pipeline: Log")
-					return ctx.Err()
-					// commit has to be in the same goroutine
-					// because of reset is called in the Do() func
-					// case c.pipeline.commitCh <- struct{}{}:
-				}
-
-			}
-		})
-	}
-
-	return nil
-}
-
-// BulkWorkerService interface
-type BulkWorkerService interface {
-	Flush(ctx context.Context)
-	Commit(ctx context.Context)
 }
 
 // Flush checks if there are actions to be commited
