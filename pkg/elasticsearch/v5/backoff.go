@@ -32,5 +32,7 @@ func (r *MyRetrier) Retry(ctx context.Context, retry int, req *http.Request, res
 	// Let the backoff strategy decide how long to wait and whether to stop
 	wait, stop := r.backoff.Next(retry)
 
+	// log.Printf("retrying:%v\n", wait)
+
 	return wait, stop, nil
 }
