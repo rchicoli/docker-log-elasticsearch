@@ -9,8 +9,8 @@ SCRIPTS_DIR         ?= $(BASE_DIR)/scripts
 TESTS_DIR           ?= $(BASE_DIR)/tests
 
 CLIENT_VERSION      ?= 5
-DEBUG_LEVEL			?= debug
-TZ					?= Europe/Berlin
+DEBUG_LEVEL         ?= debug
+TZ                  ?= Europe/Berlin
 
 SHELL               := /bin/bash
 SYSCTL              := $(shell which sysctl)
