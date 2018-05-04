@@ -12,6 +12,7 @@ WEBAPPER_PORT="8080"
 # this is required for the makefile
 export BASE_DIR="$BASHT_TEST_DIRNAME/.."
 export CLIENT_VERSION="${CLIENT_VERSION:-5}"
+export PLUGIN_TAG="${PLUGIN_TAG:-development}"
 
 DOCKER_COMPOSE_DIR="${BASE_DIR}/docker"
 SCRIPTS_DIR="${BASE_DIR}/scripts"

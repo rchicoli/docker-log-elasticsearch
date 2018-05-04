@@ -12,7 +12,7 @@ container_id="$(docker plugin ls | awk  -v name=$container_name '$NF ~ /true/ &&
 shopt -s extglob
 plugin_folder=$(ls -1d /var/lib/docker/plugins/${container_id}*)
 
-if ! test -d $plugin_folder; then
+if ! test -d "$plugin_folder"; then
     echo "plugin folder not found"
     exit 1
 fi

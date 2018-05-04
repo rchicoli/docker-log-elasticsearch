@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 #==============================================================================
 # Basht: is a bats alternative, testing framework for bash

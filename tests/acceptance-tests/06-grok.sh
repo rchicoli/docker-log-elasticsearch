@@ -180,7 +180,7 @@ function test_grok_pattern_from_file(){
   name="${BASHT_TEST_FILENAME##*/}.${BASHT_TEST_NUMBER}"
   message="$((RANDOM)) theo"
 
-  basht_run ${SCRIPTS_DIR}/docker-plugin-folder.sh docker-log-elasticsearch "${CONFIG_DIR}/grok/patterns.txt"
+  basht_run "${SCRIPTS_DIR}/docker-plugin-folder.sh" "docker-log-elasticsearch:$PLUGIN_TAG" "${CONFIG_DIR}/grok/patterns.txt"
 
   basht_run docker run --rm -ti \
     --log-driver rchicoli/docker-log-elasticsearch:development \
@@ -211,7 +211,7 @@ function test_grok_pattern_from_directory(){
   name="${BASHT_TEST_FILENAME##*/}.${BASHT_TEST_NUMBER}"
   message="$((RANDOM)) max"
 
-  basht_run ${SCRIPTS_DIR}/docker-plugin-folder.sh docker-log-elasticsearch "${CONFIG_DIR}/grok"
+  basht_run "${SCRIPTS_DIR}/docker-plugin-folder.sh" "docker-log-elasticsearch:$PLUGIN_TAG" "${CONFIG_DIR}/grok"
 
   basht_run docker run --rm -ti \
     --log-driver rchicoli/docker-log-elasticsearch:development \
