@@ -23,20 +23,20 @@ import (
 )
 
 type container struct {
-	cron        *cron.Cron
-	esClient    elasticsearch.Client
-	bulkService map[int]*BulkWorker
-	indexName   string
-	logger      *log.Entry
-	pipeline    pipeline
-	stream      io.ReadCloser
+	// bulkService map[int]*BulkWorker
+	cron      *cron.Cron
+	esClient  elasticsearch.Client
+	indexName string
+	logger    *log.Entry
+	pipeline  pipeline
+	stream    io.ReadCloser
 }
 
 type pipeline struct {
+	// commitCh chan struct{}
 	group    *errgroup.Group
 	inputCh  chan logdriver.LogEntry
 	outputCh chan LogMessage
-	commitCh chan struct{}
 }
 
 // Processor interface
@@ -56,11 +56,11 @@ func newContainer(ctx context.Context, file, containerID string) (*container, er
 	}
 
 	return &container{
-		bulkService: make(map[int]*BulkWorker),
-		stream:      f,
-		logger:      log.WithField("containerID", containerID),
+		// bulkService: make(map[int]*BulkWorker),
+		stream: f,
+		logger: log.WithField("containerID", containerID),
 		pipeline: pipeline{
-			commitCh: make(chan struct{}),
+			// commitCh: make(chan struct{}),
 			inputCh:  make(chan logdriver.LogEntry),
 			outputCh: make(chan LogMessage),
 		},
