@@ -60,7 +60,7 @@ func (l LogMessage) MarshalJSON() ([]byte, error) {
 
 			Line:     string(l.Line),
 			Source:   l.Source,
-			TimeNano: time.Unix(0, l.TimeNano),
+			TimeNano: time.Unix(0, l.TimeNano).Local(),
 			Partial:  l.Partial,
 		})
 
@@ -70,5 +70,6 @@ func (l LogMessage) timeOmityEmpty() *time.Time {
 	if l.ContainerCreated.IsZero() {
 		return nil
 	}
-	return &l.ContainerCreated
+	t := l.ContainerCreated.Local()
+	return &t
 }
