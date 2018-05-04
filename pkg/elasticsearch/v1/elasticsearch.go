@@ -169,7 +169,11 @@ func parseRequest(bulkableRequests []elastic.BulkableRequest) (*mapRequests, err
 		}
 		for _, v := range vv {
 			if header {
-				json.Unmarshal([]byte(v), payload)
+				err := json.Unmarshal([]byte(v), payload)
+				if err != nil {
+					// skip error and try to parse next line
+					continue
+				}
 				requests[payload.ID] = ""
 				header = false
 				continue
