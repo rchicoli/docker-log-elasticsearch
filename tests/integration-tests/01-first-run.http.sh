@@ -24,7 +24,7 @@ function test_container_with_default_logging(){
   message="$((RANDOM)) $description"
 
   basht_run docker run -ti \
-    --log-driver rchicoli/docker-log-elasticsearch:development \
+    --log-driver "rchicoli/docker-log-elasticsearch:${PLUGIN_TAG}" \
     --log-opt elasticsearch-url="${ELASTICSEARCH_URL}" \
     --name "$name" alpine echo -n "$message"
 
@@ -47,7 +47,7 @@ function test_elasticsearch_version_options(){
   message="$((RANDOM)) $description"
 
   basht_run docker run -ti \
-    --log-driver rchicoli/docker-log-elasticsearch:development \
+    --log-driver "rchicoli/docker-log-elasticsearch:${PLUGIN_TAG}" \
     --log-opt elasticsearch-url="${ELASTICSEARCH_URL}" \
     --log-opt elasticsearch-version="${CLIENT_VERSION}" \
     --name "$name" \

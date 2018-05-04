@@ -22,7 +22,7 @@ function test_grok_parser(){
   message="127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] \"GET /index.php HTTP/1.1\" 404 $((RANDOM))"
 
   basht_run docker run --rm -ti \
-    --log-driver rchicoli/docker-log-elasticsearch:development \
+    --log-driver "rchicoli/docker-log-elasticsearch:${PLUGIN_TAG}" \
     --log-opt elasticsearch-url="${ELASTICSEARCH_URL}" \
     --log-opt elasticsearch-version="${CLIENT_VERSION}" \
     --name "$name" \
@@ -58,7 +58,7 @@ function test_failed_parsed_lines_are_logged(){
   message="$((RANDOM)) failed to parse message"
 
   basht_run docker run --rm -ti \
-    --log-driver rchicoli/docker-log-elasticsearch:development \
+    --log-driver "rchicoli/docker-log-elasticsearch:${PLUGIN_TAG}" \
     --log-opt elasticsearch-url="${ELASTICSEARCH_URL}" \
     --log-opt elasticsearch-version="${CLIENT_VERSION}" \
     --name "$name" \
@@ -86,7 +86,7 @@ function test_custom_grok_pattern(){
   message="$((RANDOM)) 127.0.0.1 john"
 
   basht_run docker run --rm -ti \
-    --log-driver rchicoli/docker-log-elasticsearch:development \
+    --log-driver "rchicoli/docker-log-elasticsearch:${PLUGIN_TAG}" \
     --log-opt elasticsearch-url="${ELASTICSEARCH_URL}" \
     --log-opt elasticsearch-version="${CLIENT_VERSION}" \
     --name ${BASHT_TEST_FILENAME##*/}.${BASHT_TEST_NUMBER} \
@@ -116,7 +116,7 @@ function test_grok_splitter(){
   message="$((RANDOM)) 127.0.0.2 bob"
 
   basht_run docker run --rm -ti \
-    --log-driver rchicoli/docker-log-elasticsearch:development \
+    --log-driver "rchicoli/docker-log-elasticsearch:${PLUGIN_TAG}" \
     --log-opt elasticsearch-url="${ELASTICSEARCH_URL}" \
     --log-opt elasticsearch-version="${CLIENT_VERSION}" \
     --name "$name" \
@@ -148,7 +148,7 @@ function test_grok_named_capture(){
   message="$((RANDOM)) 127.0.0.3 tester"
 
   basht_run docker run --rm -ti \
-    --log-driver rchicoli/docker-log-elasticsearch:development \
+    --log-driver "rchicoli/docker-log-elasticsearch:${PLUGIN_TAG}" \
     --log-opt elasticsearch-url="${ELASTICSEARCH_URL}" \
     --log-opt elasticsearch-version="${CLIENT_VERSION}" \
     --name "$name" \
@@ -183,7 +183,7 @@ function test_grok_pattern_from_file(){
   basht_run "${SCRIPTS_DIR}/docker-plugin-folder.sh" "docker-log-elasticsearch:$PLUGIN_TAG" "${CONFIG_DIR}/grok/patterns.txt"
 
   basht_run docker run --rm -ti \
-    --log-driver rchicoli/docker-log-elasticsearch:development \
+    --log-driver "rchicoli/docker-log-elasticsearch:${PLUGIN_TAG}" \
     --log-opt elasticsearch-url="${ELASTICSEARCH_URL}" \
     --log-opt elasticsearch-version="${CLIENT_VERSION}" \
     --name "$name" \
@@ -214,7 +214,7 @@ function test_grok_pattern_from_directory(){
   basht_run "${SCRIPTS_DIR}/docker-plugin-folder.sh" "docker-log-elasticsearch:$PLUGIN_TAG" "${CONFIG_DIR}/grok"
 
   basht_run docker run --rm -ti \
-    --log-driver rchicoli/docker-log-elasticsearch:development \
+    --log-driver "rchicoli/docker-log-elasticsearch:${PLUGIN_TAG}" \
     --log-opt elasticsearch-url="${ELASTICSEARCH_URL}" \
     --log-opt elasticsearch-version="${CLIENT_VERSION}" \
     --name "$name" \

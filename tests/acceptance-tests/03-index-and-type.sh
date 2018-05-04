@@ -27,7 +27,7 @@ function test_different_index_and_type(){
   message="$((RANDOM)) $description"
 
   basht_run docker run --rm -ti \
-    --log-driver rchicoli/docker-log-elasticsearch:development \
+    --log-driver "rchicoli/docker-log-elasticsearch:${PLUGIN_TAG}" \
     --log-opt elasticsearch-url="${ELASTICSEARCH_URL}" \
     --log-opt elasticsearch-version="${CLIENT_VERSION}" \
     --name "$name" \
@@ -59,7 +59,7 @@ function test_index_regex_year_month_day(){
   message="$((RANDOM)) $description"
 
   basht_run docker run --rm -ti \
-    --log-driver rchicoli/docker-log-elasticsearch:development \
+    --log-driver "rchicoli/docker-log-elasticsearch:${PLUGIN_TAG}" \
     --log-opt elasticsearch-url="${ELASTICSEARCH_URL}" \
     --log-opt elasticsearch-version="${CLIENT_VERSION}" \
     --name "$name" \
@@ -91,7 +91,7 @@ function test_index_regex_year_month_day(){
   message="$((RANDOM)) $description"
 
   basht_run docker run --rm -ti \
-    --log-driver rchicoli/docker-log-elasticsearch:development \
+    --log-driver "rchicoli/docker-log-elasticsearch:${PLUGIN_TAG}" \
     --log-opt elasticsearch-url="${ELASTICSEARCH_URL}" \
     --log-opt elasticsearch-version="${CLIENT_VERSION}" \
     --name "$name" \

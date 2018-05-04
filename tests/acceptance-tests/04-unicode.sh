@@ -22,7 +22,7 @@ function test_unicode_character(){
   message="$((RANDOM)) ${description}: héllö-yöü ❤ ☀ ☆ ☂ ☻ ♞ ☯ ☭ ☢ €"
 
   basht_run docker run --rm -ti \
-    --log-driver rchicoli/docker-log-elasticsearch:development \
+    --log-driver "rchicoli/docker-log-elasticsearch:${PLUGIN_TAG}" \
     --log-opt elasticsearch-url="${ELASTICSEARCH_URL}" \
     --log-opt elasticsearch-version="${CLIENT_VERSION}" \
     --name "$name" \

@@ -31,7 +31,7 @@ function tearDown(){
 #  message="$((RANDOM)) $BATS_TEST_DESCRIPTION"
 #
 #  run docker run -ti --rm --name "$name" \
-#    --log-driver rchicoli/docker-log-elasticsearch:development \
+#    --log-driver "rchicoli/docker-log-elasticsearch:${PLUGIN_TAG}" \
 #    --log-opt elasticsearch-url="${ELASTICSEARCH_URL}" \
 #    --log-opt elasticsearch-version="${CLIENT_VERSION}" \
 #    --log-opt elasticsearch-sniff='false' \
@@ -65,7 +65,7 @@ function test_container_start_using_https_via_proxy(){
   export ELASTICSEARCH_IP=172.31.0.4
   export ELASTICSEARCH_PORT=443
   basht_run docker run --rm -ti \
-    --log-driver rchicoli/docker-log-elasticsearch:development \
+    --log-driver "rchicoli/docker-log-elasticsearch:${PLUGIN_TAG}" \
     --log-opt elasticsearch-url="${ELASTICSEARCH_URL}" \
     --log-opt elasticsearch-version="${CLIENT_VERSION}" \
     --name "$name" \

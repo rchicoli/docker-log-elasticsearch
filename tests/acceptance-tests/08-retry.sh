@@ -23,7 +23,7 @@ function test_reconnect_after_elasticsearch_restart(){
   message="$((RANDOM)) $description"
 
   basht_run docker run -d \
-    --log-driver rchicoli/docker-log-elasticsearch:development \
+    --log-driver "rchicoli/docker-log-elasticsearch:${PLUGIN_TAG}" \
     --log-opt elasticsearch-url="${ELASTICSEARCH_URL}" \
     --log-opt elasticsearch-version="${CLIENT_VERSION}" \
      --name "$name" --ip="${WEBAPPER_IP}" --network="docker_development" \

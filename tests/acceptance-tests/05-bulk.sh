@@ -22,7 +22,7 @@ function test_bulk_commit_after_one_action(){
   message="$((RANDOM)) $description"
 
     basht_run docker run --rm -ti \
-    --log-driver rchicoli/docker-log-elasticsearch:development \
+    --log-driver "rchicoli/docker-log-elasticsearch:${PLUGIN_TAG}" \
     --log-opt elasticsearch-url="${ELASTICSEARCH_URL}" \
     --log-opt elasticsearch-version="${CLIENT_VERSION}" \
     --name "$name" \
@@ -52,7 +52,7 @@ function test_bulk_disable_actions_and_bulk_size(){
   message="$((RANDOM)) $description"
 
     basht_run docker run --rm -ti \
-    --log-driver rchicoli/docker-log-elasticsearch:development \
+    --log-driver "rchicoli/docker-log-elasticsearch:${PLUGIN_TAG}" \
     --log-opt elasticsearch-url="${ELASTICSEARCH_URL}" \
     --log-opt elasticsearch-version="${CLIENT_VERSION}" \
     --name "$name" \
@@ -90,7 +90,7 @@ function test_bulk_multiple_messages(){
   message="bulk-multi-message"
 
   basht_run docker run -d \
-    --log-driver rchicoli/docker-log-elasticsearch:development \
+    --log-driver "rchicoli/docker-log-elasticsearch:${PLUGIN_TAG}" \
     --log-opt elasticsearch-url="${ELASTICSEARCH_URL}" \
     --log-opt elasticsearch-version="${CLIENT_VERSION}" \
      --name "$name" --ip="${WEBAPPER_IP}" --network="docker_development" \
@@ -141,7 +141,7 @@ function test_bulk_rejections(){
   message="bulk-rejection"
 
   basht_run docker run -d \
-    --log-driver rchicoli/docker-log-elasticsearch:development \
+    --log-driver "rchicoli/docker-log-elasticsearch:${PLUGIN_TAG}" \
     --log-opt elasticsearch-url="${ELASTICSEARCH_URL}" \
     --log-opt elasticsearch-version="${CLIENT_VERSION}" \
      --name "$name" --ip="${WEBAPPER_IP}" --network="docker_development" \
