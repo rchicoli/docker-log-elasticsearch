@@ -23,7 +23,7 @@ type Client interface {
 	Flush() error
 
 	NewBulkProcessorService(ctx context.Context, workers, actions, size int, flushInterval, timeout time.Duration, stats bool, log *logrus.Entry) error
-	// NewBulkProcessorService(ctx context.Context, workers, actions, size int, flushInterval time.Duration, stats bool, executionId int64, requests interface{}, response interface{}, err error) error
+
 	// Stop stops the background processes that the client is running,
 	// i.e. sniffing the cluster periodically and running health checks
 	// on the nodes.

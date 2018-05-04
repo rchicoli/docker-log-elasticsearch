@@ -290,6 +290,83 @@ func (b *BulkWorker) Commit(ctx context.Context) {
 	// b.logger.WithFields(log.Fields{"took": took}).Debug("bulk response time")
 }
 
+// CustomBulkProcessor ... this will continue be tested...
+// func (c *container) CustomBulkProcessor(ctx context.Context, workers int, indexName, tzpe string, actions, bulkSize int, flushInterval, timeout time.Duration) error {
+
+// 	c.logger.Debug("starting pipeline: Log")
+
+// 	for workerID := 0; workerID < workers; workerID++ {
+
+// 		b, err := newWorker(c.esClient, c.logger, actions, workerID, flushInterval, timeout)
+// 		c.bulkService[workerID] = b
+// 		if err != nil {
+// 			return err
+// 		}
+
+// 		b.logger.Debug("starting worker")
+// 		c.pipeline.group.Go(func() error {
+
+// 			defer func() {
+// 				b.logger.Debug("closing worker")
+// 				// commit any left messages in the queue
+// 				b.Flush(ctx)
+// 				b.logger.Debug("stopping ticker")
+// 				b.ticker.Stop()
+// 				delete(c.bulkService, workerID)
+// 			}()
+
+// 			// healthcheck := func() error {
+// 			// 	cctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+// 			// 	defer cancel()
+// 			// 	resp, err := c.esClient.Do(cctx, "HEAD", "")
+// 			// 	if err != nil {
+// 			// 		c.logger.WithError(err).Debug("error head")
+// 			// 		time.Sleep(5 * time.Second)
+// 			// 		return err
+// 			// 	}
+// 			// 	if resp >= 200 && resp < 300 {
+// 			// 		return nil
+// 			// 	}
+// 			// 	c.logger.WithField("status", resp).Debug("status code")
+// 			// 	time.Sleep(3 * time.Second)
+// 			// 	return errors.New("not beetwen 200 and 300 status code")
+// 			// }
+// 			for {
+
+// 				// for healthcheck() != nil {
+// 				// 	c.logger.Debug("healthcheck is checking")
+// 				// }
+
+// 				select {
+// 				case doc, open := <-c.pipeline.outputCh:
+// 					if !open {
+// 						return nil
+// 					}
+// 					// c.logger.WithField("line", string(doc.Line)).Info("reached last pipeline")
+// 					b.Add(indexName, tzpe, doc)
+
+// 					if b.CommitRequired(actions, bulkSize) {
+// 						b.Commit(ctx)
+// 					}
+
+// 				case <-b.ticker.C:
+// 					// b.logger.WithField("ticker", b.ticker).Debug("ticking")
+// 					b.Flush(ctx)
+// 				case <-ctx.Done():
+// 					b.logger.WithError(ctx.Err()).Error("closing log pipeline: Log")
+// 					return ctx.Err()
+// 					// commit has to be in the same goroutine
+// 					// because of reset is called in the Do() func
+// 					// case c.pipeline.commitCh <- struct{}{}:
+// 				}
+
+// 			}
+// 		})
+// 	}
+
+// 	return nil
+// }
+
 // Stats shows metrics related to the bulk service
 // func (d *Driver) Stats(filename string, config Configuration) error {
 // TODO: create metrics from stats
