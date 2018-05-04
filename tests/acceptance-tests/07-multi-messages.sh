@@ -32,7 +32,10 @@ function test_multiple_containers_with_different_configurations(){
 
   name="${BASHT_TEST_FILENAME##*/}.${BASHT_TEST_NUMBER}.$((RANDOM))"
   message="2 - $((RANDOM)) $description"
-  basht_run _dockerRun --rm --name $name \
+  basht_run docker run -ti --rm --name "$name" \
+    --log-driver rchicoli/docker-log-elasticsearch:development \
+    --log-opt elasticsearch-url="${ELASTICSEARCH_URL}" \
+    --log-opt elasticsearch-version="${CLIENT_VERSION}" \
     --log-opt elasticsearch-bulk-workers=2 \
     --log-opt elasticsearch-bulk-actions=2 \
     --log-opt elasticsearch-bulk-size="-1" \
@@ -51,7 +54,10 @@ function test_multiple_containers_with_different_configurations(){
 
   name="${BASHT_TEST_FILENAME##*/}.${BASHT_TEST_NUMBER}.$((RANDOM))"
   message="$((RANDOM)) $name"
-  basht_run _dockerRun --rm --name $name \
+  basht_run docker run -ti --rm --name "$name" \
+    --log-driver rchicoli/docker-log-elasticsearch:development \
+    --log-opt elasticsearch-url="${ELASTICSEARCH_URL}" \
+    --log-opt elasticsearch-version="${CLIENT_VERSION}" \
     --log-opt elasticsearch-bulk-workers=2 \
     --log-opt elasticsearch-bulk-actions=2 \
     --log-opt elasticsearch-bulk-size="-1" \

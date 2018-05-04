@@ -55,39 +55,6 @@ function _elasticsearchHealth() {
   fi
 }
 
-function _dockerRun(){
-  _getProtocol
-  _elasticsearchHealth
-  docker run -ti \
-    --log-driver rchicoli/docker-log-elasticsearch:development \
-    --log-opt elasticsearch-url="${ELASTICSEARCH_URL}" \
-    --log-opt elasticsearch-version="${CLIENT_VERSION}" \
-    "$@"
-}
-
-function _post() {
-  local message="$1"
-  curl -XPOST -H "Content-Type: application/json" --data "{\"message\":\"$message\"}" "http://${WEBAPPER_IP}:${WEBAPPER_PORT}/log"
-}
-
-function _get() {
-  _getProtocol
-  local message="$1"
-  # sleep for the flush interval + 5s
-  sleep 1
-  curl -G -s -k --connect-timeout 5 -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" \
-    ${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search\?pretty=true\&size=1 \
-    --data-urlencode "q=${message}"
-}
-
-function _search() {
-  _getProtocol
-  # sleep for the flush interval + 5s
-  sleep 1
-  curl -G -s -k --connect-timeout 5 -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}" \
-    ${ELASTICSEARCH_URL}/${ELASTICSEARCH_INDEX}/${ELASTICSEARCH_TYPE}/_search\?pretty=true\&size=100
-}
-
 # make wrapper
 function _make() {
   make -f "$MAKEFILE" "$@"

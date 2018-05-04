@@ -30,7 +30,10 @@ function tearDown(){
 #  name="${BATS_TEST_FILENAME##*/}.${BATS_TEST_NUMBER}"
 #  message="$((RANDOM)) $BATS_TEST_DESCRIPTION"
 #
-#  run _dockerRun --rm --name $name \
+#  run docker run -ti --rm --name "$name" \
+#    --log-driver rchicoli/docker-log-elasticsearch:development \
+#    --log-opt elasticsearch-url="${ELASTICSEARCH_URL}" \
+#    --log-opt elasticsearch-version="${CLIENT_VERSION}" \
 #    --log-opt elasticsearch-sniff='false' \
 #    --log-opt elasticsearch-username=${ELASTICSEARCH_USERNAME:-elastic} \
 #    --log-opt elasticsearch-password=${ELASTICSEARCH_PASSWORD:-changeme} \
