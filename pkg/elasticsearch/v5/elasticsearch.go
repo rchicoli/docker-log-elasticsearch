@@ -62,54 +62,6 @@ func (e *Elasticsearch) Log(ctx context.Context, index, tzpe string, msg interfa
 	return nil
 }
 
-type mapRequests struct {
-	requests map[string]string
-}
-
-type Payload struct {
-	Index `json:"index"`
-}
-
-type Index struct {
-	ID    string `json:"_id"`
-	Index string `json:"_index"`
-	Type  string `json:"_type"`
-}
-
-func parseRequest(bulkableRequests []elastic.BulkableRequest) (*mapRequests, error) {
-
-	header := true
-	payload := &Payload{}
-	requests := make(map[string]string)
-
-	for _, bulkableRequest := range bulkableRequests {
-		vv, err := bulkableRequest.Source()
-		if err != nil {
-			return nil, err
-		}
-		for _, v := range vv {
-			if header {
-				json.Unmarshal([]byte(v), payload)
-				requests[payload.ID] = ""
-				header = false
-				continue
-			}
-			requests[payload.ID] = v
-			header = true
-		}
-	}
-
-	return &mapRequests{requests}, nil
-}
-
-func (p *mapRequests) ById(id string) string {
-	request, exists := p.requests[id]
-	if !exists {
-		return "request not found"
-	}
-	return request
-}
-
 func (e *Elasticsearch) NewBulkProcessorService(ctx context.Context, workers, actions, size int, flushInterval, timeout time.Duration, stats bool, log *logrus.Entry) error {
 
 	afterFunc := func(executionId int64, bulkableRequests []elastic.BulkableRequest, response *elastic.BulkResponse, err error) {
@@ -144,6 +96,7 @@ func (e *Elasticsearch) NewBulkProcessorService(ctx context.Context, workers, ac
 			}).Error("after func")
 		}
 	}
+	// TODO: differentiate from connectionTimeout and bulkTimeout
 	backoff := elastic.NewExponentialBackoff(200*time.Millisecond, timeout)
 
 	p, err := e.BulkProcessorService.
@@ -190,6 +143,54 @@ func (e *Elasticsearch) Stop() {
 // Version reports the client version
 func (e *Elasticsearch) Version() int {
 	return version
+}
+
+type mapRequests struct {
+	requests map[string]string
+}
+
+type Payload struct {
+	Index `json:"index"`
+}
+
+type Index struct {
+	ID    string `json:"_id"`
+	Index string `json:"_index"`
+	Type  string `json:"_type"`
+}
+
+func parseRequest(bulkableRequests []elastic.BulkableRequest) (*mapRequests, error) {
+
+	header := true
+	payload := &Payload{}
+	requests := make(map[string]string)
+
+	for _, bulkableRequest := range bulkableRequests {
+		vv, err := bulkableRequest.Source()
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range vv {
+			if header {
+				json.Unmarshal([]byte(v), payload)
+				requests[payload.ID] = ""
+				header = false
+				continue
+			}
+			requests[payload.ID] = v
+			header = true
+		}
+	}
+
+	return &mapRequests{requests}, nil
+}
+
+func (p *mapRequests) ById(id string) string {
+	request, exists := p.requests[id]
+	if !exists {
+		return "request not found"
+	}
+	return request
 }
 
 // BulkService ...
