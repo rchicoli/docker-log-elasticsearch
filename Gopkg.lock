@@ -97,6 +97,12 @@
   version = "v1.0.0"
 
 [[projects]]
+  name = "github.com/google/uuid"
+  packages = ["."]
+  revision = "064e2069ce9c359c118179501254f67d7d37ba24"
+  version = "0.2"
+
+[[projects]]
   branch = "master"
   name = "github.com/mailru/easyjson"
   packages = [
@@ -114,8 +120,8 @@
     "config",
     "uritemplates"
   ]
-  revision = "d6362604399c7af560b54f048b4fcfbdd6eff293"
-  version = "v6.1.14"
+  revision = "80585846d765de967183044c2840d4ed5e93f9e4"
+  version = "v6.1.16"
 
 [[projects]]
   name = "github.com/pkg/errors"
@@ -149,7 +155,7 @@
     "internal/socks",
     "proxy"
   ]
-  revision = "5f9ae10d9af5b1c89ae6904293b14b064d4ada23"
+  revision = "640f4622ab692b87c2f3a94265e6f579fe38263d"
 
 [[projects]]
   branch = "master"
@@ -164,7 +170,7 @@
     "unix",
     "windows"
   ]
-  revision = "bb9c189858d91f42db229b04d45a4c3d23a7662a"
+  revision = "6f686a352de66814cdd080d970febae7767857a3"
 
 [[projects]]
   branch = "master"
@@ -199,12 +205,12 @@
     "config",
     "uritemplates"
   ]
-  revision = "dbe820f35164384c998099db63481b583d53f73b"
-  version = "v5.0.66"
+  revision = "2562d7254d4655c3bcf34810cdb4ca45e944d53f"
+  version = "v5.0.68"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "c542816b3159a184c35301a08b354750eb63fbdc9911976ee0fe3e8687773beb"
+  inputs-digest = "5a567d9a76560ae9f384ce355fcabd526f3208685cd2486264e5fe94e452920e"
   solver-name = "gps-cdcl"
   solver-version = 1
