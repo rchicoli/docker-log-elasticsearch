@@ -161,29 +161,20 @@ type Index struct {
 
 func parseRequest(bulkableRequests []elastic.BulkableRequest) (*mapRequests, error) {
 
-	header := true
 	payload := &Payload{}
 	requests := make(map[string]string)
 
 	for _, bulkableRequest := range bulkableRequests {
-		vv, err := bulkableRequest.Source()
+		v, err := bulkableRequest.Source()
 		if err != nil {
 			return nil, err
 		}
-		for _, v := range vv {
-			if header {
-				err := json.Unmarshal([]byte(v), payload)
-				if err != nil {
-					// skip error and try to parse next line
-					continue
-				}
-				requests[payload.ID] = ""
-				header = false
-				continue
-			}
-			requests[payload.ID] = v
-			header = true
+		err = json.Unmarshal([]byte(v[0]), payload)
+		if err != nil {
+			// skip error and try to parse next line
+			continue
 		}
+		requests[payload.ID] = v[1]
 	}
 
 	return &mapRequests{requests}, nil
