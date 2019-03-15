@@ -16,7 +16,7 @@
 [12]: https://goreportcard.com/report/github.com/rchicoli/docker-log-elasticsearch
 
 
-`docker-log-elasticsearch` forwards container logs to Elasticsearch service. The current application release is *alpha*." (see [Roadmap](ROADMAP.md)).
+`docker-log-elasticsearch` forwards container logs to Elasticsearch service. The current application release is *alpha*. (see [Roadmap](ROADMAP.md)).
 
 ## Releases
 
